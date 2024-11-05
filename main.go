@@ -10,9 +10,10 @@ import (
 func main() {
 	closeChannel := make(chan bool)
 
-	go scripts.MonitorDirectorySize("./notes", func() {
-		scripts.PushChangesToGit("./notes")
-	})
+	// restore if using git for backup
+	// go scripts.MonitorDirectorySize("./notes", func() {
+	// 	scripts.PushChangesToGit("./notes")
+	// })
 
 	go setupCommandScanner(func() {
 		closeChannel <- true
@@ -185,6 +186,19 @@ func handleCommand(command string, onClose func()) {
 	case "exit", "quit", "q":
 		onClose()
 		return
+
+	case "cs":
+		scripts.CreateStandup()
+
+	case "gto":  
+		scripts.GetOverdueTodos()
+
+	case "gtnd":
+		scripts.GetTodosWithNoDueDate()
+	
+	case "gts":
+		scripts.GetSoonTodos()
+
 	default:
 		fmt.Println("Unknown command.")
 	}

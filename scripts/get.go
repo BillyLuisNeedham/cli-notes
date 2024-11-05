@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 var filesThatHaveBeenSearched []string = make([]string, 0)
@@ -47,6 +48,8 @@ func GetTodos() {
 	SearchAllFilesPrintWhenMatch("done: false")
 }
 
+
+
 func QueryOpenTodos(queries []string) {
 	// Start with all files containing open todos
 	searchAllFilesRunCallbackWhenMatch("done: false", func(string) {})
@@ -60,10 +63,18 @@ func QueryFiles(queries []string) {
 		return
 	}
 
+	if len(queries) == 1 {
+		searchAllFilesRunCallbackWhenMatch(queries[0], func(fileName string) {
+			printFileName(fileName)
+			filesThatHaveBeenSearched = append(filesThatHaveBeenSearched, fileName)
+		})
+		return
+	} 
+
 	firstQuery := queries[0]
 	remainingQueries := queries[1:]
 
-	searchAllFilesRunCallbackWhenMatch(firstQuery, printFileName)
+	searchAllFilesRunCallbackWhenMatch(firstQuery, func(fileName string) {})
 	QueryPreviouslySearchedFiles(remainingQueries)
 }
 
@@ -83,6 +94,8 @@ func QueryPreviouslySearchedFiles(queries []string) {
 		matchingFiles = currentMatches
 		filesThatHaveBeenSearched = currentMatches
 	}
+
+	filesThatHaveBeenSearched = matchingFiles
 
 	for _, file := range matchingFiles {
 		fmt.Println(file)
@@ -377,4 +390,154 @@ func addFilePathToFileName(fileName string) string {
 
 func printFileName(name string) {
 	fmt.Println(name)
+}
+
+func searchTodosWithDateCriteria(dateCheck func(dueDate string, dueDateParsed time.Time) bool) {
+	resetFilesThatHaveBeenSearched()
+	currentDir, err := os.Getwd()
+	if err != nil {
+		fmt.Println("Error getting current directory path:", err)
+		return
+	}
+
+	notesPath := filepath.Join(currentDir, "/notes")
+
+	err = filepath.Walk(notesPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() {
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			scanner := bufio.NewScanner(file)
+			isATodo := false
+			dueDate := ""
+			fileName := filepath.Base(path)
+
+			for scanner.Scan() {
+				line := scanner.Text()
+				
+				if strings.Contains(line, "done: false") {
+					isATodo = true
+				}
+				
+				if strings.Contains(line, "date-due:") {
+					dueDate = strings.TrimSpace(strings.TrimPrefix(line, "date-due:"))
+				}
+
+				if isATodo && dueDate != "" {
+					break
+				}
+			}
+
+			if err := scanner.Err(); err != nil {
+				return err
+			}
+
+			if isATodo && dueDate != "" {
+				dueDateParsed, err := time.Parse("2006-01-02", dueDate)
+				if err != nil {
+					return err
+				}
+
+				if dateCheck(dueDate, dueDateParsed) {
+					filesThatHaveBeenSearched = append(filesThatHaveBeenSearched, fileName)
+					fmt.Println(fileName)
+				}
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		fmt.Println("Error walking through files:", err)
+		return
+	}
+}
+
+func GetOverdueTodos() {
+	today := time.Now().Format("2006-01-02")
+	searchTodosWithDateCriteria(func(dueDate string, _ time.Time) bool {
+		return dueDate <= today
+	})
+}
+
+func GetSoonTodos() {
+	today := time.Now()
+	oneWeekFromNow := today.AddDate(0, 0, 7)
+	todayStr := today.Format("2006-01-02")
+	
+	searchTodosWithDateCriteria(func(dueDate string, dueDateParsed time.Time) bool {
+		return dueDate <= todayStr || dueDateParsed.Before(oneWeekFromNow) || dueDateParsed.Equal(oneWeekFromNow)
+	})
+}
+
+// TODO currently it matters that date-due in on the line above done: false, I should fix this when I get time
+func GetTodosWithNoDueDate() {
+	resetFilesThatHaveBeenSearched()
+	currentDir, err := os.Getwd()
+	if err != nil {
+		fmt.Println("Error getting current directory path:", err)
+		return
+	}
+
+	notesPath := filepath.Join(currentDir, "/notes")
+
+	err = filepath.Walk(notesPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() {
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			scanner := bufio.NewScanner(file)
+			isATodo := false
+			hasDueDate := false
+			fileName := filepath.Base(path)
+
+			for scanner.Scan() {
+				line := scanner.Text()
+				
+				if strings.Contains(line, "done: false") {
+					isATodo = true
+				}
+				
+				if strings.Contains(line, "date-due:") {
+					dueDateValue := strings.TrimSpace(strings.TrimPrefix(line, "date-due:"))
+					hasDueDate = dueDateValue != ""
+				}
+
+				// If we found both fields, we can stop scanning
+				if isATodo || hasDueDate {
+					break
+				}
+			}
+
+			if err := scanner.Err(); err != nil {
+				return err
+			}
+
+			// If the todo is not done and has no due date
+			if isATodo && !hasDueDate {
+				filesThatHaveBeenSearched = append(filesThatHaveBeenSearched, fileName)
+				fmt.Println(fileName)
+			}	
+		}
+		return nil
+	})
+
+	if err != nil {
+		fmt.Println("Error walking through files:", err)
+		return
+	}
 }
