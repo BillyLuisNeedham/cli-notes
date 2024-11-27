@@ -1,0 +1,13 @@
+<mxfile host="65bd71144e">
+    <diagram id="NvxykoJrsLNvwng61cmP" name="Page-1">
+        <mxGraphModel dx="1186" dy="663" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="2" value="&lt;h1&gt;Thoughts&lt;/h1&gt;&lt;p&gt;- Have most of the program about just returning file names or arrays of file names&lt;/p&gt;&lt;p&gt;- could have a terminal package that handles opening file names and selecting files through the terminal.&lt;/p&gt;&lt;p&gt;- could have the terminal package handle commands in from the user&lt;/p&gt;&lt;p&gt;- main would then just pass commands to terminal package&lt;/p&gt;" style="text;html=1;strokeColor=none;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=0;" vertex="1" parent="1">
+                    <mxGeometry x="20" y="250" width="300" height="320" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
