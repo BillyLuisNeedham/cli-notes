@@ -19,11 +19,7 @@ func CreateTodo(title string, onFileCreated func(File) error) (File, error) {
 	now := time.Now()
 	date := now.Format("2006-01-02")
 	name := fmt.Sprintf("%v-%v.md", title, date)
-	content := fmt.Sprintf(`
-	
-	# %s
-
-	`, title)
+	content := fmt.Sprintf("# %v", title)
 
 	newFile := File{
 	  Name: name,
@@ -41,30 +37,6 @@ func CreateTodo(title string, onFileCreated func(File) error) (File, error) {
 
 	return newFile, nil
 }
-
-// func CreateTodo(title string) {
-
-// 	meta := []MetaData{
-// 		{
-// 			Key:   "date-due",
-// 			Value: "",
-// 		},
-// 		{
-// 			Key: "done",
-// 			Value: "false",
-// 		},
-// 	}
-
-// 	tags := []string{"todo"}
-
-// 	filePath, err := createNote(title, meta, tags)
-// 	if err != nil {
-// 		fmt.Println("Error creating note:", err)
-// 		return
-// 	}
-
-// 	OpenNoteInEditor(filePath)
-// }
 
 func CreateMeeting(title string) {
 

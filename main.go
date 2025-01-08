@@ -1,9 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"cli-notes/scripts"
+	"cli-notes/scripts/data"
+	"fmt"
 	"strings"
+
 	"github.com/eiannone/keyboard"
 )
 
@@ -164,7 +166,13 @@ func handleCommand(command string, onClose func()) {
 			return
 		}
 		title := strings.Join(parts[1:], "-")
-		scripts.CreateTodo(title)
+		file, err := scripts.CreateTodo(title, data.WriteFile)
+		if err != nil {
+			fmt.Printf("Error writing file: %v\n", err)
+			return
+		}
+		filePath := "notes/" + file.Name
+		scripts.OpenNoteInEditor(filePath)
 
 	case "cm":
 		if len(parts) < 2 {
