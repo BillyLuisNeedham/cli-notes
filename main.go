@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"sonin-notes/scripts"
+	"cli-notes/scripts"
 	"strings"
 	"github.com/eiannone/keyboard"
 )
