@@ -1,4 +1,4 @@
-module sonin-notes
+module cli-notes
 
 go 1.22.0
 

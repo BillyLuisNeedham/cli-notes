@@ -13,28 +13,29 @@ type MetaData struct {
 	Value string
 }
 
-func CreateTodo(title string) {
-
-	meta := []MetaData{
-		{
-			Key:   "date-due",
-			Value: "",
-		},
-		{
-			Key: "done",
-			Value: "false",
-		},
-	}
-
+// TODO write tests when working
+func CreateTodo(title string, onFileCreated func(File) error) (File, error) {
 	tags := []string{"todo"}
+	now := time.Now()
+	date := now.Format("2006-01-02")
+	name := fmt.Sprintf("%v-%v.md", title, date)
+	content := fmt.Sprintf("# %v", title)
 
-	filePath, err := createNote(title, meta, tags)
-	if err != nil {
-		fmt.Println("Error creating note:", err)
-		return
+	newFile := File{
+	  Name: name,
+	  Title: title,
+	  Tags: tags,
+	  CreatedAt: now,
+	  DueAt: now,
+	  Done: false,
+	  Content: content,
 	}
 
-	OpenNoteInEditor(filePath)
+	if err := onFileCreated(newFile); err != nil {
+		return File{}, err
+	}
+
+	return newFile, nil
 }
 
 func CreateMeeting(title string) {
