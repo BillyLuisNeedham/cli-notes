@@ -14,7 +14,7 @@ type MetaData struct {
 }
 
 // TODO write tests when working
-func CreateTodo(title string, onFileCreated func(File)) {
+func CreateTodo(title string, onFileCreated func(File) error) (File, error) {
 	tags := []string{"todo"}
 	now := time.Now()
 	date := now.Format("2006-01-02")
@@ -35,7 +35,11 @@ func CreateTodo(title string, onFileCreated func(File)) {
 	  Content: content,
 	}
 
-	onFileCreated(newFile)
+	if err := onFileCreated(newFile); err != nil {
+		return File{}, err
+	}
+
+	return newFile, nil
 }
 
 // func CreateTodo(title string) {
