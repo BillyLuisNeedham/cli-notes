@@ -38,6 +38,7 @@ func CreateTodo(title string, onFileCreated func(File) error) (File, error) {
 	return newFile, nil
 }
 
+// TODO refactor this into domain code 
 func CreateMeeting(title string) {
 
 	meta := []MetaData{}
@@ -132,6 +133,7 @@ func createNote(title string, meta []MetaData, tags []string) (string, error) {
 	return filePath, nil
 }
 
+// TODO refactor this into domain code
 func CreateStandup() {
 	title := "standup"
 	meta := []MetaData{}
