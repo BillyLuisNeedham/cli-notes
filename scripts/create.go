@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"time"
 )
 
@@ -22,13 +21,13 @@ func CreateTodo(title string, onFileCreated func(File) error) (File, error) {
 	content := fmt.Sprintf("# %v", title)
 
 	newFile := File{
-	  Name: name,
-	  Title: title,
-	  Tags: tags,
-	  CreatedAt: now,
-	  DueAt: now,
-	  Done: false,
-	  Content: content,
+		Name:      name,
+		Title:     title,
+		Tags:      tags,
+		CreatedAt: now,
+		DueAt:     now,
+		Done:      false,
+		Content:   content,
 	}
 
 	if err := onFileCreated(newFile); err != nil {
@@ -38,20 +37,29 @@ func CreateTodo(title string, onFileCreated func(File) error) (File, error) {
 	return newFile, nil
 }
 
-// TODO refactor this into domain code 
-func CreateMeeting(title string) {
-
-	meta := []MetaData{}
+func CreateMeeting(title string, onFileCreated func(File) error) (File, error) {
 
 	tags := []string{"meeting"}
+	now := time.Now()
+	date := now.Format("2006-01-02")
+	name := fmt.Sprintf("%v-%v.md", title, date)
+	content := fmt.Sprintf("# %v", title)
 
-	filePath, err := createNote(title, meta, tags)
-	if err != nil {
-		fmt.Println("Error creating note:", err)
-		return
+	newFile := File{
+		Name:      name,
+		Title:     title,
+		Tags:      tags,
+		CreatedAt: now,
+		DueAt:     now,
+		Done:      true,
+		Content:   content,
 	}
 
-	OpenNoteInEditor(filePath)
+	if err := onFileCreated(newFile); err != nil {
+		return File{}, err
+	}
+
+	return newFile, nil
 
 }
 
@@ -61,76 +69,6 @@ func OpenNoteInEditor(filePath string) {
 		fmt.Println("Error opening file in editor:", err)
 		return
 	}
-}
-
-func createNote(title string, meta []MetaData, tags []string) (string, error) {
-	date := time.Now().Format("2006-01-02")
-
-	// Get the current directory path
-	currentDir, err := os.Getwd()
-	if err != nil {
-		fmt.Println("Error getting current directory path:", err)
-		return "", err
-	}
-
-	// Create the file path in the parent directory
-	fileName := fmt.Sprintf("%s-%s.md", title, date)
-	notesPath := filepath.Join(currentDir, "/notes")
-	filePath := filepath.Join(notesPath, fileName)
-
-	// Create the Markdown file
-	file, err := os.Create(filePath)
-	if err != nil {
-		fmt.Println("Error creating file:", err)
-		return "", err
-	}
-	defer file.Close()
-
-	// Write the YAML Front Matter
-	_, err = file.WriteString("---\n")
-	if err != nil {
-		fmt.Println("Error writing top of meta tags:", err)
-		return "", err
-	}
-	_, err = fmt.Fprintf(file, "title: %s\n", title)
-	if err != nil {
-		fmt.Println("Error writing title:", err)
-		return "", err
-	}
-	_, err = fmt.Fprintf(file, "date-created: %s\n", date)
-	if err != nil {
-		fmt.Println("Error writing date:", err)
-		return "", err
-	}
-	_, err = fmt.Fprintf(file, "tags: %v\n", tags)
-	if err != nil {
-		fmt.Println("Error writing tags:", err)
-		return "", err
-	}
-	for _, m := range meta {
-		_, err = fmt.Fprintf(file, "%s: %s\n", m.Key, m.Value)
-		if err != nil {
-			fmt.Println("Error writing meta data:", err)
-			return "", err
-		}
-	}
-
-	_, err = file.WriteString("---\n\n")
-	if err != nil {
-		fmt.Println("Error writing bottom of meta tags:", err)
-		return "", err
-	}
-
-	// Write the main content
-	todoTitle := fmt.Sprintf("# %s\n\n", title)
-	_, err = file.WriteString(todoTitle)
-	if err != nil {
-		fmt.Println("Error writing to file:", err)
-		return "", err
-	}
-
-	fmt.Println("Markdown file created successfully at:", filePath)	
-	return filePath, nil
 }
 
 // TODO refactor this into domain code
