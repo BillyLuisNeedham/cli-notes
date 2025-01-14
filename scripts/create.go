@@ -2,9 +2,7 @@ package scripts
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"time"
 )
 
@@ -13,47 +11,19 @@ type MetaData struct {
 	Value string
 }
 
-// TODO write tests when working
+// TODO write tests for file 
+
 func CreateTodo(title string, onFileCreated func(File) error) (File, error) {
-	tags := []string{"todo"}
 	now := time.Now()
-	date := now.Format("2006-01-02")
-	name := fmt.Sprintf("%v-%v.md", title, date)
-	content := fmt.Sprintf("# %v", title)
-
-	newFile := File{
-	  Name: name,
-	  Title: title,
-	  Tags: tags,
-	  CreatedAt: now,
-	  DueAt: now,
-	  Done: false,
-	  Content: content,
-	}
-
-	if err := onFileCreated(newFile); err != nil {
-		return File{}, err
-	}
-
-	return newFile, nil
+	return createFile(title, []string{"todo"}, "", now, false, onFileCreated)
 }
 
-func CreateMeeting(title string) {
-
-	meta := []MetaData{}
-
-	tags := []string{"meeting"}
-
-	filePath, err := createNote(title, meta, tags)
-	if err != nil {
-		fmt.Println("Error creating note:", err)
-		return
-	}
-
-	OpenNoteInEditor(filePath)
-
+func CreateMeeting(title string, onFileCreated func(File) error) (File, error) {
+	now := time.Now()
+	return createFile(title, []string{"meeting"}, "", now, true, onFileCreated)
 }
 
+// TODO move this to presentation layer
 func OpenNoteInEditor(filePath string) {
 	err := exec.Command("cursor", filePath).Run()
 	if err != nil {
@@ -62,107 +32,55 @@ func OpenNoteInEditor(filePath string) {
 	}
 }
 
-func createNote(title string, meta []MetaData, tags []string) (string, error) {
-	date := time.Now().Format("2006-01-02")
-
-	// Get the current directory path
-	currentDir, err := os.Getwd()
+func CreateStandup(getTeamNames func() ([]string, error), onFileCreated func(File) error) (File, error) {
+	teamNames, err := getTeamNames()
 	if err != nil {
-		fmt.Println("Error getting current directory path:", err)
-		return "", err
+		return File{}, err
 	}
 
-	// Create the file path in the parent directory
-	fileName := fmt.Sprintf("%s-%s.md", title, date)
-	notesPath := filepath.Join(currentDir, "/notes")
-	filePath := filepath.Join(notesPath, fileName)
+	now := time.Now()
+	nextFriday := now
+	for nextFriday.Weekday() != time.Friday {
+		nextFriday = nextFriday.Add(24 * time.Hour)
+	}
 
-	// Create the Markdown file
-	file, err := os.Create(filePath)
-	if err != nil {
-		fmt.Println("Error creating file:", err)
-		return "", err
-	}
-	defer file.Close()
-
-	// Write the YAML Front Matter
-	_, err = file.WriteString("---\n")
-	if err != nil {
-		fmt.Println("Error writing top of meta tags:", err)
-		return "", err
-	}
-	_, err = fmt.Fprintf(file, "title: %s\n", title)
-	if err != nil {
-		fmt.Println("Error writing title:", err)
-		return "", err
-	}
-	_, err = fmt.Fprintf(file, "date-created: %s\n", date)
-	if err != nil {
-		fmt.Println("Error writing date:", err)
-		return "", err
-	}
-	_, err = fmt.Fprintf(file, "tags: %v\n", tags)
-	if err != nil {
-		fmt.Println("Error writing tags:", err)
-		return "", err
-	}
-	for _, m := range meta {
-		_, err = fmt.Fprintf(file, "%s: %s\n", m.Key, m.Value)
-		if err != nil {
-			fmt.Println("Error writing meta data:", err)
-			return "", err
+	title := "standup"
+	content := fmt.Sprintf("# %v\n\n", title)
+	weekdays := []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"}
+	
+	for _, name := range teamNames {
+		content += fmt.Sprintf("## %s\n\n", name)
+		for _, day := range weekdays {
+			content += fmt.Sprintf("### %s Plan\n\n### %s Blockers\n\n", day, day)
 		}
+		content += "\n"
 	}
 
-	_, err = file.WriteString("---\n\n")
-	if err != nil {
-		fmt.Println("Error writing bottom of meta tags:", err)
-		return "", err
-	}
-
-	// Write the main content
-	todoTitle := fmt.Sprintf("# %s\n\n", title)
-	_, err = file.WriteString(todoTitle)
-	if err != nil {
-		fmt.Println("Error writing to file:", err)
-		return "", err
-	}
-
-	fmt.Println("Markdown file created successfully at:", filePath)	
-	return filePath, nil
+	return createFile(title, []string{"standup"}, content, nextFriday, false, onFileCreated)
 }
 
-func CreateStandup() {
-	title := "standup"
-	meta := []MetaData{}
-	tags := []string{"standup"}
-
-	// Handle both return values
-	filePath, err := createNote(title, meta, tags)
-	if err != nil {
-		return
+func createFile(title string, tags []string, content string, dueAt time.Time, done bool, onFileCreated func(File) error) (File, error) {
+	now := time.Now()
+	date := now.Format("2006-01-02")
+	name := fmt.Sprintf("%v-%v.md", title, date)
+	
+	if content == "" {
+		content = fmt.Sprintf("# %v", title)
 	}
 
-	// Append the standup template content
-	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Println("Error opening file for appending:", err)
-		return
-	}
-	defer file.Close()
-
-	content := `## Me
-
-### Todays plan
-
-### Blockers
-
-`
-	_, err = file.WriteString(content)
-	if err != nil {
-		fmt.Println("Error writing standup content:", err)
-		return
+	newFile := File{
+		Name:      name,
+		Title:     title,
+		Tags:      tags,
+		CreatedAt: now,
+		DueAt:     dueAt,
+		Done:      done,
+		Content:   content,
 	}
 
-	OpenNoteInEditor(filePath)
+	if err := onFileCreated(newFile); err != nil {
+		return File{}, err
+	}
+
+	return newFile, nil
 }
