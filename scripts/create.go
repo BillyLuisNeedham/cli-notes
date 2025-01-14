@@ -11,57 +11,19 @@ type MetaData struct {
 	Value string
 }
 
-// TODO write tests when working
+// TODO write tests for file 
+
 func CreateTodo(title string, onFileCreated func(File) error) (File, error) {
-	tags := []string{"todo"}
 	now := time.Now()
-	date := now.Format("2006-01-02")
-	name := fmt.Sprintf("%v-%v.md", title, date)
-	content := fmt.Sprintf("# %v", title)
-
-	newFile := File{
-		Name:      name,
-		Title:     title,
-		Tags:      tags,
-		CreatedAt: now,
-		DueAt:     now,
-		Done:      false,
-		Content:   content,
-	}
-
-	if err := onFileCreated(newFile); err != nil {
-		return File{}, err
-	}
-
-	return newFile, nil
+	return createFile(title, []string{"todo"}, "", now, false, onFileCreated)
 }
 
 func CreateMeeting(title string, onFileCreated func(File) error) (File, error) {
-
-	tags := []string{"meeting"}
 	now := time.Now()
-	date := now.Format("2006-01-02")
-	name := fmt.Sprintf("%v-%v.md", title, date)
-	content := fmt.Sprintf("# %v", title)
-
-	newFile := File{
-		Name:      name,
-		Title:     title,
-		Tags:      tags,
-		CreatedAt: now,
-		DueAt:     now,
-		Done:      true,
-		Content:   content,
-	}
-
-	if err := onFileCreated(newFile); err != nil {
-		return File{}, err
-	}
-
-	return newFile, nil
-
+	return createFile(title, []string{"meeting"}, "", now, true, onFileCreated)
 }
 
+// TODO move this to presentation layer
 func OpenNoteInEditor(filePath string) {
 	err := exec.Command("cursor", filePath).Run()
 	if err != nil {
@@ -70,35 +32,40 @@ func OpenNoteInEditor(filePath string) {
 	}
 }
 
-func CreateStandup( getTeamNames func() ([]string, error), onFileCreated func(File) error) (File, error) {
-
+func CreateStandup(getTeamNames func() ([]string, error), onFileCreated func(File) error) (File, error) {
 	teamNames, err := getTeamNames()
 	if err != nil {
 		return File{}, err
 	}
 
-	tags := []string{"standup"}
 	now := time.Now()
-	date := now.Format("2006-01-02")
-	title := "Standup"
-	name := fmt.Sprintf("%v-%v.md", title, date)
-	content := fmt.Sprintf("# %v\n\n", title)
-
 	nextFriday := now
 	for nextFriday.Weekday() != time.Friday {
 		nextFriday = nextFriday.Add(24 * time.Hour)
 	}
 
+	title := "standup"
+	content := fmt.Sprintf("# %v\n\n", title)
 	weekdays := []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"}
 	
 	for _, name := range teamNames {
 		content += fmt.Sprintf("## %s\n\n", name)
-
-      for _, day := range weekdays {
-		content += fmt.Sprintf("### %s Plan\n\n### %s Blockers\n\n", day, day)
+		for _, day := range weekdays {
+			content += fmt.Sprintf("### %s Plan\n\n### %s Blockers\n\n", day, day)
 		}
-
 		content += "\n"
+	}
+
+	return createFile(title, []string{"standup"}, content, nextFriday, false, onFileCreated)
+}
+
+func createFile(title string, tags []string, content string, dueAt time.Time, done bool, onFileCreated func(File) error) (File, error) {
+	now := time.Now()
+	date := now.Format("2006-01-02")
+	name := fmt.Sprintf("%v-%v.md", title, date)
+	
+	if content == "" {
+		content = fmt.Sprintf("# %v", title)
 	}
 
 	newFile := File{
@@ -106,8 +73,8 @@ func CreateStandup( getTeamNames func() ([]string, error), onFileCreated func(Fi
 		Title:     title,
 		Tags:      tags,
 		CreatedAt: now,
-		DueAt:     nextFriday,
-		Done:      false,
+		DueAt:     dueAt,
+		Done:      done,
 		Content:   content,
 	}
 
