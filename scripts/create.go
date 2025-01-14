@@ -2,7 +2,6 @@ package scripts
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"time"
 )
@@ -71,38 +70,50 @@ func OpenNoteInEditor(filePath string) {
 	}
 }
 
-// TODO refactor this into domain code
-func CreateStandup() {
-	title := "standup"
-	meta := []MetaData{}
+func CreateStandup( getTeamNames func() ([]string, error), onFileCreated func(File) error) (File, error) {
+
+	teamNames, err := getTeamNames()
+	if err != nil {
+		return File{}, err
+	}
+
 	tags := []string{"standup"}
+	now := time.Now()
+	date := now.Format("2006-01-02")
+	title := "Standup"
+	name := fmt.Sprintf("%v-%v.md", title, date)
+	content := fmt.Sprintf("# %v\n\n", title)
 
-	// Handle both return values
-	filePath, err := createNote(title, meta, tags)
-	if err != nil {
-		return
+	nextFriday := now
+	for nextFriday.Weekday() != time.Friday {
+		nextFriday = nextFriday.Add(24 * time.Hour)
 	}
 
-	// Append the standup template content
-	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Println("Error opening file for appending:", err)
-		return
-	}
-	defer file.Close()
+	weekdays := []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"}
+	
+	for _, name := range teamNames {
+		content += fmt.Sprintf("## %s\n\n", name)
 
-	content := `## Me
+      for _, day := range weekdays {
+		content += fmt.Sprintf("### %s Plan\n\n### %s Blockers\n\n", day, day)
+		}
 
-### Todays plan
-
-### Blockers
-
-`
-	_, err = file.WriteString(content)
-	if err != nil {
-		fmt.Println("Error writing standup content:", err)
-		return
+		content += "\n"
 	}
 
-	OpenNoteInEditor(filePath)
+	newFile := File{
+		Name:      name,
+		Title:     title,
+		Tags:      tags,
+		CreatedAt: now,
+		DueAt:     nextFriday,
+		Done:      false,
+		Content:   content,
+	}
+
+	if err := onFileCreated(newFile); err != nil {
+		return File{}, err
+	}
+
+	return newFile, nil
 }

@@ -202,7 +202,13 @@ func handleCommand(command string, onClose func()) {
 		return
 
 	case "cs":
-		scripts.CreateStandup()
+		file, err := scripts.CreateStandup(data.GetTeamNames, data.WriteFile)
+		if err != nil {
+			fmt.Printf("Error writing file: %v\n", err)
+			return
+		}
+		filePath := "notes/" + file.Name
+		scripts.OpenNoteInEditor(filePath)
 
 	case "gto":  
 		scripts.GetOverdueTodos()
