@@ -9,15 +9,35 @@ import (
 	"time"
 )
 
-func GetTodos() {
-	SearchAllFilesPrintWhenMatch("done: false")
+// TODO refactor this code to just be domain code then hook it into main.go
+
+type GetFilesByIsDone func(isDone bool) ([]File, error)
+
+func GetTodos(getFilesByIsDone GetFilesByIsDone) ([]File, error) {
+	return getFilesByIsDone(false)
 }
 
-func QueryOpenTodos(queries []string) {
-	// Start with all files containing open todos
-	searchAllFilesRunCallbackWhenMatch("done: false", func(string) {})
+func QueryOpenTodos(queries []string, getFilesByIsDone GetFilesByIsDone) ([]File, error) {
 
-	QueryPreviouslySearchedFiles(queries)
+	if len(queries) < 1 {
+		return nil, nil
+	}
+
+	todos, err := getFilesByIsDone(false)
+	if err != nil {
+		return nil, err
+	}
+
+	var matchingTodos = make([]File, 0)
+
+	for _, todo := range todos {
+
+		for _, query := range queries {
+			// TODO make lowercase and match all parts of file
+			// If any match, add them to matchingTodos and break
+	        if todo.Name
+		}
+	}
 }
 
 func QueryFiles(queries []string) {
