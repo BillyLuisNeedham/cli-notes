@@ -9,46 +9,9 @@ import (
 	"time"
 )
 
-var filesThatHaveBeenSearched []string = make([]string, 0)
-var filesThatHaveBeenSearchedSelectedIndex = -1
-
-func GetLatestFileThatHasBeenSearched() string {
-	lengthOfFiles := len(filesThatHaveBeenSearched)
-	if filesThatHaveBeenSearchedSelectedIndex == -1 && lengthOfFiles > 0 {
-		filesThatHaveBeenSearchedSelectedIndex = lengthOfFiles - 1
-		return filesThatHaveBeenSearched[lengthOfFiles-1]
-
-	} else if filesThatHaveBeenSearchedSelectedIndex > 0 && lengthOfFiles > 0 {
-		filesThatHaveBeenSearchedSelectedIndex--
-		return filesThatHaveBeenSearched[filesThatHaveBeenSearchedSelectedIndex]
-	} else if filesThatHaveBeenSearchedSelectedIndex == 0 && lengthOfFiles > 0 {
-		return filesThatHaveBeenSearched[0]
-	} else {
-		return ""
-	}
-}
-
-func GetPreviousFileThatHasBeenSearched() string {
-	lengthOfFiles := len(filesThatHaveBeenSearched)
-	if filesThatHaveBeenSearchedSelectedIndex == -1 && lengthOfFiles > 0 {
-		filesThatHaveBeenSearchedSelectedIndex = 0
-		return filesThatHaveBeenSearched[0]
-
-	} else if filesThatHaveBeenSearchedSelectedIndex < lengthOfFiles-1 && lengthOfFiles > 0 {
-		filesThatHaveBeenSearchedSelectedIndex++
-		return filesThatHaveBeenSearched[filesThatHaveBeenSearchedSelectedIndex]
-	} else if filesThatHaveBeenSearchedSelectedIndex == lengthOfFiles-1 && lengthOfFiles > 0 {
-		return filesThatHaveBeenSearched[lengthOfFiles-1]
-	} else {
-		return ""
-	}
-}
-
 func GetTodos() {
 	SearchAllFilesPrintWhenMatch("done: false")
 }
-
-
 
 func QueryOpenTodos(queries []string) {
 	// Start with all files containing open todos
@@ -69,7 +32,7 @@ func QueryFiles(queries []string) {
 			filesThatHaveBeenSearched = append(filesThatHaveBeenSearched, fileName)
 		})
 		return
-	} 
+	}
 
 	firstQuery := queries[0]
 	remainingQueries := queries[1:]
@@ -421,11 +384,11 @@ func searchTodosWithDateCriteria(dateCheck func(dueDate string, dueDateParsed ti
 
 			for scanner.Scan() {
 				line := scanner.Text()
-				
+
 				if strings.Contains(line, "done: false") {
 					isATodo = true
 				}
-				
+
 				if strings.Contains(line, "date-due:") {
 					dueDate = strings.TrimSpace(strings.TrimPrefix(line, "date-due:"))
 				}
@@ -471,7 +434,7 @@ func GetSoonTodos() {
 	today := time.Now()
 	oneWeekFromNow := today.AddDate(0, 0, 7)
 	todayStr := today.Format("2006-01-02")
-	
+
 	searchTodosWithDateCriteria(func(dueDate string, dueDateParsed time.Time) bool {
 		return dueDate <= todayStr || dueDateParsed.Before(oneWeekFromNow) || dueDateParsed.Equal(oneWeekFromNow)
 	})
@@ -507,11 +470,11 @@ func GetTodosWithNoDueDate() {
 
 			for scanner.Scan() {
 				line := scanner.Text()
-				
+
 				if strings.Contains(line, "done: false") {
 					isATodo = true
 				}
-				
+
 				if strings.Contains(line, "date-due:") {
 					dueDateValue := strings.TrimSpace(strings.TrimPrefix(line, "date-due:"))
 					hasDueDate = dueDateValue != ""
@@ -531,7 +494,7 @@ func GetTodosWithNoDueDate() {
 			if isATodo && !hasDueDate {
 				filesThatHaveBeenSearched = append(filesThatHaveBeenSearched, fileName)
 				fmt.Println(fileName)
-			}	
+			}
 		}
 		return nil
 	})
