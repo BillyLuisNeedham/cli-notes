@@ -18,7 +18,6 @@ func GetTodos(getFilesByIsDone GetFilesByIsDone) ([]File, error) {
 }
 
 func QueryOpenTodos(queries []string, getFilesByIsDone GetFilesByIsDone) ([]File, error) {
-
 	if len(queries) < 1 {
 		return nil, nil
 	}
@@ -31,13 +30,43 @@ func QueryOpenTodos(queries []string, getFilesByIsDone GetFilesByIsDone) ([]File
 	var matchingTodos = make([]File, 0)
 
 	for _, todo := range todos {
-
 		for _, query := range queries {
-			// TODO make lowercase and match all parts of file
-			// If any match, add them to matchingTodos and break
-	        if todo.Name
+			if todoMatchesQuery(todo, query) {
+				matchingTodos = append(matchingTodos, todo)
+				break
+			}
+		
+			return matchingTodos, nil
 		}
 	}
+	return matchingTodos, nil
+}
+
+func todoMatchesQuery(todo File, query string) bool {
+	lowerCaseQuery := strings.ToLower(query)
+
+	lowerCaseName := strings.ToLower(todo.Name)
+	lowerCaseTitle := strings.ToLower(todo.Title)
+	lowerCaseContent := strings.ToLower(todo.Content)
+
+	lowerCaseTags := make([]string, len(todo.Tags))
+	for i, tag := range todo.Tags {
+		lowerCaseTags[i] = strings.ToLower(tag)
+	}
+
+	return strings.Contains(lowerCaseName, lowerCaseQuery) ||
+		strings.Contains(lowerCaseTitle, lowerCaseQuery) ||
+		strings.Contains(lowerCaseContent, lowerCaseQuery) ||
+		containsTag(lowerCaseTags, lowerCaseQuery)
+}
+
+func containsTag(tags []string, query string) bool {
+	for _, tag := range tags {
+		if strings.Contains(tag, query) {
+			return true
+		}
+	}
+	return false
 }
 
 func QueryFiles(queries []string) {
