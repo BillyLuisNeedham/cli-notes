@@ -12,6 +12,7 @@ import (
 // TODO refactor this code to just be domain code then hook it into main.go
 
 type GetFilesByIsDone func(isDone bool) ([]File, error)
+type GetFileByQuery func(query string) ([]File, error)
 
 func GetTodos(getFilesByIsDone GetFilesByIsDone) ([]File, error) {
 	return getFilesByIsDone(false)
@@ -19,7 +20,7 @@ func GetTodos(getFilesByIsDone GetFilesByIsDone) ([]File, error) {
 
 func QueryOpenTodos(queries []string, getFilesByIsDone GetFilesByIsDone) ([]File, error) {
 	if len(queries) < 1 {
-		return nil, nil
+		return make([]File, 0), nil
 	}
 
 	todos, err := getFilesByIsDone(false)
@@ -31,18 +32,17 @@ func QueryOpenTodos(queries []string, getFilesByIsDone GetFilesByIsDone) ([]File
 
 	for _, todo := range todos {
 		for _, query := range queries {
-			if todoMatchesQuery(todo, query) {
+			if fileMatchesQuery(todo, query) {
 				matchingTodos = append(matchingTodos, todo)
 				break
 			}
-		
-			return matchingTodos, nil
+
 		}
 	}
 	return matchingTodos, nil
 }
 
-func todoMatchesQuery(todo File, query string) bool {
+func fileMatchesQuery(todo File, query string) bool {
 	lowerCaseQuery := strings.ToLower(query)
 
 	lowerCaseName := strings.ToLower(todo.Name)
@@ -69,25 +69,37 @@ func containsTag(tags []string, query string) bool {
 	return false
 }
 
-func QueryFiles(queries []string) {
-	if len(queries) == 0 {
-		fmt.Println("No queries provided")
-		return
+func QueryFiles(queries []string, getFilesByQuery GetFileByQuery) ([]File, error) {
+	if len(queries) < 1 {
+		return make([]File, 0), nil
 	}
 
-	if len(queries) == 1 {
-		searchAllFilesRunCallbackWhenMatch(queries[0], func(fileName string) {
-			printFileName(fileName)
-			filesThatHaveBeenSearched = append(filesThatHaveBeenSearched, fileName)
-		})
-		return
+	var filesToQuery []File = nil
+	matchingFiles := make([]File, 0)
+
+	for _, query := range queries {
+
+		if filesToQuery == nil {
+			filesToQuery = make([]File, 0)
+			files, err := getFilesByQuery(query)
+			if err != nil {
+				return nil, err
+			}
+			filesToQuery = files
+		}
+
+			for _, file := range filesToQuery {
+
+				if fileMatchesQuery(file, query) {
+					matchingFiles = append(matchingFiles, file)
+					break
+				}
+
+		}
+
 	}
 
-	firstQuery := queries[0]
-	remainingQueries := queries[1:]
-
-	searchAllFilesRunCallbackWhenMatch(firstQuery, func(fileName string) {})
-	QueryPreviouslySearchedFiles(remainingQueries)
+	return matchingFiles, nil
 }
 
 func QueryPreviouslySearchedFiles(queries []string) {
