@@ -95,6 +95,146 @@ func QueryFilesByDone(isDone bool) ([]scripts.File, error) {
 	return queryAllFiles(query)
 }
 
+func QueryTodosWithDateCriteria(dateCheck func(dueDate string, dueDateParsed time.Time) bool) ([]scripts.File, error) {
+	currentDir, err := os.Getwd()
+	if err != nil {
+		fmt.Println("Error getting current directory path:", err)
+		return nil, err
+	}
+
+	notesPath := filepath.Join(currentDir, DirectoryPath)
+	matchingFiles := make([]scripts.File, 0)
+
+	err = filepath.Walk(notesPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() {
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			scanner := bufio.NewScanner(file)
+			isATodo := false
+			dueDate := ""
+
+			for scanner.Scan() {
+				line := scanner.Text()
+
+				if strings.Contains(line, "done: false") {
+					isATodo = true
+				}
+
+				if strings.Contains(line, "date-due:") {
+					dueDate = strings.TrimSpace(strings.TrimPrefix(line, "date-due:"))
+				}
+
+				if isATodo && dueDate != "" {
+					break
+				}
+			}
+
+			if err := scanner.Err(); err != nil {
+				return err
+			}
+
+			if isATodo && dueDate != "" {
+				dueDateParsed, err := time.Parse(dateFormat, dueDate)
+				if err != nil {
+					return err
+				}
+
+				if dateCheck(dueDate, dueDateParsed) {
+					matchingFile, err := getFileIfQueryMatches(path, "date-due:")
+					if err != nil {
+						return err
+					}
+					matchingFiles = append(matchingFiles, *matchingFile)
+				}
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return matchingFiles, err
+}
+
+func QueryNotesByTags(tags []string) ([]scripts.File, error) {
+
+	currentDir, err := os.Getwd()
+	
+	matchingNotes := make([]scripts.File, 0)
+
+	notesPath := filepath.Join(currentDir, DirectoryPath)
+	err = filepath.Walk(notesPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() {
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			scanner := bufio.NewScanner(file)
+
+			allTagsFound := true
+
+			for scanner.Scan() {
+				line := scanner.Text()
+
+				if strings.HasPrefix(line, "tags:") {
+					tagsLine := strings.TrimPrefix(line, "tags:")
+					tagsLine = strings.TrimSpace(tagsLine)
+					tagsLine = strings.Trim(tagsLine, "[]")
+					fileTags := strings.Split(tagsLine, ",")
+
+					for _, tag := range tags {
+						if !contains(fileTags, tag) {
+							allTagsFound = false
+							break
+						}
+					}
+
+					if allTagsFound {
+						// easiest way to get the file mapped to a domain model is to query something we know is there
+						matchingFile, err := getFileIfQueryMatches("tags:", path)
+						if err != nil {
+							return err
+						}
+						matchingNotes = append(matchingNotes, *matchingFile)
+
+					
+					}
+					break
+				}
+			}
+
+			// Check for any errors during scanning
+			if err := scanner.Err(); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return matchingNotes, nil
+}
+
+
 func timeToString(time time.Time) string {
 	return time.Format(dateFormat)
 }
@@ -200,7 +340,13 @@ func getFileIfQueryMatches(path, lineQuery string) (*scripts.File, error) {
 			case "date-created":
 				result.CreatedAt, _ = time.Parse(dateFormat, value)
 			case "date-due":
-				result.DueAt, _ = time.Parse(dateFormat, value)
+				parsedTime, err := time.Parse(dateFormat, value)
+				if err != nil {
+					// Set to a far future date if parsing fails
+					result.DueAt = time.Date(9999, 12, 31, 0, 0, 0, 0, time.UTC)
+				} else {
+					result.DueAt = parsedTime
+				}
 			case "done":
 				result.Done = value == "true"
 			}
@@ -226,4 +372,16 @@ func getFileIfQueryMatches(path, lineQuery string) (*scripts.File, error) {
 
 	result.Content = content.String()
 	return result, nil
+}
+
+func contains(slice []string, item string) bool {
+	for _, val := range slice {
+		trimmedVal := strings.TrimSpace(val)
+		trimmedItem := strings.TrimSpace(item)
+
+		if trimmedVal == trimmedItem {
+			return true
+		}
+	}
+	return false
 }
