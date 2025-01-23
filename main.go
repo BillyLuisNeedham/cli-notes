@@ -102,8 +102,7 @@ func handleCommand(command string, onClose func()) {
 			fmt.Printf("Error querying open todos: %v\n", err)
 			return
 		}
-		searched_files_store.SetFilesSearched(files)
-		presentation.PrintAllFileNames(files)
+		onFilesFetched(files)
 		
 
 	case "gt":
@@ -111,15 +110,19 @@ func handleCommand(command string, onClose func()) {
 		if err != nil {
 			fmt.Printf("Error getting todos: %v\n", err)
 		}
-		searched_files_store.SetFilesSearched(files)
-		presentation.PrintAllFileNames(files)
+		onFilesFetched(files)
 
-	// case "gta":
-	// 	if len(parts) < 2 {
-	// 		fmt.Println("Please provide a tags to query")
-	// 		return
-	// 	}
-	// 	scripts.SearchNotesByTags(parts[1:])
+		// FIXME this command is not working
+	case "gta":
+		if len(parts) < 2 {
+			fmt.Println("Please provide a tags to query")
+			return
+		}
+		files, err := scripts.SearchNotesByTags(parts[1:], data.QueryNotesByTags)
+		if err != nil {
+			fmt.Printf("Error getting notes by tags: %v\n", err)
+		}
+		onFilesFetched(files)
 
 	// case "gq":
 	// 	if len(parts) < 2 {
@@ -235,6 +238,12 @@ func handleCommand(command string, onClose func()) {
 	default:
 		fmt.Println("Unknown command.")
 	}
+}
+
+func onFilesFetched(files []scripts.File) {
+
+		searched_files_store.SetFilesSearched(files)
+		presentation.PrintAllFileNames(files)
 }
 
 func searchRecentFilesPrintAndReturnNewCommand(search func() *scripts.File) string {
