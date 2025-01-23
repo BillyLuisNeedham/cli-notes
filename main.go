@@ -106,8 +106,13 @@ func handleCommand(command string, onClose func()) {
 		presentation.PrintAllFileNames(files)
 		
 
-	// case "gt":
-	// 	scripts.GetTodos()
+	case "gt":
+		files, err := scripts.GetTodos(data.QueryFilesByDone)
+		if err != nil {
+			fmt.Printf("Error getting todos: %v\n", err)
+		}
+		searched_files_store.SetFilesSearched(files)
+		presentation.PrintAllFileNames(files)
 
 	// case "gta":
 	// 	if len(parts) < 2 {
