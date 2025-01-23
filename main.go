@@ -3,6 +3,8 @@ package main
 import (
 	"cli-notes/scripts"
 	"cli-notes/scripts/data"
+	"cli-notes/scripts/presentation"
+	"cli-notes/scripts/presentation/searched_files_store"
 	"fmt"
 	"strings"
 
@@ -42,10 +44,10 @@ func setupCommandScanner(onClose func()) {
 
 		if key == keyboard.KeyArrowUp {
 
-			command = searchRecentFilesPrintAndReturnNewCommand(scripts.GetLatestFileThatHasBeenSearched)
+			command = searchRecentFilesPrintAndReturnNewCommand(searched_files_store.GetNextFile)
 		} else if key == keyboard.KeyArrowDown {
 
-			command = searchRecentFilesPrintAndReturnNewCommand(scripts.GetPreviousFileThatHasBeenSearched)
+			command = searchRecentFilesPrintAndReturnNewCommand(searched_files_store.GetPreviousFile)
 		} else if key == keyboard.KeyEnter {
 
 			handleCommand(command, onClose)
@@ -92,73 +94,79 @@ func handleCommand(command string, onClose func()) {
 		queryString := strings.Join(parts[1:], " ")
 		queries := strings.Split(queryString, ",")
 
-		// Trim whitespace from each query
 		for i, q := range queries {
 			queries[i] = strings.TrimSpace(q)
 		}
-		scripts.QueryOpenTodos(queries)
-
-	case "gt":
-		scripts.GetTodos()
-
-	case "gta":
-		if len(parts) < 2 {
-			fmt.Println("Please provide a tags to query")
+		files, err := scripts.QueryOpenTodos(queries, data.QueryFilesByDone)
+		if err != nil {
+			fmt.Printf("Error querying open todos: %v\n", err)
 			return
 		}
-		scripts.SearchNotesByTags(parts[1:])
+		searched_files_store.SetFilesSearched(files)
+		presentation.PrintAllFileNames(files)
+		
 
-	case "gq":
-		if len(parts) < 2 {
-			fmt.Println("Please provide a query to search")
-			return
-		}
+	// case "gt":
+	// 	scripts.GetTodos()
 
-		query := strings.Join(parts[1:], " ")
-		scripts.SearchAllFilesPrintWhenMatch(query)
+	// case "gta":
+	// 	if len(parts) < 2 {
+	// 		fmt.Println("Please provide a tags to query")
+	// 		return
+	// 	}
+	// 	scripts.SearchNotesByTags(parts[1:])
 
-	case "gqa":
-		if len(parts) < 2 {
-			fmt.Println("Please provide a query to search")
-			return
-		}
+	// case "gq":
+	// 	if len(parts) < 2 {
+	// 		fmt.Println("Please provide a query to search")
+	// 		return
+	// 	}
 
-		query := strings.Join(parts[1:], " ")
-		scripts.SearchLastFilesSearchedForQueryPrintWhenMatch(query)
+	// 	query := strings.Join(parts[1:], " ")
+	// 	scripts.SearchAllFilesPrintWhenMatch(query)
 
-	case "gqa,":
-		if len(parts) < 2 {
-			fmt.Println("Please provide a query to search")
-			return
-		}
-		queryString := strings.Join(parts[1:], " ")
-		queries := strings.Split(queryString, ",")
+	// case "gqa":
+	// 	if len(parts) < 2 {
+	// 		fmt.Println("Please provide a query to search")
+	// 		return
+	// 	}
 
-		// Trim whitespace from each query
-		for i, q := range queries {
-			queries[i] = strings.TrimSpace(q)
-		}
+	// 	query := strings.Join(parts[1:], " ")
+	// 	scripts.SearchLastFilesSearchedForQueryPrintWhenMatch(query)
 
-		scripts.QueryPreviouslySearchedFiles(queries)
+	// case "gqa,":
+	// 	if len(parts) < 2 {
+	// 		fmt.Println("Please provide a query to search")
+	// 		return
+	// 	}
+	// 	queryString := strings.Join(parts[1:], " ")
+	// 	queries := strings.Split(queryString, ",")
 
-	case "gq,":
-		if len(parts) < 2 {
-			fmt.Println("Please provide a query to search")
-			return
-		}
+	// 	// Trim whitespace from each query
+	// 	for i, q := range queries {
+	// 		queries[i] = strings.TrimSpace(q)
+	// 	}
 
-		queryString := strings.Join(parts[1:], " ")
-		queries := strings.Split(queryString, ",")
+	// 	scripts.QueryPreviouslySearchedFiles(queries)
 
-		// Trim whitespace from each query
-		for i, q := range queries {
-			queries[i] = strings.TrimSpace(q)
-		}
+	// case "gq,":
+	// 	if len(parts) < 2 {
+	// 		fmt.Println("Please provide a query to search")
+	// 		return
+	// 	}
 
-		scripts.QueryFiles(queries)
+	// 	queryString := strings.Join(parts[1:], " ")
+	// 	queries := strings.Split(queryString, ",")
 
-	case "gat":
-		scripts.SearchPreviousFilesForUncompletedTasks()
+	// 	// Trim whitespace from each query
+	// 	for i, q := range queries {
+	// 		queries[i] = strings.TrimSpace(q)
+	// 	}
+
+	// 	scripts.QueryFiles(queries)
+
+	// case "gat":
+	// 	scripts.SearchPreviousFilesForUncompletedTasks()
 
 	case "ct":
 		if len(parts) < 2 {
@@ -210,28 +218,28 @@ func handleCommand(command string, onClose func()) {
 		filePath := "notes/" + file.Name
 		scripts.OpenNoteInEditor(filePath)
 
-	case "gto":  
-		scripts.GetOverdueTodos()
+	// case "gto":  
+	// 	scripts.GetOverdueTodos()
 
-	case "gtnd":
-		scripts.GetTodosWithNoDueDate()
+	// case "gtnd":
+	// 	scripts.GetTodosWithNoDueDate()
 	
-	case "gts":
-		scripts.GetSoonTodos()
+	// case "gts":
+	// 	scripts.GetSoonTodos()
 
 	default:
 		fmt.Println("Unknown command.")
 	}
 }
 
-func searchRecentFilesPrintAndReturnNewCommand(search func() string) string {
-	fileName := search()
-	if fileName != "" {
-		fmt.Println(fileName)
-		return "o " + fileName
-	} else {
+func searchRecentFilesPrintAndReturnNewCommand(search func() *scripts.File) string {
+	file := search()
+	if file == nil {
 		fmt.Println("No files have been searched yet.")
 		fmt.Println("")
 		return ""
 	}
+
+		fmt.Println(file.Name)
+		return "o " + file.Name
 }
