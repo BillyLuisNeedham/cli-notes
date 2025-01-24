@@ -130,7 +130,7 @@ func handleCommand(command string, onClose func()) {
 
 		query := strings.Join(parts[1:], " ")
 		queries := []string{query}
-		files, err := scripts.QueryFiles(queries, data.QueryFiles)
+		files, err := scripts.QueryAllFiles(queries, data.QueryFiles)
 		if err != nil {
 			fmt.Printf("Error querying notes: %v", err)
 		}

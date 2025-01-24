@@ -12,6 +12,7 @@ import (
 type GetFilesByIsDone func(isDone bool) ([]File, error)
 type GetFilesByQuery func(query string) ([]File, error)
 type GetFilesByTag func(tags []string) ([]File, error)
+
 // TODO simplify this when done refactoring
 type DateQuery func(dueDate string, dueDateParsed time.Time) bool
 type GetFilesByDateQuery func(dateQuery DateQuery) ([]File, error)
@@ -44,43 +45,51 @@ func QueryOpenTodos(queries []string, getFilesByIsDone GetFilesByIsDone) ([]File
 	return matchingTodos, nil
 }
 
-func QueryFiles(queries []string, getFilesByQuery GetFilesByQuery) ([]File, error) {
+func QueryAllFiles(queries []string, getFilesByQuery GetFilesByQuery) ([]File, error) {
 	if len(queries) < 1 {
 		return make([]File, 0), nil
 	}
 
-	var filesToQuery []File = nil
+	files, err := getFilesByQuery(queries[0])
+	if err != nil {
+		return nil, err
+	}
+
+	if len(queries) > 1 {
+		matchingFiles := QueryFiles(queries[1:], files)
+		
+		return matchingFiles, nil
+	} else {
+		return files, nil
+	}
+}
+
+func QueryFiles(queries []string, files []File) []File {
+	if len(queries) < 1 {
+		return make([]File, 0)
+	}
+
 	matchingFiles := make([]File, 0)
 
 	for _, query := range queries {
 
-		if filesToQuery == nil {
-			filesToQuery = make([]File, 0)
-			files, err := getFilesByQuery(query)
-			if err != nil {
-				return nil, err
+		for _, file := range files {
+
+			if fileMatchesQuery(file, query) {
+				matchingFiles = append(matchingFiles, file)
+				break
 			}
-			filesToQuery = files
-		}
-
-			for _, file := range filesToQuery {
-
-				if fileMatchesQuery(file, query) {
-					matchingFiles = append(matchingFiles, file)
-					break
-				}
 
 		}
 
 	}
 
-	return matchingFiles, nil
+	return matchingFiles
 }
 
 func SearchNotesByTags(tags []string, getFilesByTag GetFilesByTag) ([]File, error) {
 	return getFilesByTag(tags)
 }
-
 
 func GetUncompletedTasksInFiles(files []File) ([]string, error) {
 	if len(files) == 0 {
@@ -90,7 +99,7 @@ func GetUncompletedTasksInFiles(files []File) ([]string, error) {
 	tasks := make([]string, 0)
 
 	for _, file := range files {
-		
+
 		scanner := bufio.NewScanner(strings.NewReader(file.Content))
 		lineNumber := 1
 
@@ -109,7 +118,7 @@ func GetUncompletedTasksInFiles(files []File) ([]string, error) {
 			return nil, err
 		}
 	}
-	
+
 	return tasks, nil
 }
 
@@ -139,7 +148,6 @@ func GetTodosWithNoDueDate(getFiles GetFilesByDateQuery) ([]File, error) {
 	})
 
 }
-
 
 func fileMatchesQuery(todo File, query string) bool {
 	lowerCaseQuery := strings.ToLower(query)
