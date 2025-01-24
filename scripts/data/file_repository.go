@@ -95,6 +95,11 @@ func QueryFilesByDone(isDone bool) ([]scripts.File, error) {
 	return queryAllFiles(query)
 }
 
+func QueryFiles(query string) ([]scripts.File, error) {
+	return queryAllFiles(query)
+}
+
+
 func QueryTodosWithDateCriteria(dateCheck func(dueDate string, dueDateParsed time.Time) bool) ([]scripts.File, error) {
 	currentDir, err := os.Getwd()
 	if err != nil {

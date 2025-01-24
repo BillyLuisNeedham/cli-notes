@@ -103,7 +103,6 @@ func handleCommand(command string, onClose func()) {
 			return
 		}
 		onFilesFetched(files)
-		
 
 	case "gt":
 		files, err := scripts.GetTodos(data.QueryFilesByDone)
@@ -123,14 +122,19 @@ func handleCommand(command string, onClose func()) {
 		}
 		onFilesFetched(files)
 
-	// case "gq":
-	// 	if len(parts) < 2 {
-	// 		fmt.Println("Please provide a query to search")
-	// 		return
-	// 	}
+	case "gq":
+		if len(parts) < 2 {
+			fmt.Println("Please provide a query to search")
+			return
+		}
 
-	// 	query := strings.Join(parts[1:], " ")
-	// 	scripts.SearchAllFilesPrintWhenMatch(query)
+		query := strings.Join(parts[1:], " ")
+		queries := []string{query}
+		files, err := scripts.QueryFiles(queries, data.QueryFiles)
+		if err != nil {
+			fmt.Printf("Error querying notes: %v", err)
+		}
+		onFilesFetched(files)
 
 	// case "gqa":
 	// 	if len(parts) < 2 {
@@ -225,12 +229,12 @@ func handleCommand(command string, onClose func()) {
 		filePath := "notes/" + file.Name
 		scripts.OpenNoteInEditor(filePath)
 
-	// case "gto":  
+	// case "gto":
 	// 	scripts.GetOverdueTodos()
 
 	// case "gtnd":
 	// 	scripts.GetTodosWithNoDueDate()
-	
+
 	// case "gts":
 	// 	scripts.GetSoonTodos()
 
@@ -241,8 +245,8 @@ func handleCommand(command string, onClose func()) {
 
 func onFilesFetched(files []scripts.File) {
 
-		searched_files_store.SetFilesSearched(files)
-		presentation.PrintAllFileNames(files)
+	searched_files_store.SetFilesSearched(files)
+	presentation.PrintAllFileNames(files)
 }
 
 func searchRecentFilesPrintAndReturnNewCommand(search func() *scripts.File) string {
@@ -253,6 +257,6 @@ func searchRecentFilesPrintAndReturnNewCommand(search func() *scripts.File) stri
 		return ""
 	}
 
-		fmt.Println(file.Name)
-		return "o " + file.Name
+	fmt.Println(file.Name)
+	return "o " + file.Name
 }
