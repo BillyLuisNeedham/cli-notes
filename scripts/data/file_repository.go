@@ -167,12 +167,14 @@ func QueryTodosWithDateCriteria(dateCheck func(dueDate string, dueDateParsed tim
 }
 
 func QueryNotesByTags(tags []string) ([]scripts.File, error) {
-
 	currentDir, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
 	
 	matchingNotes := make([]scripts.File, 0)
-
 	notesPath := filepath.Join(currentDir, DirectoryPath)
+
 	err = filepath.Walk(notesPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -186,7 +188,6 @@ func QueryNotesByTags(tags []string) ([]scripts.File, error) {
 			defer file.Close()
 
 			scanner := bufio.NewScanner(file)
-
 			allTagsFound := true
 
 			for scanner.Scan() {
@@ -206,20 +207,16 @@ func QueryNotesByTags(tags []string) ([]scripts.File, error) {
 					}
 
 					if allTagsFound {
-						// easiest way to get the file mapped to a domain model is to query something we know is there
-						matchingFile, err := getFileIfQueryMatches("tags:", path)
+						matchingFile, err := getFileIfQueryMatches(path, "tags:")
 						if err != nil {
 							return err
 						}
 						matchingNotes = append(matchingNotes, *matchingFile)
-
-					
 					}
 					break
 				}
 			}
 
-			// Check for any errors during scanning
 			if err := scanner.Err(); err != nil {
 				return err
 			}
@@ -233,7 +230,6 @@ func QueryNotesByTags(tags []string) ([]scripts.File, error) {
 
 	return matchingNotes, nil
 }
-
 
 func timeToString(time time.Time) string {
 	return time.Format(dateFormat)
