@@ -112,7 +112,6 @@ func handleCommand(command string, onClose func()) {
 		}
 		onFilesFetched(files)
 
-		// FIXME this command is not working
 	case "gta":
 		if len(parts) < 2 {
 			fmt.Println("Please provide a tags to query")
