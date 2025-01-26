@@ -142,39 +142,20 @@ func handleCommand(command string, onClose func()) {
 			onFilesFetched(files)
 		}
 
-	// case "gqa,":
-	// 	if len(parts) < 2 {
-	// 		fmt.Println("Please provide a query to search")
-	// 		return
-	// 	}
-	// 	queryString := strings.Join(parts[1:], " ")
-	// 	queries := strings.Split(queryString, ",")
-
-	// 	// Trim whitespace from each query
-	// for i, q := range queries {
-	// 	queries[i] = strings.TrimSpace(q)
-	// }
-
-	// 	scripts.QueryPreviouslySearchedFiles(queries)
-
-	// case "gq,":
-	// 	if len(parts) < 2 {
-	// 		fmt.Println("Please provide a query to search")
-	// 		return
-	// 	}
-
-	// 	queryString := strings.Join(parts[1:], " ")
-	// 	queries := strings.Split(queryString, ",")
-
-	// 	// Trim whitespace from each query
-	// 	for i, q := range queries {
-	// 		queries[i] = strings.TrimSpace(q)
-	// 	}
-
-	// 	scripts.QueryFiles(queries)
-
-	// case "gat":
-	// 	scripts.SearchPreviousFilesForUncompletedTasks()
+	case "gat":
+		previousFiles := searched_files_store.GetFilesSearched()
+		if len(previousFiles) == 0 {
+			fmt.Println("No files have been queried")
+		} else {
+			tasks, err := scripts.GetUncompletedTasksInFiles(previousFiles)
+			if err != nil {
+				fmt.Printf("Error getting tasks: %v", err)
+				return
+			}
+			for _, task := range tasks {
+				fmt.Printf("%v\n\n", task)
+			}
+		}
 
 	case "ct":
 		if len(parts) < 2 {
@@ -226,14 +207,35 @@ func handleCommand(command string, onClose func()) {
 		filePath := "notes/" + file.Name
 		scripts.OpenNoteInEditor(filePath)
 
-	// case "gto":
-	// 	scripts.GetOverdueTodos()
+	case "gto":
+		files, err := scripts.GetOverdueTodos(func(dateQuery scripts.DateQuery) ([]scripts.File, error) {
+			return data.QueryTodosWithDateCriteria(dateQuery)
+		})
+		if err != nil {
+			fmt.Printf("Error getting overdue todos: %v\n", err)
+			return
+		}
+		onFilesFetched(files)
 
-	// case "gtnd":
-	// 	scripts.GetTodosWithNoDueDate()
+	case "gtnd":
+		files, err := scripts.GetTodosWithNoDueDate(func(dateQuery scripts.DateQuery) ([]scripts.File, error) {
+			return data.QueryTodosWithDateCriteria(dateQuery)
+		})
+		if err != nil {
+			fmt.Printf("Error getting todos with no due date: %v\n", err)
+			return
+		}
+		onFilesFetched(files)
 
-	// case "gts":
-	// 	scripts.GetSoonTodos()
+	case "gts":
+		files, err := scripts.GetSoonTodos(func(dateQuery scripts.DateQuery) ([]scripts.File, error) {
+			return data.QueryTodosWithDateCriteria(dateQuery)
+		})
+		if err != nil {
+			fmt.Printf("Error getting soon todos: %v\n", err)
+			return
+		}
+		onFilesFetched(files)
 
 	default:
 		fmt.Println("Unknown command.")
