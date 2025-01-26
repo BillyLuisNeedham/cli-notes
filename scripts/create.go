@@ -51,10 +51,12 @@ func CreateStandup(getTeamNames func() ([]string, error), onFileCreated func(Fil
 	for _, name := range teamNames {
 		content += fmt.Sprintf("## %s\n\n", name)
 		for _, day := range weekdays {
-			content += fmt.Sprintf("### %s Plan\n\n### %s Blockers\n\n", day, day)
+			content += fmt.Sprintf("### %s Plan\n\n", day)
 		}
 		content += "\n"
 	}
+
+	content += "## Other Points"
 
 	return createFile(title, []string{"standup"}, content, nextFriday, false, onFileCreated)
 }
