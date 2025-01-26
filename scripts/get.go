@@ -34,14 +34,17 @@ func QueryOpenTodos(queries []string, getFilesByIsDone GetFilesByIsDone) ([]File
 	var matchingTodos = make([]File, 0)
 
 	for _, todo := range todos {
+		matchCount := 0
 		for _, query := range queries {
 			if fileMatchesQuery(todo, query) {
-				matchingTodos = append(matchingTodos, todo)
-				break
+				matchCount++
 			}
-
+		}
+		if matchCount == len(queries) {
+			matchingTodos = append(matchingTodos, todo)
 		}
 	}
+
 	return matchingTodos, nil
 }
 

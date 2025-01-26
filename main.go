@@ -85,31 +85,23 @@ func handleCommand(command string, onClose func()) {
 	fmt.Println()
 	switch parts[0] {
 
-	case "gt,":
-		if len(parts) < 2 {
-			fmt.Println("Please provide a query to search")
-			return
-		}
-
-		queryString := strings.Join(parts[1:], " ")
-		queries := strings.Split(queryString, ",")
-
-		for i, q := range queries {
-			queries[i] = strings.TrimSpace(q)
-		}
-		files, err := scripts.QueryOpenTodos(queries, data.QueryFilesByDone)
-		if err != nil {
-			fmt.Printf("Error querying open todos: %v\n", err)
-			return
-		}
-		onFilesFetched(files)
-
 	case "gt":
-		files, err := scripts.GetTodos(data.QueryFilesByDone)
-		if err != nil {
-			fmt.Printf("Error getting todos: %v\n", err)
+		if len(parts) < 2 {
+
+			files, err := scripts.GetTodos(data.QueryFilesByDone)
+			if err != nil {
+				fmt.Printf("Error getting todos: %v\n", err)
+			}
+			onFilesFetched(files)
+		} else {
+			queries := getQueries(parts)
+			files, err := scripts.QueryOpenTodos(queries, data.QueryFilesByDone)
+			if err != nil {
+				fmt.Printf("Error querying open todos: %v\n", err)
+				return
+			}
+			onFilesFetched(files)
 		}
-		onFilesFetched(files)
 
 	case "gta":
 		if len(parts) < 2 {
@@ -128,22 +120,27 @@ func handleCommand(command string, onClose func()) {
 			return
 		}
 
-		query := strings.Join(parts[1:], " ")
-		queries := []string{query}
+		queries := getQueries(parts)
 		files, err := scripts.QueryAllFiles(queries, data.QueryFiles)
 		if err != nil {
 			fmt.Printf("Error querying notes: %v", err)
 		}
 		onFilesFetched(files)
 
-	// case "gqa":
-	// 	if len(parts) < 2 {
-	// 		fmt.Println("Please provide a query to search")
-	// 		return
-	// 	}
+	case "gqa":
+		if len(parts) < 2 {
+			fmt.Println("Please provide a query to search")
+			return
+		}
 
-	// 	query := strings.Join(parts[1:], " ")
-	// 	scripts.SearchLastFilesSearchedForQueryPrintWhenMatch(query)
+		previousFiles := searched_files_store.GetFilesSearched()
+		if len(previousFiles) == 0 {
+			fmt.Println("No files have been queried")
+		} else {
+			queries := getQueries(parts)
+			files := scripts.QueryFiles(queries, previousFiles)
+			onFilesFetched(files)
+		}
 
 	// case "gqa,":
 	// 	if len(parts) < 2 {
@@ -154,9 +151,9 @@ func handleCommand(command string, onClose func()) {
 	// 	queries := strings.Split(queryString, ",")
 
 	// 	// Trim whitespace from each query
-	// 	for i, q := range queries {
-	// 		queries[i] = strings.TrimSpace(q)
-	// 	}
+	// for i, q := range queries {
+	// 	queries[i] = strings.TrimSpace(q)
+	// }
 
 	// 	scripts.QueryPreviouslySearchedFiles(queries)
 
@@ -259,4 +256,16 @@ func searchRecentFilesPrintAndReturnNewCommand(search func() *scripts.File) stri
 
 	fmt.Println(file.Name)
 	return "o " + file.Name
+}
+
+func getQueries(commandParts []string) []string {
+
+	queryString := strings.Join(commandParts[1:], " ")
+	queries := strings.Split(queryString, ",")
+
+	for i, q := range queries {
+		queries[i] = strings.TrimSpace(q)
+	}
+
+	return queries
 }
