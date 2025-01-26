@@ -56,7 +56,7 @@ func CreateStandup(getTeamNames func() ([]string, error), onFileCreated func(Fil
 		content += "\n"
 	}
 
-	content += "\n## Other Points"
+	content += "## Other Points"
 
 	return createFile(title, []string{"standup"}, content, nextFriday, false, onFileCreated)
 }
