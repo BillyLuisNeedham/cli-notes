@@ -53,6 +53,27 @@ func CreateStandup(getTeamNames func() ([]string, error), onFileCreated OnFileCr
 	return createFile(title, []string{"standup"}, content, nextFriday, false, onFileCreated)
 }
 
+func CreateSevenQuestions(title string, onFileCreated OnFileCreated) (File, error) {
+	now := time.Now()
+	questions := []string{
+		"What is the situation and how does it affect me?",
+		"What have I been told to and why?",
+		"What effects do I need to achieve and what direction must I give?",
+		"Where can I best accomplish each action or effect?",
+		"What resources do I need to accomplish each action or effect?",
+		"When and where do these actions take place in relation to each other?",
+		"What control measures do I need to impose?",
+	}
+	
+	content := fmt.Sprintf("# %v", title)
+	
+	for _, question := range questions {
+		content += fmt.Sprintf("\n\n\n## %v", question)
+	}
+
+	return createFile(title, []string{"plan"}, content, now, false, onFileCreated)
+}
+
 func createFile(title string, tags []string, content string, dueAt time.Time, done bool, onFileCreated OnFileCreated) (File, error) {
 	now := time.Now()
 	date := now.Format("2006-01-02")

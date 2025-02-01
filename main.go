@@ -157,30 +157,13 @@ func handleCommand(command string, onClose func()) {
 		}
 
 	case "ct":
-		if len(parts) < 2 {
-			fmt.Println("Please provide a title for the new todo")
-			return
-		}
-		title := strings.Join(parts[1:], "-")
-		file, err := scripts.CreateTodo(title, data.WriteFile)
-		if err != nil {
-			fmt.Printf("Error writing file: %v\n", err)
-			return
-		}
-		openNoteInEditor(file.Name)
+		handleCreateFile("todo", parts, scripts.CreateTodo)
 
 	case "cm":
-		if len(parts) < 2 {
-			fmt.Println("Please provide a title for the new meeting")
-			return
-		}
-		title := strings.Join(parts[1:], "-")
-		file, err := scripts.CreateMeeting(title, data.WriteFile)
-		if err != nil {
-			fmt.Printf("Error writing file: %v\n", err)
-			return
-		}
-		openNoteInEditor(file.Name)
+		handleCreateFile("meeting", parts, scripts.CreateMeeting)
+
+	case "cp":
+		handleCreateFile("plan", parts, scripts.CreateSevenQuestions)
 
 	case "o":
 		if len(parts) < 2 {
@@ -273,4 +256,18 @@ func openNoteInEditor(fileName string) {
 	if err != nil {
 		fmt.Printf("Error opening note in editor: %v", err)
 	}
+}
+
+func handleCreateFile(fileType string, parts []string, createFn func(string, scripts.OnFileCreated) (scripts.File, error)) {
+	if len(parts) < 2 {
+		fmt.Printf("Please provide a title for the new %s\n", fileType)
+		return
+	}
+	title := strings.Join(parts[1:], "-")
+	file, err := createFn(title, data.WriteFile)
+	if err != nil {
+		fmt.Printf("Error writing file: %v\n", err)
+		return
+	}
+	openNoteInEditor(file.Name)
 }
