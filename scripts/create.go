@@ -2,7 +2,6 @@ package scripts
 
 import (
 	"fmt"
-	"os/exec"
 	"time"
 )
 
@@ -21,15 +20,6 @@ func CreateTodo(title string, onFileCreated func(File) error) (File, error) {
 func CreateMeeting(title string, onFileCreated func(File) error) (File, error) {
 	now := time.Now()
 	return createFile(title, []string{"meeting"}, "", now, true, onFileCreated)
-}
-
-// TODO move this to presentation layer
-func OpenNoteInEditor(filePath string) {
-	err := exec.Command("cursor", filePath).Run()
-	if err != nil {
-		fmt.Println("Error opening file in editor:", err)
-		return
-	}
 }
 
 func CreateStandup(getTeamNames func() ([]string, error), onFileCreated func(File) error) (File, error) {

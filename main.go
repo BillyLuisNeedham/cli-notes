@@ -7,7 +7,6 @@ import (
 	"cli-notes/scripts/presentation/searched_files_store"
 	"fmt"
 	"strings"
-
 	"github.com/eiannone/keyboard"
 )
 
@@ -168,8 +167,7 @@ func handleCommand(command string, onClose func()) {
 			fmt.Printf("Error writing file: %v\n", err)
 			return
 		}
-		filePath := "notes/" + file.Name
-		scripts.OpenNoteInEditor(filePath)
+		openNoteInEditor(file.Name)
 
 	case "cm":
 		if len(parts) < 2 {
@@ -182,8 +180,7 @@ func handleCommand(command string, onClose func()) {
 			fmt.Printf("Error writing file: %v\n", err)
 			return
 		}
-		filePath := "notes/" + file.Name
-		scripts.OpenNoteInEditor(filePath)
+		openNoteInEditor(file.Name)
 
 	case "o":
 		if len(parts) < 2 {
@@ -191,8 +188,7 @@ func handleCommand(command string, onClose func()) {
 			return
 		}
 		title := parts[1]
-		fileName := "notes/" + title
-		scripts.OpenNoteInEditor(fileName)
+		openNoteInEditor(title)
 
 	case "exit", "quit", "q":
 		onClose()
@@ -204,8 +200,7 @@ func handleCommand(command string, onClose func()) {
 			fmt.Printf("Error writing file: %v\n", err)
 			return
 		}
-		filePath := "notes/" + file.Name
-		scripts.OpenNoteInEditor(filePath)
+		openNoteInEditor(file.Name)
 
 	case "gto":
 		files, err := scripts.GetOverdueTodos(func(dateQuery scripts.DateQuery) ([]scripts.File, error) {
@@ -270,4 +265,12 @@ func getQueries(commandParts []string) []string {
 	}
 
 	return queries
+}
+
+func openNoteInEditor(fileName string) {
+	filePath := "notes/" + fileName
+	err := presentation.OpenNoteInEditor(filePath)
+	if err != nil {
+		fmt.Printf("Error opening note in editor: %v", err)
+	}
 }
