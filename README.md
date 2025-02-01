@@ -49,6 +49,10 @@ To run the program using the `go run` command, follow these steps:
 
 - `cm <title>` - Create a new meeting note with the specified title
 
+### Planning Notes
+
+- `cp <title>` - Create a new planning note with the specified title and seven questions template
+
 ### Standup Notes
 
 - `cs` - Create a new standup note with predefined team member sections

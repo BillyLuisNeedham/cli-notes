@@ -7,7 +7,6 @@ import (
 	"cli-notes/scripts/presentation/searched_files_store"
 	"fmt"
 	"strings"
-
 	"github.com/eiannone/keyboard"
 )
 
@@ -158,32 +157,13 @@ func handleCommand(command string, onClose func()) {
 		}
 
 	case "ct":
-		if len(parts) < 2 {
-			fmt.Println("Please provide a title for the new todo")
-			return
-		}
-		title := strings.Join(parts[1:], "-")
-		file, err := scripts.CreateTodo(title, data.WriteFile)
-		if err != nil {
-			fmt.Printf("Error writing file: %v\n", err)
-			return
-		}
-		filePath := "notes/" + file.Name
-		scripts.OpenNoteInEditor(filePath)
+		handleCreateFile("todo", parts, scripts.CreateTodo)
 
 	case "cm":
-		if len(parts) < 2 {
-			fmt.Println("Please provide a title for the new meeting")
-			return
-		}
-		title := strings.Join(parts[1:], "-")
-		file, err := scripts.CreateMeeting(title, data.WriteFile)
-		if err != nil {
-			fmt.Printf("Error writing file: %v\n", err)
-			return
-		}
-		filePath := "notes/" + file.Name
-		scripts.OpenNoteInEditor(filePath)
+		handleCreateFile("meeting", parts, scripts.CreateMeeting)
+
+	case "cp":
+		handleCreateFile("plan", parts, scripts.CreateSevenQuestions)
 
 	case "o":
 		if len(parts) < 2 {
@@ -191,8 +171,7 @@ func handleCommand(command string, onClose func()) {
 			return
 		}
 		title := parts[1]
-		fileName := "notes/" + title
-		scripts.OpenNoteInEditor(fileName)
+		openNoteInEditor(title)
 
 	case "exit", "quit", "q":
 		onClose()
@@ -204,8 +183,7 @@ func handleCommand(command string, onClose func()) {
 			fmt.Printf("Error writing file: %v\n", err)
 			return
 		}
-		filePath := "notes/" + file.Name
-		scripts.OpenNoteInEditor(filePath)
+		openNoteInEditor(file.Name)
 
 	case "gto":
 		files, err := scripts.GetOverdueTodos(func(dateQuery scripts.DateQuery) ([]scripts.File, error) {
@@ -270,4 +248,26 @@ func getQueries(commandParts []string) []string {
 	}
 
 	return queries
+}
+
+func openNoteInEditor(fileName string) {
+	filePath := "notes/" + fileName
+	err := presentation.OpenNoteInEditor(filePath)
+	if err != nil {
+		fmt.Printf("Error opening note in editor: %v", err)
+	}
+}
+
+func handleCreateFile(fileType string, parts []string, createFn func(string, scripts.OnFileCreated) (scripts.File, error)) {
+	if len(parts) < 2 {
+		fmt.Printf("Please provide a title for the new %s\n", fileType)
+		return
+	}
+	title := strings.Join(parts[1:], "-")
+	file, err := createFn(title, data.WriteFile)
+	if err != nil {
+		fmt.Printf("Error writing file: %v\n", err)
+		return
+	}
+	openNoteInEditor(file.Name)
 }
