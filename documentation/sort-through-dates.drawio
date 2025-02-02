@@ -1,0 +1,81 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36" version="26.0.10">
+  <diagram name="Page-1" id="eKCdzjvdQ7Ud1mfSza7K">
+    <mxGraphModel dx="1918" dy="612" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="NF_41HJeEkNuia-e9aAF-3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="NF_41HJeEkNuia-e9aAF-1" target="NF_41HJeEkNuia-e9aAF-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-1" value="User sees each todo one at a time" style="whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="150" y="160" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="NF_41HJeEkNuia-e9aAF-2" target="NF_41HJeEkNuia-e9aAF-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="NF_41HJeEkNuia-e9aAF-2" target="NF_41HJeEkNuia-e9aAF-10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="NF_41HJeEkNuia-e9aAF-2" target="NF_41HJeEkNuia-e9aAF-21">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-25" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="NF_41HJeEkNuia-e9aAF-2" target="NF_41HJeEkNuia-e9aAF-23">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="210" y="400" />
+              <mxPoint x="20" y="400" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-2" value="User can select options per todo" style="whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="150" y="300" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="NF_41HJeEkNuia-e9aAF-4" target="NF_41HJeEkNuia-e9aAF-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="NF_41HJeEkNuia-e9aAF-4" target="NF_41HJeEkNuia-e9aAF-8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-4" value="Delay by" style="whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="350" y="300" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="NF_41HJeEkNuia-e9aAF-6" target="NF_41HJeEkNuia-e9aAF-16">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-6" value="N Days" style="whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="350" y="440" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="NF_41HJeEkNuia-e9aAF-8" target="NF_41HJeEkNuia-e9aAF-16">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-8" value="N Weeks" style="whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="550" y="440" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="NF_41HJeEkNuia-e9aAF-10" target="NF_41HJeEkNuia-e9aAF-12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="NF_41HJeEkNuia-e9aAF-10" target="NF_41HJeEkNuia-e9aAF-19">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-10" value="Set to next" style="whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="-230" y="300" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-12" value="Specific day next occurrence (eg next occurrence of a Monday)" style="whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="-230" y="440" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-16" value="Able to add N days and N weeks together (eg can set 2 days and 1 week from now)" style="whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="460" y="600" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-19" value="Specific day second occurrence&amp;nbsp;" style="whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="-430" y="440" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-21" value="See tasks within a todo" style="whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="150" y="440" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="NF_41HJeEkNuia-e9aAF-23" value="See content of a todo" style="whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="-40" y="440" width="120" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
