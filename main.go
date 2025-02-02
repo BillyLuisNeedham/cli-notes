@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"github.com/eiannone/keyboard"
+	"strconv"
 )
 
 
@@ -51,9 +52,12 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 			command = ""
 			selectedFile = searchRecentFilesPrintAndReturnFile(fileStore.GetPreviousFile)
 		} else if key == keyboard.KeyEnter {
-			// TODO, if a file has been selected and a command has been typed, prefix the command to the filename 
 			if selectedFile != nil && command == "" {
 				command = fmt.Sprintf("o %v", selectedFile.Name)
+			}
+			if selectedFile != nil && command != "" {
+				newCommand := fmt.Sprintf("%v %v", command, selectedFile)
+				command = newCommand
 			}
 			handleCommand(command, onClose, fileStore)
 			fmt.Print("> ")
@@ -217,6 +221,24 @@ func handleCommand(command string, onClose func(), fileStore *data.SearchedFiles
 			return
 		}
 		onFilesFetched(files, fileStore)
+
+	case "d":
+		// TODO build logic to update a files date by x days
+		fmt.Println(parts)
+		if len(parts) < 3 {
+			fmt.Println("Please provide an amount of days to delay and a file name")
+			return
+		}
+		delayDaysCommand := parts[1]
+		delayDays, err := strconv.Atoi(delayDaysCommand)
+		if err != nil {
+			fmt.Printf("Error converting days: %v", err)
+			fmt.Println("")
+		}
+		fmt.Println(delayDays)
+
+		// scripts.DelayDueDate(delayDays, )
+
 
 	default:
 		fmt.Println("Unknown command.")
