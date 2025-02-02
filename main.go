@@ -26,6 +26,14 @@ func main() {
 	fmt.Println("Exiting...")
 }
 
+/*
+ TODO refactor this 
+	- decouple the command logic from the print logic
+	- make one thing responsible for printing text to the terminal
+	- make one thing responsible for tracking the current command
+	- make one thing responsible for converting the keys to a string for the command
+	- pass to the handle command function a command that prints to the terminal, meaning we can handle all printing logic in one place
+*/ 
 func setupCommandScanner(onClose func()) {
 	err := keyboard.Open()
 	if err != nil {
