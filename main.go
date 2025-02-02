@@ -4,21 +4,22 @@ import (
 	"cli-notes/scripts"
 	"cli-notes/scripts/data"
 	"cli-notes/scripts/presentation"
-	"cli-notes/scripts/presentation/searched_files_store"
 	"fmt"
 	"strings"
 	"github.com/eiannone/keyboard"
 )
 
+
 func main() {
 	closeChannel := make(chan bool)
+	var searchedFilesStore = data.NewSearchedFilesStore()
 
 	// restore if using git for backup
 	// go scripts.MonitorDirectorySize("./notes", func() {
 	// 	scripts.PushChangesToGit("./notes")
 	// })
 
-	go setupCommandScanner(func() {
+	go setupCommandScanner(searchedFilesStore, func() {
 		closeChannel <- true
 	})
 
@@ -26,7 +27,7 @@ func main() {
 	fmt.Println("Exiting...")
 }
 
-func setupCommandScanner(onClose func()) {
+func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 	err := keyboard.Open()
 	if err != nil {
 		panic(err)
@@ -34,6 +35,8 @@ func setupCommandScanner(onClose func()) {
 	defer keyboard.Close()
 
 	var command string
+	var selectedFile *scripts.File = nil
+
 	fmt.Print("> ")
 	for {
 		char, key, err := keyboard.GetKey()
@@ -42,24 +45,24 @@ func setupCommandScanner(onClose func()) {
 		}
 
 		if key == keyboard.KeyArrowUp {
-
-			command = searchRecentFilesPrintAndReturnNewCommand(searched_files_store.GetNextFile)
+			command = ""
+			selectedFile = searchRecentFilesPrintAndReturnFile(fileStore.GetNextFile)
 		} else if key == keyboard.KeyArrowDown {
-
-			command = searchRecentFilesPrintAndReturnNewCommand(searched_files_store.GetPreviousFile)
+			command = ""
+			selectedFile = searchRecentFilesPrintAndReturnFile(fileStore.GetPreviousFile)
 		} else if key == keyboard.KeyEnter {
-
-			handleCommand(command, onClose)
+			// TODO, if a file has been selected, make the command o and then file name
+			// TODO, if a file has been selected and a command has been typed, prefix the command to the filename 
+			handleCommand(command, onClose, fileStore)
 			fmt.Print("> ")
 			command = ""
+			selectedFile = nil
 		} else if key == keyboard.KeyBackspace || key == keyboard.KeyBackspace2 {
-
 			if len(command) > 0 {
 				command = command[:len(command)-1]
 				fmt.Print("\b \b")
 			}
 		} else if key == keyboard.KeySpace {
-
 			command += " "
 			fmt.Print(" ")
 		} else if key == keyboard.KeyEsc {
@@ -68,14 +71,13 @@ func setupCommandScanner(onClose func()) {
 			fmt.Println("Screw that line")
 			fmt.Print("> ")
 		} else {
-
 			command += string(char)
 			fmt.Print(string(char))
 		}
 	}
 }
 
-func handleCommand(command string, onClose func()) {
+func handleCommand(command string, onClose func(), fileStore *data.SearchedFilesStore) {
 	parts := strings.Fields(command)
 
 	if len(parts) == 0 {
@@ -84,15 +86,13 @@ func handleCommand(command string, onClose func()) {
 
 	fmt.Println()
 	switch parts[0] {
-
 	case "gt":
 		if len(parts) < 2 {
-
 			files, err := scripts.GetTodos(data.QueryFilesByDone)
 			if err != nil {
 				fmt.Printf("Error getting todos: %v\n", err)
 			}
-			onFilesFetched(files)
+			onFilesFetched(files, fileStore)
 		} else {
 			queries := getQueries(parts)
 			files, err := scripts.QueryOpenTodos(queries, data.QueryFilesByDone)
@@ -100,7 +100,7 @@ func handleCommand(command string, onClose func()) {
 				fmt.Printf("Error querying open todos: %v\n", err)
 				return
 			}
-			onFilesFetched(files)
+			onFilesFetched(files, fileStore)
 		}
 
 	case "gta":
@@ -112,7 +112,7 @@ func handleCommand(command string, onClose func()) {
 		if err != nil {
 			fmt.Printf("Error getting notes by tags: %v\n", err)
 		}
-		onFilesFetched(files)
+		onFilesFetched(files, fileStore)
 
 	case "gq":
 		if len(parts) < 2 {
@@ -125,7 +125,7 @@ func handleCommand(command string, onClose func()) {
 		if err != nil {
 			fmt.Printf("Error querying notes: %v", err)
 		}
-		onFilesFetched(files)
+		onFilesFetched(files, fileStore)
 
 	case "gqa":
 		if len(parts) < 2 {
@@ -133,17 +133,17 @@ func handleCommand(command string, onClose func()) {
 			return
 		}
 
-		previousFiles := searched_files_store.GetFilesSearched()
+		previousFiles := fileStore.GetFilesSearched()
 		if len(previousFiles) == 0 {
 			fmt.Println("No files have been queried")
 		} else {
 			queries := getQueries(parts)
 			files := scripts.QueryFiles(queries, previousFiles)
-			onFilesFetched(files)
+			onFilesFetched(files, fileStore)
 		}
 
 	case "gat":
-		previousFiles := searched_files_store.GetFilesSearched()
+		previousFiles := fileStore.GetFilesSearched()
 		if len(previousFiles) == 0 {
 			fmt.Println("No files have been queried")
 		} else {
@@ -194,7 +194,7 @@ func handleCommand(command string, onClose func()) {
 			fmt.Printf("Error getting overdue todos: %v\n", err)
 			return
 		}
-		onFilesFetched(files)
+		onFilesFetched(files, fileStore)
 
 	case "gtnd":
 		files, err := scripts.GetTodosWithNoDueDate(func(dateQuery scripts.DateQuery) ([]scripts.File, error) {
@@ -204,7 +204,7 @@ func handleCommand(command string, onClose func()) {
 			fmt.Printf("Error getting todos with no due date: %v\n", err)
 			return
 		}
-		onFilesFetched(files)
+		onFilesFetched(files, fileStore)
 
 	case "gts":
 		files, err := scripts.GetSoonTodos(func(dateQuery scripts.DateQuery) ([]scripts.File, error) {
@@ -214,33 +214,31 @@ func handleCommand(command string, onClose func()) {
 			fmt.Printf("Error getting soon todos: %v\n", err)
 			return
 		}
-		onFilesFetched(files)
+		onFilesFetched(files, fileStore)
 
 	default:
 		fmt.Println("Unknown command.")
 	}
 }
 
-func onFilesFetched(files []scripts.File) {
-
-	searched_files_store.SetFilesSearched(files)
+func onFilesFetched(files []scripts.File, fileStore *data.SearchedFilesStore) {
+	fileStore.SetFilesSearched(files)
 	presentation.PrintAllFileNames(files)
 }
 
-func searchRecentFilesPrintAndReturnNewCommand(search func() *scripts.File) string {
+func searchRecentFilesPrintAndReturnFile(search func() *scripts.File) *scripts.File {
 	file := search()
 	if file == nil {
 		fmt.Println("No files have been searched yet.")
 		fmt.Println("")
-		return ""
+		return nil
 	}
 
 	fmt.Println(file.Name)
-	return "o " + file.Name
+	return file
 }
 
 func getQueries(commandParts []string) []string {
-
 	queryString := strings.Join(commandParts[1:], " ")
 	queries := strings.Split(queryString, ",")
 
