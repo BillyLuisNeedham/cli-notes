@@ -51,8 +51,10 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 			command = ""
 			selectedFile = searchRecentFilesPrintAndReturnFile(fileStore.GetPreviousFile)
 		} else if key == keyboard.KeyEnter {
-			// TODO, if a file has been selected, make the command o and then file name
 			// TODO, if a file has been selected and a command has been typed, prefix the command to the filename 
+			if selectedFile != nil && command == "" {
+				command = fmt.Sprintf("o %v", selectedFile.Name)
+			}
 			handleCommand(command, onClose, fileStore)
 			fmt.Print("> ")
 			command = ""
