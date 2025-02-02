@@ -63,9 +63,10 @@ func setupCommandScanner(onClose func()) {
 			command += " "
 			fmt.Print(" ")
 		} else if key == keyboard.KeyEsc {
-			fmt.Println("Screw that line")
-			fmt.Println("> ")
 			command = ""
+			fmt.Println("")
+			fmt.Println("Screw that line")
+			fmt.Print("> ")
 		} else {
 
 			command += string(char)
