@@ -35,6 +35,10 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 	}
 	defer keyboard.Close()
 
+	// TODO extract this logic into some form of class
+	// can have the command as an interface
+	// one can handle just text
+	// one can handle text with a file to pass
 	var command string
 	var selectedFile *scripts.File = nil
 
