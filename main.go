@@ -4,21 +4,22 @@ import (
 	"cli-notes/scripts"
 	"cli-notes/scripts/data"
 	"cli-notes/scripts/presentation"
-	"cli-notes/scripts/presentation/searched_files_store"
 	"fmt"
-	"strings"
 	"github.com/eiannone/keyboard"
+	"strconv"
+	"strings"
 )
 
 func main() {
 	closeChannel := make(chan bool)
+	var searchedFilesStore = data.NewSearchedFilesStore()
 
 	// restore if using git for backup
 	// go scripts.MonitorDirectorySize("./notes", func() {
 	// 	scripts.PushChangesToGit("./notes")
 	// })
 
-	go setupCommandScanner(func() {
+	go setupCommandScanner(searchedFilesStore, func() {
 		closeChannel <- true
 	})
 
@@ -26,14 +27,15 @@ func main() {
 	fmt.Println("Exiting...")
 }
 
-func setupCommandScanner(onClose func()) {
+func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 	err := keyboard.Open()
 	if err != nil {
 		panic(err)
 	}
 	defer keyboard.Close()
 
-	var command string
+	command := presentation.WIPCommand{}
+
 	fmt.Print("> ")
 	for {
 		char, key, err := keyboard.GetKey()
@@ -41,109 +43,126 @@ func setupCommandScanner(onClose func()) {
 			panic(err)
 		}
 
-		if key == keyboard.KeyArrowUp {
+		nextCommand := presentation.CommandHandler(
+			char,
+			key,
+			command,
+			func() scripts.File { return searchRecentFilesPrintIfNotFound(fileStore.GetNextFile) },
+			func() scripts.File { return searchRecentFilesPrintIfNotFound(fileStore.GetPreviousFile) },
+			func() { fmt.Print("\b \b") },
+		)
 
-			command = searchRecentFilesPrintAndReturnNewCommand(searched_files_store.GetNextFile)
-		} else if key == keyboard.KeyArrowDown {
+		switch nextCommand := nextCommand.(type) {
+		case presentation.WIPCommand:
+			command = nextCommand
+			fmt.Print(string(char))
 
-			command = searchRecentFilesPrintAndReturnNewCommand(searched_files_store.GetPreviousFile)
-		} else if key == keyboard.KeyEnter {
+		case presentation.BackSpacedWIPCommand:
+			command = nextCommand.WIPCommand
+			fmt.Print("\b \b")
 
-			handleCommand(command, onClose)
-			fmt.Print("> ")
-			command = ""
-		} else if key == keyboard.KeyBackspace || key == keyboard.KeyBackspace2 {
-
-			if len(command) > 0 {
-				command = command[:len(command)-1]
-				fmt.Print("\b \b")
-			}
-		} else if key == keyboard.KeySpace {
-
-			command += " "
+		case presentation.SpacedWIPCommand:
+			command = nextCommand.WIPCommand
 			fmt.Print(" ")
-		} else if key == keyboard.KeyEsc {
-			command = ""
+
+		case presentation.FileSelectedWIPCommand:
+			command = nextCommand.WIPCommand
+			fmt.Println(command.SelectedFile.Name)
+
+		case presentation.CompletedCommand:
+			completedCommand := nextCommand
+
+			if completedCommand.SelectedFile.Name != "" && completedCommand.Name == "" {
+				finalCommand := presentation.CompletedCommand{
+					Name: "o", 
+					Queries: completedCommand.Queries,
+					SelectedFile: completedCommand.SelectedFile, 
+				}
+				completedCommand = finalCommand
+
+			} else if completedCommand.SelectedFile.Name != "" && completedCommand.Name != "" {
+				finalCommand := presentation.CompletedCommand{
+					Name: "d",
+					Queries: completedCommand.Queries,
+					SelectedFile: command.SelectedFile,
+				}
+				completedCommand = finalCommand
+				fmt.Println("")
+			} else {
+				fmt.Println("")
+			}
+
+			handleCommand(completedCommand, onClose, fileStore)
+			fmt.Print("> ")
+			command = presentation.WIPCommand{}
+
+		case presentation.ResetCommand:
+			command = presentation.WIPCommand{}
 			fmt.Println("")
 			fmt.Println("Screw that line")
 			fmt.Print("> ")
-		} else {
-
-			command += string(char)
-			fmt.Print(string(char))
 		}
+
 	}
+
 }
 
-func handleCommand(command string, onClose func()) {
-	parts := strings.Fields(command)
+func handleCommand(command presentation.CompletedCommand, onClose func(), fileStore *data.SearchedFilesStore) {
 
-	if len(parts) == 0 {
-		return
-	}
-
-	fmt.Println()
-	switch parts[0] {
-
+	switch command.Name {
 	case "gt":
-		if len(parts) < 2 {
-
+		if len(command.Queries) == 0 {
 			files, err := scripts.GetTodos(data.QueryFilesByDone)
 			if err != nil {
 				fmt.Printf("Error getting todos: %v\n", err)
 			}
-			onFilesFetched(files)
+			onFilesFetched(files, fileStore)
 		} else {
-			queries := getQueries(parts)
-			files, err := scripts.QueryOpenTodos(queries, data.QueryFilesByDone)
+			files, err := scripts.QueryOpenTodos(command.Queries, data.QueryFilesByDone)
 			if err != nil {
 				fmt.Printf("Error querying open todos: %v\n", err)
 				return
 			}
-			onFilesFetched(files)
+			onFilesFetched(files, fileStore)
 		}
 
 	case "gta":
-		if len(parts) < 2 {
+		if len(command.Queries) == 0 {
 			fmt.Println("Please provide a tags to query")
 			return
 		}
-		files, err := scripts.SearchNotesByTags(parts[1:], data.QueryNotesByTags)
+		files, err := scripts.SearchNotesByTags(command.Queries, data.QueryNotesByTags)
 		if err != nil {
 			fmt.Printf("Error getting notes by tags: %v\n", err)
 		}
-		onFilesFetched(files)
+		onFilesFetched(files, fileStore)
 
 	case "gq":
-		if len(parts) < 2 {
+		if len(command.Queries) == 0 {
 			fmt.Println("Please provide a query to search")
 			return
 		}
-
-		queries := getQueries(parts)
-		files, err := scripts.QueryAllFiles(queries, data.QueryFiles)
+		files, err := scripts.QueryAllFiles(command.Queries, data.QueryFiles)
 		if err != nil {
 			fmt.Printf("Error querying notes: %v", err)
 		}
-		onFilesFetched(files)
+		onFilesFetched(files, fileStore)
 
 	case "gqa":
-		if len(parts) < 2 {
+		if len(command.Queries) == 0 {
 			fmt.Println("Please provide a query to search")
 			return
 		}
-
-		previousFiles := searched_files_store.GetFilesSearched()
+		previousFiles := fileStore.GetFilesSearched()
 		if len(previousFiles) == 0 {
 			fmt.Println("No files have been queried")
 		} else {
-			queries := getQueries(parts)
-			files := scripts.QueryFiles(queries, previousFiles)
-			onFilesFetched(files)
+			files := scripts.QueryFiles(command.Queries, previousFiles)
+			onFilesFetched(files, fileStore)
 		}
 
 	case "gat":
-		previousFiles := searched_files_store.GetFilesSearched()
+		previousFiles := fileStore.GetFilesSearched()
 		if len(previousFiles) == 0 {
 			fmt.Println("No files have been queried")
 		} else {
@@ -158,21 +177,20 @@ func handleCommand(command string, onClose func()) {
 		}
 
 	case "ct":
-		handleCreateFile("todo", parts, scripts.CreateTodo)
+		handleCreateFile("todo", command.Queries, scripts.CreateTodo)
 
 	case "cm":
-		handleCreateFile("meeting", parts, scripts.CreateMeeting)
+		handleCreateFile("meeting", command.Queries, scripts.CreateMeeting)
 
 	case "cp":
-		handleCreateFile("plan", parts, scripts.CreateSevenQuestions)
+		handleCreateFile("plan", command.Queries, scripts.CreateSevenQuestions)
 
 	case "o":
-		if len(parts) < 2 {
+		if command.SelectedFile.Name != "" {
+			openNoteInEditor(command.SelectedFile.Name)
+		} else {
 			fmt.Println("Please provide a file name to open")
-			return
 		}
-		title := parts[1]
-		openNoteInEditor(title)
 
 	case "exit", "quit", "q":
 		onClose()
@@ -194,7 +212,7 @@ func handleCommand(command string, onClose func()) {
 			fmt.Printf("Error getting overdue todos: %v\n", err)
 			return
 		}
-		onFilesFetched(files)
+		onFilesFetched(files, fileStore)
 
 	case "gtnd":
 		files, err := scripts.GetTodosWithNoDueDate(func(dateQuery scripts.DateQuery) ([]scripts.File, error) {
@@ -204,7 +222,7 @@ func handleCommand(command string, onClose func()) {
 			fmt.Printf("Error getting todos with no due date: %v\n", err)
 			return
 		}
-		onFilesFetched(files)
+		onFilesFetched(files, fileStore)
 
 	case "gts":
 		files, err := scripts.GetSoonTodos(func(dateQuery scripts.DateQuery) ([]scripts.File, error) {
@@ -214,41 +232,52 @@ func handleCommand(command string, onClose func()) {
 			fmt.Printf("Error getting soon todos: %v\n", err)
 			return
 		}
-		onFilesFetched(files)
+		onFilesFetched(files, fileStore)
+
+	case "d":
+		if command.SelectedFile.Name == "" {
+			fmt.Println("No file selected")
+			return
+		}
+		if len(command.Queries) < 1 {
+			fmt.Println("Please provide an amount of days to delay")
+			return
+		}
+		
+		delayDays, err := strconv.Atoi(command.Queries[0])
+		if err != nil {
+			fmt.Printf("Error converting days: %v\n", err)
+			return
+		}
+		
+		err = scripts.DelayDueDate(delayDays, command.SelectedFile, data.WriteFile)
+		if err != nil {
+			fmt.Printf("Error delaying note: %v", err)
+			return
+		}
+		
+		fmt.Printf("%v delayed by %v days\n", command.SelectedFile.Name, delayDays)
 
 	default:
 		fmt.Println("Unknown command.")
+		return
 	}
 }
 
-func onFilesFetched(files []scripts.File) {
-
-	searched_files_store.SetFilesSearched(files)
+func onFilesFetched(files []scripts.File, fileStore *data.SearchedFilesStore) {
+	fileStore.SetFilesSearched(files)
 	presentation.PrintAllFileNames(files)
 }
 
-func searchRecentFilesPrintAndReturnNewCommand(search func() *scripts.File) string {
+func searchRecentFilesPrintIfNotFound(search func() *scripts.File) scripts.File {
 	file := search()
 	if file == nil {
 		fmt.Println("No files have been searched yet.")
 		fmt.Println("")
-		return ""
+		return scripts.File{}
 	}
 
-	fmt.Println(file.Name)
-	return "o " + file.Name
-}
-
-func getQueries(commandParts []string) []string {
-
-	queryString := strings.Join(commandParts[1:], " ")
-	queries := strings.Split(queryString, ",")
-
-	for i, q := range queries {
-		queries[i] = strings.TrimSpace(q)
-	}
-
-	return queries
+	return *file
 }
 
 func openNoteInEditor(fileName string) {
@@ -259,12 +288,12 @@ func openNoteInEditor(fileName string) {
 	}
 }
 
-func handleCreateFile(fileType string, parts []string, createFn func(string, scripts.OnFileCreated) (scripts.File, error)) {
-	if len(parts) < 2 {
+func handleCreateFile(fileType string, queries []string, createFn func(string, scripts.OnFileCreated) (scripts.File, error)) {
+	if len(queries) < 1 {
 		fmt.Printf("Please provide a title for the new %s\n", fileType)
 		return
 	}
-	title := strings.Join(parts[1:], "-")
+	title := strings.Join(queries, "-")
 	file, err := createFn(title, data.WriteFile)
 	if err != nil {
 		fmt.Printf("Error writing file: %v\n", err)
