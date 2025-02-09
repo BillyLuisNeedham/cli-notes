@@ -32,6 +32,10 @@ type SpacedWIPCommand struct {
 	WIPCommand
 }
 
+type FileSelectedWIPCommand struct {
+	WIPCommand
+}
+
 func (WIPCommand) command()       {}
 func (CompletedCommand) command() {}
 func (ResetCommand) command()     {}
@@ -47,15 +51,19 @@ func CommandHandler(
 ) Command {
 	switch key {
 	case keyboard.KeyArrowUp:
-		return WIPCommand{
-			Text:         "",
-			SelectedFile: selectNextFile(),
+		return FileSelectedWIPCommand{
+			WIPCommand: WIPCommand{
+				Text:         "",
+				SelectedFile: selectNextFile(),
+			},
 		}
 
 	case keyboard.KeyArrowDown:
-		return WIPCommand{
-			Text:         "",
-			SelectedFile: selectPrevFile(),
+		return FileSelectedWIPCommand{
+			WIPCommand: WIPCommand{
+				Text:         "",
+				SelectedFile: selectPrevFile(),
+			},
 		}
 
 	case keyboard.KeyEnter:
@@ -63,8 +71,8 @@ func CommandHandler(
 
 	case keyboard.KeyBackspace, keyboard.KeyBackspace2:
 		text := currentCommand.Text
-		if len(text) >0 {
-			text = text[:len(text) - 1]
+		if len(text) > 0 {
+			text = text[:len(text)-1]
 			return BackSpacedWIPCommand{
 				WIPCommand: WIPCommand{
 					Text:         text,
