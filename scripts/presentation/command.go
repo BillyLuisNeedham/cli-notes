@@ -14,12 +14,12 @@ type Command interface {
 type CompletedCommand struct {
 	Name         string
 	Queries      []string
-	SelectedFile *scripts.File
+	SelectedFile scripts.File
 }
 
 type WIPCommand struct {
 	Text         string
-	SelectedFile *scripts.File
+	SelectedFile scripts.File
 }
 
 type ResetCommand struct{}
@@ -40,13 +40,12 @@ func (WIPCommand) command()       {}
 func (CompletedCommand) command() {}
 func (ResetCommand) command()     {}
 
-// TODO implement this in main.go, add the appropriate printing off of return types
 func CommandHandler(
 	char rune,
 	key keyboard.Key,
 	currentCommand WIPCommand,
-	selectNextFile func() *scripts.File,
-	selectPrevFile func() *scripts.File,
+	selectNextFile func() scripts.File,
+	selectPrevFile func() scripts.File,
 	onBackSpace func(),
 ) Command {
 	switch key {
@@ -114,9 +113,14 @@ func toCompletedCommand(wip WIPCommand) CompletedCommand {
 		queries[i] = strings.TrimSpace(query)
 	}
 
+	selectedFile := scripts.File{}
+	if wip.SelectedFile.Name != "" {
+		selectedFile = wip.SelectedFile
+	}
+
 	return CompletedCommand{
 		Name:         name,
 		Queries:      queries,
-		SelectedFile: wip.SelectedFile,
+		SelectedFile: selectedFile,
 	}
 }
