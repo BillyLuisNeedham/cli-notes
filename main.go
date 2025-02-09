@@ -5,11 +5,10 @@ import (
 	"cli-notes/scripts/data"
 	"cli-notes/scripts/presentation"
 	"fmt"
-	"strings"
 	"github.com/eiannone/keyboard"
 	"strconv"
+	"strings"
 )
-
 
 func main() {
 	closeChannel := make(chan bool)
@@ -39,8 +38,7 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 	// can have the command as an interface
 	// one can handle just text
 	// one can handle text with a file to pass
-	var command string
-	var selectedFile *scripts.File = nil
+	command := presentation.WIPCommand{}
 
 	fmt.Print("> ")
 	for {
@@ -49,42 +47,59 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 			panic(err)
 		}
 
-		if key == keyboard.KeyArrowUp {
-			command = ""
-			selectedFile = searchRecentFilesPrintAndReturnFile(fileStore.GetNextFile)
-		} else if key == keyboard.KeyArrowDown {
-			command = ""
-			selectedFile = searchRecentFilesPrintAndReturnFile(fileStore.GetPreviousFile)
-		} else if key == keyboard.KeyEnter {
-			if selectedFile != nil && command == "" {
-				command = fmt.Sprintf("o %v", selectedFile.Name)
-			}
-			if selectedFile != nil && command != "" {
-				newCommand := fmt.Sprintf("%v %v", command, selectedFile)
-				command = newCommand
-			}
-			handleCommand(command, onClose, fileStore)
-			fmt.Print("> ")
-			command = ""
-			selectedFile = nil
-		} else if key == keyboard.KeyBackspace || key == keyboard.KeyBackspace2 {
-			if len(command) > 0 {
-				command = command[:len(command)-1]
-				fmt.Print("\b \b")
-			}
-		} else if key == keyboard.KeySpace {
-			command += " "
+		nextCommand := presentation.CommandHandler(
+			char,
+			key,
+			command,
+			func() *scripts.File { return searchRecentFilesPrintIfNotFound(fileStore.GetNextFile) },
+			func() *scripts.File { return searchRecentFilesPrintIfNotFound(fileStore.GetPreviousFile) },
+			func() { fmt.Print("\b \b") },
+		)
+
+		switch nextCommand := nextCommand.(type) {
+		case presentation.WIPCommand:
+			command = nextCommand
+			fmt.Print(string(char))
+
+		case presentation.BackSpacedWIPCommand:
+			command = nextCommand.WIPCommand
+			fmt.Print("\b \b")
+
+		case presentation.SpacedWIPCommand:
+			command = nextCommand.WIPCommand
 			fmt.Print(" ")
-		} else if key == keyboard.KeyEsc {
-			command = ""
+
+		case presentation.FileSelectedWIPCommand:
+			command = nextCommand.WIPCommand
+			fmt.Println(command.SelectedFile.Name)
+
+		case presentation.CompletedCommand:
+			completedCommand := nextCommand
+			if completedCommand.SelectedFile != nil && completedCommand.Name == "" {
+				command = presentation.WIPCommand{
+					Text: fmt.Sprintf("o %v", completedCommand.SelectedFile.Name),
+				}
+				fmt.Println(command.SelectedFile.Name)
+			}
+			if completedCommand.SelectedFile != nil && completedCommand.Name != "" {
+				command = presentation.WIPCommand{
+					Text: fmt.Sprintf("%v %v", completedCommand.Name, completedCommand.SelectedFile.Name),
+				}
+				fmt.Println("")
+			}
+			handleCommand(command.Text, onClose, fileStore)
+			fmt.Print("> ")
+			command = presentation.WIPCommand{}
+
+		case presentation.ResetCommand:
+			command = presentation.WIPCommand{}
 			fmt.Println("")
 			fmt.Println("Screw that line")
 			fmt.Print("> ")
-		} else {
-			command += string(char)
-			fmt.Print(string(char))
 		}
+
 	}
+
 }
 
 func handleCommand(command string, onClose func(), fileStore *data.SearchedFilesStore) {
@@ -243,7 +258,6 @@ func handleCommand(command string, onClose func(), fileStore *data.SearchedFiles
 
 		// scripts.DelayDueDate(delayDays, )
 
-
 	default:
 		fmt.Println("Unknown command.")
 	}
@@ -254,7 +268,7 @@ func onFilesFetched(files []scripts.File, fileStore *data.SearchedFilesStore) {
 	presentation.PrintAllFileNames(files)
 }
 
-func searchRecentFilesPrintAndReturnFile(search func() *scripts.File) *scripts.File {
+func searchRecentFilesPrintIfNotFound(search func() *scripts.File) *scripts.File {
 	file := search()
 	if file == nil {
 		fmt.Println("No files have been searched yet.")
@@ -262,7 +276,6 @@ func searchRecentFilesPrintAndReturnFile(search func() *scripts.File) *scripts.F
 		return nil
 	}
 
-	fmt.Println(file.Name)
 	return file
 }
 
