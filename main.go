@@ -81,14 +81,6 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 				}
 				completedCommand = finalCommand
 
-			} else if completedCommand.SelectedFile.Name != "" && completedCommand.Name != "" {
-				finalCommand := presentation.CompletedCommand{
-					Name:         "d",
-					Queries:      completedCommand.Queries,
-					SelectedFile: command.SelectedFile,
-				}
-				completedCommand = finalCommand
-				fmt.Println("")
 			} else {
 				fmt.Println("")
 			}
@@ -253,11 +245,24 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 
 		err = scripts.DelayDueDate(delayDays, command.SelectedFile, data.WriteFile)
 		if err != nil {
-			fmt.Printf("Error delaying note: %v", err)
+			fmt.Printf("Error delaying note: %v\n", err)
 			return
 		}
 
 		fmt.Printf("%v delayed by %v days\n", command.SelectedFile.Name, delayDays)
+
+	case "t":
+		if command.SelectedFile.Name == "" {
+			fmt.Println("No file selected")
+			return
+		} 
+		err := scripts.SetDueDateToToday(command.SelectedFile, data.WriteFile)
+		if err != nil {
+			fmt.Printf("Error setting note to today: %v", err)
+			return
+		}
+
+		fmt.Printf("%v due date set to today\n", command.Name)
 
 	default:
 		fmt.Println("Unknown command.")
