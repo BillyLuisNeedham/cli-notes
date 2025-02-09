@@ -5,9 +5,10 @@ import (
 	"cli-notes/scripts/data"
 	"cli-notes/scripts/presentation"
 	"fmt"
-	"github.com/eiannone/keyboard"
 	"strconv"
 	"strings"
+
+	"github.com/eiannone/keyboard"
 )
 
 func main() {
@@ -74,16 +75,16 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 
 			if completedCommand.SelectedFile.Name != "" && completedCommand.Name == "" {
 				finalCommand := presentation.CompletedCommand{
-					Name: "o", 
-					Queries: completedCommand.Queries,
-					SelectedFile: completedCommand.SelectedFile, 
+					Name:         "o",
+					Queries:      completedCommand.Queries,
+					SelectedFile: completedCommand.SelectedFile,
 				}
 				completedCommand = finalCommand
 
 			} else if completedCommand.SelectedFile.Name != "" && completedCommand.Name != "" {
 				finalCommand := presentation.CompletedCommand{
-					Name: "d",
-					Queries: completedCommand.Queries,
+					Name:         "d",
+					Queries:      completedCommand.Queries,
 					SelectedFile: command.SelectedFile,
 				}
 				completedCommand = finalCommand
@@ -243,19 +244,19 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 			fmt.Println("Please provide an amount of days to delay")
 			return
 		}
-		
+
 		delayDays, err := strconv.Atoi(command.Queries[0])
 		if err != nil {
 			fmt.Printf("Error converting days: %v\n", err)
 			return
 		}
-		
+
 		err = scripts.DelayDueDate(delayDays, command.SelectedFile, data.WriteFile)
 		if err != nil {
 			fmt.Printf("Error delaying note: %v", err)
 			return
 		}
-		
+
 		fmt.Printf("%v delayed by %v days\n", command.SelectedFile.Name, delayDays)
 
 	default:
@@ -266,7 +267,7 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 
 func onFilesFetched(files []scripts.File, fileStore *data.SearchedFilesStore) {
 	fileStore.SetFilesSearched(files)
-	presentation.PrintAllFileNames(files)
+	presentation.PrintAllFiles(files)
 }
 
 func searchRecentFilesPrintIfNotFound(search func() *scripts.File) scripts.File {

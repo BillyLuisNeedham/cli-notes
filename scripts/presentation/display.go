@@ -5,8 +5,8 @@ import (
 	"fmt"
 )
 
-func PrintAllFileNames(files []scripts.File) {
+func PrintAllFiles(files []scripts.File) {
 	for _, file := range files {
-		fmt.Println(file.Name)
+		fmt.Printf("%v  due: %v\n", file.Name, file.DueAt.Format("2006-01-02"))
 	}
 }
