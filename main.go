@@ -75,6 +75,7 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 
 		case presentation.CompletedCommand:
 			completedCommand := nextCommand
+			fmt.Println(completedCommand)
 			if completedCommand.SelectedFile != nil && completedCommand.Name == "" {
 				command = presentation.WIPCommand{
 					Text: fmt.Sprintf("o %v", completedCommand.SelectedFile.Name),
@@ -82,12 +83,13 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 				fmt.Println(command.SelectedFile.Name)
 			}
 			if completedCommand.SelectedFile != nil && completedCommand.Name != "" {
+				queries := strings.Join(completedCommand.Queries, " ")
 				command = presentation.WIPCommand{
-					Text: fmt.Sprintf("%v %v", completedCommand.Name, completedCommand.SelectedFile.Name),
+					Text: fmt.Sprintf("%v %v %v", completedCommand.Name, queries, completedCommand.SelectedFile.Name),
 				}
 				fmt.Println("")
 			}
-			handleCommand(command.Text, onClose, fileStore)
+			handleCommand(completedCommand, onClose, fileStore)
 			fmt.Print("> ")
 			command = presentation.WIPCommand{}
 
@@ -102,25 +104,17 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 
 }
 
-func handleCommand(command string, onClose func(), fileStore *data.SearchedFilesStore) {
-	parts := strings.Fields(command)
-
-	if len(parts) == 0 {
-		return
-	}
-
-	fmt.Println()
-	switch parts[0] {
+func handleCommand(completedCommand presentation.CompletedCommand, onClose func(), fileStore *data.SearchedFilesStore) {
+	switch completedCommand.Name {
 	case "gt":
-		if len(parts) < 2 {
+		if len(completedCommand.Queries) == 0 {
 			files, err := scripts.GetTodos(data.QueryFilesByDone)
 			if err != nil {
 				fmt.Printf("Error getting todos: %v\n", err)
 			}
 			onFilesFetched(files, fileStore)
 		} else {
-			queries := getQueries(parts)
-			files, err := scripts.QueryOpenTodos(queries, data.QueryFilesByDone)
+			files, err := scripts.QueryOpenTodos(completedCommand.Queries, data.QueryFilesByDone)
 			if err != nil {
 				fmt.Printf("Error querying open todos: %v\n", err)
 				return
@@ -129,41 +123,37 @@ func handleCommand(command string, onClose func(), fileStore *data.SearchedFiles
 		}
 
 	case "gta":
-		if len(parts) < 2 {
+		if len(completedCommand.Queries) == 0 {
 			fmt.Println("Please provide a tags to query")
 			return
 		}
-		files, err := scripts.SearchNotesByTags(parts[1:], data.QueryNotesByTags)
+		files, err := scripts.SearchNotesByTags(completedCommand.Queries, data.QueryNotesByTags)
 		if err != nil {
 			fmt.Printf("Error getting notes by tags: %v\n", err)
 		}
 		onFilesFetched(files, fileStore)
 
 	case "gq":
-		if len(parts) < 2 {
+		if len(completedCommand.Queries) == 0 {
 			fmt.Println("Please provide a query to search")
 			return
 		}
-
-		queries := getQueries(parts)
-		files, err := scripts.QueryAllFiles(queries, data.QueryFiles)
+		files, err := scripts.QueryAllFiles(completedCommand.Queries, data.QueryFiles)
 		if err != nil {
 			fmt.Printf("Error querying notes: %v", err)
 		}
 		onFilesFetched(files, fileStore)
 
 	case "gqa":
-		if len(parts) < 2 {
+		if len(completedCommand.Queries) == 0 {
 			fmt.Println("Please provide a query to search")
 			return
 		}
-
 		previousFiles := fileStore.GetFilesSearched()
 		if len(previousFiles) == 0 {
 			fmt.Println("No files have been queried")
 		} else {
-			queries := getQueries(parts)
-			files := scripts.QueryFiles(queries, previousFiles)
+			files := scripts.QueryFiles(completedCommand.Queries, previousFiles)
 			onFilesFetched(files, fileStore)
 		}
 
@@ -183,21 +173,22 @@ func handleCommand(command string, onClose func(), fileStore *data.SearchedFiles
 		}
 
 	case "ct":
-		handleCreateFile("todo", parts, scripts.CreateTodo)
+		handleCreateFile("todo", completedCommand.Queries, scripts.CreateTodo)
 
 	case "cm":
-		handleCreateFile("meeting", parts, scripts.CreateMeeting)
+		handleCreateFile("meeting", completedCommand.Queries, scripts.CreateMeeting)
 
 	case "cp":
-		handleCreateFile("plan", parts, scripts.CreateSevenQuestions)
+		handleCreateFile("plan", completedCommand.Queries, scripts.CreateSevenQuestions)
 
 	case "o":
-		if len(parts) < 2 {
+		if completedCommand.SelectedFile != nil {
+			openNoteInEditor(completedCommand.SelectedFile.Name)
+		} else if len(completedCommand.Queries) > 0 {
+			openNoteInEditor(completedCommand.Queries[0])
+		} else {
 			fmt.Println("Please provide a file name to open")
-			return
 		}
-		title := parts[1]
-		openNoteInEditor(title)
 
 	case "exit", "quit", "q":
 		onClose()
@@ -242,21 +233,18 @@ func handleCommand(command string, onClose func(), fileStore *data.SearchedFiles
 		onFilesFetched(files, fileStore)
 
 	case "d":
-		// TODO build logic to update a files date by x days
-		fmt.Println(parts)
-		if len(parts) < 3 {
+		if len(completedCommand.Queries) < 1 {
 			fmt.Println("Please provide an amount of days to delay and a file name")
 			return
 		}
-		delayDaysCommand := parts[1]
-		delayDays, err := strconv.Atoi(delayDaysCommand)
+		delayDays, err := strconv.Atoi(completedCommand.Queries[0])
 		if err != nil {
-			fmt.Printf("Error converting days: %v", err)
-			fmt.Println("")
+			fmt.Printf("Error converting days: %v\n", err)
+			return
 		}
 		fmt.Println(delayDays)
-
-		// scripts.DelayDueDate(delayDays, )
+		// TODO: Implement delay functionality
+		// err = scripts.DelayDueDate(delayDays, )
 
 	default:
 		fmt.Println("Unknown command.")
@@ -279,17 +267,6 @@ func searchRecentFilesPrintIfNotFound(search func() *scripts.File) *scripts.File
 	return file
 }
 
-func getQueries(commandParts []string) []string {
-	queryString := strings.Join(commandParts[1:], " ")
-	queries := strings.Split(queryString, ",")
-
-	for i, q := range queries {
-		queries[i] = strings.TrimSpace(q)
-	}
-
-	return queries
-}
-
 func openNoteInEditor(fileName string) {
 	filePath := "notes/" + fileName
 	err := presentation.OpenNoteInEditor(filePath)
@@ -298,12 +275,12 @@ func openNoteInEditor(fileName string) {
 	}
 }
 
-func handleCreateFile(fileType string, parts []string, createFn func(string, scripts.OnFileCreated) (scripts.File, error)) {
-	if len(parts) < 2 {
+func handleCreateFile(fileType string, queries []string, createFn func(string, scripts.OnFileCreated) (scripts.File, error)) {
+	if len(queries) < 1 {
 		fmt.Printf("Please provide a title for the new %s\n", fileType)
 		return
 	}
-	title := strings.Join(parts[1:], "-")
+	title := strings.Join(queries, "-")
 	file, err := createFn(title, data.WriteFile)
 	if err != nil {
 		fmt.Printf("Error writing file: %v\n", err)
