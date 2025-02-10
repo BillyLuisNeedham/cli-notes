@@ -1,6 +1,6 @@
 module cli-notes
 
-go 1.22.0
+go 1.23
 
 require golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 

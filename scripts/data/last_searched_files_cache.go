@@ -16,6 +16,7 @@ func NewSearchedFilesStore() *SearchedFilesStore {
 
 func (s *SearchedFilesStore) SetFilesSearched(files []scripts.File) {
     s.filesThatHaveBeenSearched = files
+    s.selectedIndex = -1
 }
 
 func (s *SearchedFilesStore) GetFilesSearched() []scripts.File {
