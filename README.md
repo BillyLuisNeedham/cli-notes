@@ -67,8 +67,8 @@ To run the program using the `go run` command, follow these steps:
 
 ### Navigation
 
-- `↑` (Up Arrow) - Navigate through search results (backwards)
-- `↓` (Down Arrow) - Navigate through search results (forwards)
+- `↑` (Up Arrow) - Navigate to previous file in search results and display its tasks
+- `↓` (Down Arrow) - Navigate to next file in search results and display its tasks
 - `ESC` - Clear the current command line
 
 ### Program Control
@@ -84,3 +84,6 @@ Notes are stored as Markdown files with YAML frontmatter containing metadata suc
 - tags
 - date-due (for todos)
 - done status (for todos)
+
+When navigating through files using the arrow keys, any uncompleted tasks (lines containing "- [ ]") will be automatically displayed below the filename. Tasks are shown in the format:
+`filename : task content: line_number`
