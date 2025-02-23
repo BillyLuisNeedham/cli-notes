@@ -44,14 +44,25 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 			panic(err)
 		}
 
-		nextCommand := presentation.CommandHandler(
+		nextCommand, err := presentation.CommandHandler(
 			char,
 			key,
 			command,
 			func() scripts.File { return searchRecentFilesPrintIfNotFound(fileStore.GetNextFile) },
 			func() scripts.File { return searchRecentFilesPrintIfNotFound(fileStore.GetPreviousFile) },
+			func(file scripts.File) ([]string, error) { 
+				files := []scripts.File{file}
+				return scripts.GetUncompletedTasksInFiles(files)
+			},
 			func() { fmt.Print("\b \b") },
 		)
+
+		if err != nil {
+			fmt.Printf("Error processing command: %v\n", err)
+			fmt.Print("> ")
+			command = presentation.WIPCommand{}
+			continue
+		}
 
 		switch nextCommand := nextCommand.(type) {
 		case presentation.WIPCommand:
@@ -66,9 +77,16 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 			command = nextCommand.WIPCommand
 			fmt.Print(" ")
 
+
 		case presentation.FileSelectedWIPCommand:
 			command = nextCommand.WIPCommand
+			
 			fmt.Println(command.SelectedFile.Name)
+
+			for _, task := range nextCommand.Tasks {
+				fmt.Printf("%v", task)
+			}
+				fmt.Println("")
 
 		case presentation.CompletedCommand:
 			completedCommand := nextCommand
@@ -255,7 +273,7 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 		if command.SelectedFile.Name == "" {
 			fmt.Println("No file selected")
 			return
-		} 
+		}
 		err := scripts.SetDueDateToToday(command.SelectedFile, data.WriteFile)
 		if err != nil {
 			fmt.Printf("Error setting note to today: %v", err)
