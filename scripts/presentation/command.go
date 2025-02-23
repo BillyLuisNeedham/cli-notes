@@ -34,11 +34,18 @@ type SpacedWIPCommand struct {
 
 type FileSelectedWIPCommand struct {
 	WIPCommand
+	Tasks []string
 }
 
 func (WIPCommand) command()       {}
 func (CompletedCommand) command() {}
 func (ResetCommand) command()     {}
+
+/*
+TODO get tasks from file when up or down arrow is used
+	- update the file selected to have tasks
+	- then make the caller print the tasks
+*/
 
 func CommandHandler(
 	char rune,
@@ -46,23 +53,30 @@ func CommandHandler(
 	currentCommand WIPCommand,
 	selectNextFile func() scripts.File,
 	selectPrevFile func() scripts.File,
+	getTasksInFile func(scripts.File) []string,
 	onBackSpace func(),
 ) Command {
 	switch key {
 	case keyboard.KeyArrowUp:
+		file := selectNextFile()
+		tasks := getTasksInFile(file)
 		return FileSelectedWIPCommand{
 			WIPCommand: WIPCommand{
 				Text:         "",
-				SelectedFile: selectNextFile(),
+				SelectedFile: file,
 			},
+			Tasks: tasks,
 		}
 
 	case keyboard.KeyArrowDown:
+		file := selectPrevFile()
+		tasks := getTasksInFile(file)
 		return FileSelectedWIPCommand{
 			WIPCommand: WIPCommand{
 				Text:         "",
-				SelectedFile: selectPrevFile(),
+				SelectedFile: file,
 			},
+			Tasks: tasks,
 		}
 
 	case keyboard.KeyEnter:

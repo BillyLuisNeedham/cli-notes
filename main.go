@@ -44,6 +44,7 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 			panic(err)
 		}
 
+		// TODO add GetUncompletedTasksInFiles to this function
 		nextCommand := presentation.CommandHandler(
 			char,
 			key,
@@ -66,9 +67,13 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 			command = nextCommand.WIPCommand
 			fmt.Print(" ")
 
+
 		case presentation.FileSelectedWIPCommand:
 			command = nextCommand.WIPCommand
 			fmt.Println(command.SelectedFile.Name)
+			for _, task := range nextCommand.Tasks {
+				// TODO loop through tasks and print them
+			}
 
 		case presentation.CompletedCommand:
 			completedCommand := nextCommand
@@ -255,7 +260,7 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 		if command.SelectedFile.Name == "" {
 			fmt.Println("No file selected")
 			return
-		} 
+		}
 		err := scripts.SetDueDateToToday(command.SelectedFile, data.WriteFile)
 		if err != nil {
 			fmt.Printf("Error setting note to today: %v", err)
