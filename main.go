@@ -44,15 +44,25 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 			panic(err)
 		}
 
-		// TODO add GetUncompletedTasksInFiles to this function
-		nextCommand := presentation.CommandHandler(
+		nextCommand, err := presentation.CommandHandler(
 			char,
 			key,
 			command,
 			func() scripts.File { return searchRecentFilesPrintIfNotFound(fileStore.GetNextFile) },
 			func() scripts.File { return searchRecentFilesPrintIfNotFound(fileStore.GetPreviousFile) },
+			func(file scripts.File) ([]string, error) { 
+				files := []scripts.File{file}
+				return scripts.GetUncompletedTasksInFiles(files)
+			},
 			func() { fmt.Print("\b \b") },
 		)
+
+		if err != nil {
+			fmt.Printf("Error processing command: %v\n", err)
+			fmt.Print("> ")
+			command = presentation.WIPCommand{}
+			continue
+		}
 
 		switch nextCommand := nextCommand.(type) {
 		case presentation.WIPCommand:
@@ -70,10 +80,13 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 
 		case presentation.FileSelectedWIPCommand:
 			command = nextCommand.WIPCommand
+			
 			fmt.Println(command.SelectedFile.Name)
+
 			for _, task := range nextCommand.Tasks {
-				// TODO loop through tasks and print them
+				fmt.Printf("%v", task)
 			}
+				fmt.Println("")
 
 		case presentation.CompletedCommand:
 			completedCommand := nextCommand

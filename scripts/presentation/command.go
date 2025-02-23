@@ -41,46 +41,47 @@ func (WIPCommand) command()       {}
 func (CompletedCommand) command() {}
 func (ResetCommand) command()     {}
 
-/*
-TODO get tasks from file when up or down arrow is used
-	- update the file selected to have tasks
-	- then make the caller print the tasks
-*/
-
 func CommandHandler(
 	char rune,
 	key keyboard.Key,
 	currentCommand WIPCommand,
 	selectNextFile func() scripts.File,
 	selectPrevFile func() scripts.File,
-	getTasksInFile func(scripts.File) []string,
+	getTasksInFile func(scripts.File) ([]string, error),
 	onBackSpace func(),
-) Command {
+) (Command, error) {
 	switch key {
 	case keyboard.KeyArrowUp:
 		file := selectNextFile()
-		tasks := getTasksInFile(file)
+		tasks, err := getTasksInFile(file)
+		if err != nil {
+			return nil, err
+		}
 		return FileSelectedWIPCommand{
 			WIPCommand: WIPCommand{
 				Text:         "",
 				SelectedFile: file,
 			},
 			Tasks: tasks,
-		}
+		}, nil
 
 	case keyboard.KeyArrowDown:
 		file := selectPrevFile()
-		tasks := getTasksInFile(file)
+		tasks, err := getTasksInFile(file)
+		if err != nil {
+			return nil, err
+		}
 		return FileSelectedWIPCommand{
 			WIPCommand: WIPCommand{
 				Text:         "",
 				SelectedFile: file,
 			},
 			Tasks: tasks,
-		}
+		}, nil
 
 	case keyboard.KeyEnter:
-		return toCompletedCommand(currentCommand)
+		completed := toCompletedCommand(currentCommand)
+		return completed, nil
 
 	case keyboard.KeyBackspace, keyboard.KeyBackspace2:
 		text := currentCommand.Text
@@ -91,9 +92,9 @@ func CommandHandler(
 					Text:         text,
 					SelectedFile: currentCommand.SelectedFile,
 				},
-			}
+			}, nil
 		} else {
-			return currentCommand
+			return currentCommand, nil
 		}
 
 	case keyboard.KeySpace:
@@ -102,16 +103,16 @@ func CommandHandler(
 				Text:         currentCommand.Text + " ",
 				SelectedFile: currentCommand.SelectedFile,
 			},
-		}
+		}, nil
 
 	case keyboard.KeyEsc:
-		return ResetCommand{}
+		return ResetCommand{}, nil
 
 	default:
 		return WIPCommand{
 			Text:         currentCommand.Text + string(char),
 			SelectedFile: currentCommand.SelectedFile,
-		}
+		}, nil
 	}
 }
 
