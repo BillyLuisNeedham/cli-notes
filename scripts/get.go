@@ -60,7 +60,7 @@ func QueryAllFiles(queries []string, getFilesByQuery GetFilesByQuery) ([]File, e
 
 	if len(queries) > 1 {
 		matchingFiles := QueryFiles(queries[1:], files)
-		
+
 		return matchingFiles, nil
 	} else {
 		return files, nil
@@ -74,17 +74,18 @@ func QueryFiles(queries []string, files []File) []File {
 
 	matchingFiles := make([]File, 0)
 
-	for _, query := range queries {
-
-		for _, file := range files {
-
-			if fileMatchesQuery(file, query) {
-				matchingFiles = append(matchingFiles, file)
+	// Check all files against all queries (AND logic)
+	for _, file := range files {
+		matchesAllQueries := true
+		for _, query := range queries {
+			if !fileMatchesQuery(file, query) {
+				matchesAllQueries = false
 				break
 			}
-
 		}
-
+		if matchesAllQueries {
+			matchingFiles = append(matchingFiles, file)
+		}
 	}
 
 	return matchingFiles
@@ -133,12 +134,13 @@ func GetOverdueTodos(getFiles GetFilesByDateQuery) ([]File, error) {
 }
 
 func GetSoonTodos(getFiles GetFilesByDateQuery) ([]File, error) {
-	today := time.Now()
-	oneWeekFromNow := today.AddDate(0, 0, 7)
-	todayStr := today.Format("2006-01-02")
+	now := time.Now()
+	oneWeekFromNow := now.AddDate(0, 0, 7)
 
 	return getFiles(func(dueDate string, dueDateParsed time.Time) bool {
-		return dueDate <= todayStr || dueDateParsed.Before(oneWeekFromNow) || dueDateParsed.Equal(oneWeekFromNow)
+		// Only use time.Time comparison for consistency
+		// A todo is considered "soon" if it's due within a week
+		return dueDateParsed.Before(oneWeekFromNow) || dueDateParsed.Equal(oneWeekFromNow)
 	})
 }
 
@@ -171,8 +173,9 @@ func fileMatchesQuery(todo File, query string) bool {
 }
 
 func containsTag(tags []string, query string) bool {
+	lowerQuery := strings.ToLower(query)
 	for _, tag := range tags {
-		if strings.Contains(tag, query) {
+		if strings.Contains(strings.ToLower(tag), lowerQuery) {
 			return true
 		}
 	}
