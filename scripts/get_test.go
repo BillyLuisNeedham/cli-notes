@@ -419,3 +419,87 @@ func TestContainsTag(t *testing.T) {
 		})
 	}
 }
+
+// TestGetCompletedTodosByDateRange tests the GetCompletedTodosByDateRange function
+func TestGetCompletedTodosByDateRange(t *testing.T) {
+	// Setup dates for testing
+	startDate := "2023-01-01"
+	endDate := "2023-01-31"
+
+	// Setup test files with different dates
+	inRangeDate1 := "2023-01-15"
+	inRangeDate2 := "2023-01-31" // Edge case - end date inclusive
+	inRangeDate3 := "2023-01-01" // Edge case - start date inclusive
+	beforeRangeDate := "2022-12-31"
+	afterRangeDate := "2023-02-01"
+
+	// Parse dates for the mock function
+	parseDate := func(dateStr string) time.Time {
+		t, _ := time.Parse("2006-01-02", dateStr)
+		return t
+	}
+
+	// Setup mock function
+	getFilesByDateRangeQueryMock := func(dateQuery DateQuery) ([]File, error) {
+		// Create test files with various dates
+		testFiles := []File{
+			{Name: "in-range-1.md", DueAt: parseDate(inRangeDate1), Done: true},
+			{Name: "in-range-2.md", DueAt: parseDate(inRangeDate2), Done: true},
+			{Name: "in-range-3.md", DueAt: parseDate(inRangeDate3), Done: true},
+			{Name: "before-range.md", DueAt: parseDate(beforeRangeDate), Done: true},
+			{Name: "after-range.md", DueAt: parseDate(afterRangeDate), Done: true},
+		}
+
+		// Filter files based on date query
+		var matchingFiles []File
+		for _, file := range testFiles {
+			if dateQuery(file.DueAt.Format("2006-01-02"), file.DueAt) {
+				matchingFiles = append(matchingFiles, file)
+			}
+		}
+
+		return matchingFiles, nil
+	}
+
+	// Call the function
+	result, err := GetCompletedTodosByDateRange(startDate, endDate, getFilesByDateRangeQueryMock)
+
+	// Assertions
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+
+	if len(result) != 3 {
+		t.Errorf("Expected 3 todos in date range, got %d", len(result))
+	}
+
+	// Verify the correct files were returned
+	fileNames := make([]string, len(result))
+	for i, file := range result {
+		fileNames[i] = file.Name
+	}
+
+	expectedFileNames := []string{"in-range-1.md", "in-range-2.md", "in-range-3.md"}
+	for _, name := range expectedFileNames {
+		if !containsString(fileNames, name) {
+			t.Errorf("Expected file %s to be in results, but it wasn't", name)
+		}
+	}
+
+	unexpectedFileNames := []string{"before-range.md", "after-range.md"}
+	for _, name := range unexpectedFileNames {
+		if containsString(fileNames, name) {
+			t.Errorf("File %s should not be in results, but it was", name)
+		}
+	}
+}
+
+// Helper function to check if a string slice contains a specific string
+func containsString(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}

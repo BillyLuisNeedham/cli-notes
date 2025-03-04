@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/eiannone/keyboard"
 )
@@ -50,7 +51,7 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 			command,
 			func() scripts.File { return searchRecentFilesPrintIfNotFound(fileStore.GetNextFile) },
 			func() scripts.File { return searchRecentFilesPrintIfNotFound(fileStore.GetPreviousFile) },
-			func(file scripts.File) ([]string, error) { 
+			func(file scripts.File) ([]string, error) {
 				files := []scripts.File{file}
 				return scripts.GetUncompletedTasksInFiles(files)
 			},
@@ -77,16 +78,15 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 			command = nextCommand.WIPCommand
 			fmt.Print(" ")
 
-
 		case presentation.FileSelectedWIPCommand:
 			command = nextCommand.WIPCommand
-			
+
 			fmt.Println(command.SelectedFile.Name)
 
 			for _, task := range nextCommand.Tasks {
 				fmt.Printf("%v", task)
 			}
-				fmt.Println("")
+			fmt.Println("")
 
 		case presentation.CompletedCommand:
 			completedCommand := nextCommand
@@ -282,6 +282,46 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 
 		fmt.Printf("%v due date set to today\n", command.Name)
 
+	case "gd":
+		if len(command.Queries) != 2 {
+			fmt.Println("Please provide exactly two dates in the format YYYY-MM-DD")
+			return
+		}
+
+		startDate := command.Queries[0]
+		endDate := command.Queries[1]
+
+		// Validate dates
+		if !isValidDate(startDate) || !isValidDate(endDate) {
+			fmt.Println("Invalid date format. Please use YYYY-MM-DD")
+			return
+		}
+
+		// Get all completed todos within the date range
+		files, err := scripts.GetCompletedTodosByDateRange(startDate, endDate, func(dateQuery scripts.DateQuery) ([]scripts.File, error) {
+			return data.QueryCompletedTodosByDateRange(dateQuery)
+		})
+
+		if err != nil {
+			fmt.Printf("Error getting completed todos in date range: %v\n", err)
+			return
+		}
+
+		if len(files) == 0 {
+			fmt.Printf("No completed todos found between %s and %s\n", startDate, endDate)
+			return
+		}
+
+		// Create a combined note
+		newFile, err := scripts.CreateDateRangeQueryNote(startDate, endDate, files, data.WriteFile)
+		if err != nil {
+			fmt.Printf("Error creating date range query note: %v\n", err)
+			return
+		}
+
+		fmt.Printf("Created date range query note: %s\n", newFile.Name)
+		openNoteInEditor(newFile.Name)
+
 	default:
 		fmt.Println("Unknown command.")
 		return
@@ -324,4 +364,9 @@ func handleCreateFile(fileType string, queries []string, createFn func(string, s
 		return
 	}
 	openNoteInEditor(file.Name)
+}
+
+func isValidDate(date string) bool {
+	_, err := time.Parse("2006-01-02", date)
+	return err == nil
 }

@@ -154,6 +154,13 @@ func GetTodosWithNoDueDate(getFiles GetFilesByDateQuery) ([]File, error) {
 
 }
 
+func GetCompletedTodosByDateRange(startDate, endDate string, getFilesByDateRangeQuery GetFilesByDateQuery) ([]File, error) {
+	return getFilesByDateRangeQuery(func(dueDate string, dueDateParsed time.Time) bool {
+		// Check if the dueDate is within the range (inclusive)
+		return dueDate >= startDate && dueDate <= endDate
+	})
+}
+
 func fileMatchesQuery(todo File, query string) bool {
 	lowerCaseQuery := strings.ToLower(query)
 
