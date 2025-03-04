@@ -99,7 +99,6 @@ func QueryFiles(query string) ([]scripts.File, error) {
 	return queryAllFiles(query)
 }
 
-
 func QueryTodosWithDateCriteria(dateCheck func(dueDate string, dueDateParsed time.Time) bool) ([]scripts.File, error) {
 	currentDir, err := os.Getwd()
 	if err != nil {
@@ -172,82 +171,82 @@ func QueryTodosWithDateCriteria(dateCheck func(dueDate string, dueDateParsed tim
 }
 
 func QueryNotesByTags(tags []string) ([]scripts.File, error) {
-    currentDir, err := os.Getwd()
-    if err != nil {
-        return nil, err
-    }
-    
-    matchingNotes := make([]scripts.File, 0)
-    notesPath := filepath.Join(currentDir, DirectoryPath)
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
 
-    err = filepath.Walk(notesPath, func(path string, info os.FileInfo, err error) error {
-        if err != nil {
-            return err
-        }
+	matchingNotes := make([]scripts.File, 0)
+	notesPath := filepath.Join(currentDir, DirectoryPath)
 
-        if !info.IsDir() {
-            file, err := os.Open(path)
-            if err != nil {
-                return err
-            }
-            defer file.Close()
+	err = filepath.Walk(notesPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 
-            scanner := bufio.NewScanner(file)
-            allTagsFound := false
-            
-            for scanner.Scan() {
-                line := scanner.Text()
+		if !info.IsDir() {
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
 
-                if strings.HasPrefix(line, "tags:") {
-                    tagsLine := strings.TrimPrefix(line, "tags:")
-                    tagsLine = strings.TrimSpace(tagsLine)
-                    tagsLine = strings.Trim(tagsLine, "[]")
-                    
-                    // Changed: Split by spaces instead of commas, and handle both formats
-                    var fileTags []string
-                    if strings.Contains(tagsLine, ",") {
-                        // Handle comma-separated format
-                        parts := strings.Split(tagsLine, ",")
-                        for _, p := range parts {
-                            fileTags = append(fileTags, strings.TrimSpace(p))
-                        }
-                    } else {
-                        // Handle space-separated format
-                        fileTags = strings.Fields(tagsLine)
-                    }
-                    
-                    // Check if all query tags are in the file tags
-                    allTagsFound = true
-                    for _, tag := range tags {
-                        if !contains(fileTags, tag) {
-                            allTagsFound = false
-                            break
-                        }
-                    }
+			scanner := bufio.NewScanner(file)
+			allTagsFound := false
 
-                    if allTagsFound {
-                        matchingFile, err := getFileIfQueryMatches(path, "tags:")
-                        if err != nil {
-                            return err
-                        }
-                        matchingNotes = append(matchingNotes, *matchingFile)
-                    }
-                    break
-                }
-            }
+			for scanner.Scan() {
+				line := scanner.Text()
 
-            if err := scanner.Err(); err != nil {
-                return err
-            }
-        }
-        return nil
-    })
+				if strings.HasPrefix(line, "tags:") {
+					tagsLine := strings.TrimPrefix(line, "tags:")
+					tagsLine = strings.TrimSpace(tagsLine)
+					tagsLine = strings.Trim(tagsLine, "[]")
 
-    if err != nil {
-        return nil, err
-    }
+					// Changed: Split by spaces instead of commas, and handle both formats
+					var fileTags []string
+					if strings.Contains(tagsLine, ",") {
+						// Handle comma-separated format
+						parts := strings.Split(tagsLine, ",")
+						for _, p := range parts {
+							fileTags = append(fileTags, strings.TrimSpace(p))
+						}
+					} else {
+						// Handle space-separated format
+						fileTags = strings.Fields(tagsLine)
+					}
 
-    return matchingNotes, nil
+					// Check if all query tags are in the file tags
+					allTagsFound = true
+					for _, tag := range tags {
+						if !contains(fileTags, tag) {
+							allTagsFound = false
+							break
+						}
+					}
+
+					if allTagsFound {
+						matchingFile, err := getFileIfQueryMatches(path, "tags:")
+						if err != nil {
+							return err
+						}
+						matchingNotes = append(matchingNotes, *matchingFile)
+					}
+					break
+				}
+			}
+
+			if err := scanner.Err(); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return matchingNotes, nil
 }
 
 func timeToString(time time.Time) string {
@@ -289,7 +288,7 @@ func queryAllFiles(lineQuery string) ([]scripts.File, error) {
 	// Check for any errors during directory traversal
 	if err != nil {
 		fmt.Println("Error walking through files:", err)
-		return nil , err
+		return nil, err
 	}
 
 	return matchingFiles, err
@@ -303,7 +302,7 @@ func getFileIfQueryMatches(path, lineQuery string) (*scripts.File, error) {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	
+
 	// Initialize file struct
 	result := &scripts.File{
 		Name: filepath.Base(path),
@@ -399,4 +398,75 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+func QueryCompletedTodosByDateRange(dateCheck func(dueDate string, dueDateParsed time.Time) bool) ([]scripts.File, error) {
+	currentDir, err := os.Getwd()
+	if err != nil {
+		fmt.Println("Error getting current directory path:", err)
+		return nil, err
+	}
+
+	notesPath := filepath.Join(currentDir, DirectoryPath)
+	matchingFiles := make([]scripts.File, 0)
+
+	err = filepath.Walk(notesPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() {
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			scanner := bufio.NewScanner(file)
+			isCompletedTodo := false
+			dueDate := ""
+
+			for scanner.Scan() {
+				line := scanner.Text()
+
+				if strings.Contains(line, "done: true") {
+					isCompletedTodo = true
+				}
+
+				if strings.Contains(line, "date-due:") {
+					dueDate = strings.TrimSpace(strings.TrimPrefix(line, "date-due:"))
+				}
+
+				if isCompletedTodo && dueDate != "" {
+					break
+				}
+			}
+
+			if err := scanner.Err(); err != nil {
+				return err
+			}
+
+			if isCompletedTodo && dueDate != "" {
+				dueDateParsed, err := time.Parse(dateFormat, dueDate)
+				if err != nil {
+					return err
+				}
+
+				if dateCheck(dueDate, dueDateParsed) {
+					matchingFile, err := getFileIfQueryMatches(path, "done: true")
+					if err != nil {
+						return err
+					}
+					matchingFiles = append(matchingFiles, *matchingFile)
+				}
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return matchingFiles, err
 }

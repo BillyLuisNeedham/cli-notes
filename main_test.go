@@ -5,6 +5,9 @@ import (
 	"cli-notes/scripts/data"
 	"cli-notes/scripts/presentation"
 	"errors"
+	"io"
+	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -151,7 +154,7 @@ func TestSearchRecentFilesPrintIfNotFound(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result := searchRecentFilesPrintIfNotFound(tc.searchFunc)
-			
+
 			if tc.wantEmpty && result.Name != "" {
 				t.Errorf("Expected empty file, got name: %s", result.Name)
 			}
@@ -160,4 +163,140 @@ func TestSearchRecentFilesPrintIfNotFound(t *testing.T) {
 			}
 		})
 	}
-} 
+}
+
+func TestIsValidDate(t *testing.T) {
+	testCases := []struct {
+		name     string
+		date     string
+		expected bool
+	}{
+		{
+			name:     "valid date",
+			date:     "2023-01-01",
+			expected: true,
+		},
+		{
+			name:     "valid date with different month",
+			date:     "2023-02-15",
+			expected: true,
+		},
+		{
+			name:     "invalid format - missing leading zeros",
+			date:     "2023-1-1",
+			expected: false,
+		},
+		{
+			name:     "invalid format - American style",
+			date:     "01/01/2023",
+			expected: false,
+		},
+		{
+			name:     "invalid format - text month",
+			date:     "2023-Jan-01",
+			expected: false,
+		},
+		{
+			name:     "invalid date - out of range",
+			date:     "2023-13-01",
+			expected: false,
+		},
+		{
+			name:     "empty string",
+			date:     "",
+			expected: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := isValidDate(tc.date)
+			if result != tc.expected {
+				t.Errorf("Expected isValidDate(%s) to be %v, got %v", tc.date, tc.expected, result)
+			}
+		})
+	}
+}
+
+func TestHandleCommandGD(t *testing.T) {
+	// Setup
+	fileStore := data.NewSearchedFilesStore()
+	onClose := func() {}
+
+	testCases := []struct {
+		name    string
+		command presentation.CompletedCommand
+		wantErr bool
+	}{
+		{
+			name: "gd with no queries",
+			command: presentation.CompletedCommand{
+				Name:    "gd",
+				Queries: []string{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "gd with one query",
+			command: presentation.CompletedCommand{
+				Name:    "gd",
+				Queries: []string{"2023-01-01"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "gd with invalid date format",
+			command: presentation.CompletedCommand{
+				Name:    "gd",
+				Queries: []string{"01/01/2023", "01/31/2023"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "gd with valid dates",
+			command: presentation.CompletedCommand{
+				Name:    "gd",
+				Queries: []string{"2023-01-01", "2023-01-31"},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Capture output to check for error messages
+			originalStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			// Call the function
+			handleCommand(tc.command, onClose, fileStore)
+
+			// Restore stdout
+			w.Close()
+			os.Stdout = originalStdout
+
+			// Read captured output
+			var buf strings.Builder
+			if _, err := io.Copy(&buf, r); err != nil {
+				t.Fatalf("Failed to read captured output: %v", err)
+			}
+			output := buf.String()
+
+			// Check if error message was printed
+			if tc.wantErr {
+				if !strings.Contains(output, "Please provide") &&
+					!strings.Contains(output, "Invalid date format") {
+					t.Errorf("Expected error message but got: %s", output)
+				}
+			} else {
+				// Note: In the actual test, the file creation will likely fail since we're in a test environment
+				// without proper file system setup, but we're just testing that it attempts to proceed.
+				if strings.Contains(output, "Please provide") ||
+					strings.Contains(output, "Invalid date format") {
+					t.Errorf("Didn't expect error message but got: %s", output)
+				}
+			}
+		})
+	}
+}

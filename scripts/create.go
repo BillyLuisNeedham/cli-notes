@@ -2,6 +2,7 @@ package scripts
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -11,7 +12,6 @@ type MetaData struct {
 }
 
 type OnFileCreated = func(File) error
-
 
 func CreateTodo(title string, onFileCreated OnFileCreated) (File, error) {
 	now := time.Now()
@@ -38,7 +38,7 @@ func CreateStandup(getTeamNames func() ([]string, error), onFileCreated OnFileCr
 	title := "standup"
 	content := fmt.Sprintf("# %v\n\n", title)
 	weekdays := []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"}
-	
+
 	for _, name := range teamNames {
 		content += fmt.Sprintf("## %s\n\n", name)
 		for _, day := range weekdays {
@@ -63,9 +63,9 @@ func CreateSevenQuestions(title string, onFileCreated OnFileCreated) (File, erro
 		"When and where do these actions take place in relation to each other?",
 		"What control measures do I need to impose?",
 	}
-	
+
 	content := fmt.Sprintf("# %v", title)
-	
+
 	for _, question := range questions {
 		content += fmt.Sprintf("\n\n\n## %v", question)
 	}
@@ -73,11 +73,62 @@ func CreateSevenQuestions(title string, onFileCreated OnFileCreated) (File, erro
 	return createFile(title, []string{"plan"}, content, now, false, onFileCreated)
 }
 
+func CreateDateRangeQueryNote(startDate, endDate string, files []File, onFileCreated OnFileCreated) (File, error) {
+	now := time.Now()
+	title := fmt.Sprintf("Date Range Query %s - %s", startDate, endDate)
+
+	content := fmt.Sprintf("# %s\n\n", title)
+	content += fmt.Sprintf("## Completed notes between %s and %s\n\n", startDate, endDate)
+
+	for _, file := range files {
+		content += fmt.Sprintf("### %s\n\n", file.Title)
+		content += fmt.Sprintf("- **File**: %s\n", file.Name)
+		content += fmt.Sprintf("- **Due Date**: %s\n", file.DueAt.Format("2006-01-02"))
+		content += fmt.Sprintf("- **Tags**: %s\n\n", strings.Join(file.Tags, ", "))
+
+		// Extract content without frontmatter
+		fileContent := extractContentWithoutFrontmatter(file.Content)
+		content += fileContent + "\n\n---\n\n"
+	}
+
+	return createFile(title, []string{"date-range-query"}, content, now, false, onFileCreated)
+}
+
+// Helper function to extract content without frontmatter
+func extractContentWithoutFrontmatter(content string) string {
+	// If content is empty, return empty string
+	if content == "" {
+		return ""
+	}
+
+	lines := strings.Split(content, "\n")
+
+	// Check if content starts with frontmatter delimiter
+	if len(lines) > 0 && lines[0] == "---" {
+		// Find the closing frontmatter delimiter
+		closingIndex := -1
+		for i := 1; i < len(lines); i++ {
+			if lines[i] == "---" {
+				closingIndex = i
+				break
+			}
+		}
+
+		// If we found a closing delimiter, extract content after it
+		if closingIndex > 0 && closingIndex < len(lines)-1 {
+			return strings.Join(lines[closingIndex+1:], "\n")
+		}
+	}
+
+	// If no frontmatter or incomplete frontmatter, return original content
+	return content
+}
+
 func createFile(title string, tags []string, content string, dueAt time.Time, done bool, onFileCreated OnFileCreated) (File, error) {
 	now := time.Now()
 	date := now.Format("2006-01-02")
 	name := fmt.Sprintf("%v-%v.md", title, date)
-	
+
 	if content == "" {
 		content = fmt.Sprintf("# %v", title)
 	}
