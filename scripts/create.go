@@ -12,7 +12,6 @@ type MetaData struct {
 
 type OnFileCreated = func(File) error
 
-// TODO write tests for file 
 
 func CreateTodo(title string, onFileCreated OnFileCreated) (File, error) {
 	now := time.Now()

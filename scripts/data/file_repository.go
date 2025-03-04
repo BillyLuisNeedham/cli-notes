@@ -172,68 +172,82 @@ func QueryTodosWithDateCriteria(dateCheck func(dueDate string, dueDateParsed tim
 }
 
 func QueryNotesByTags(tags []string) ([]scripts.File, error) {
-	currentDir, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-	
-	matchingNotes := make([]scripts.File, 0)
-	notesPath := filepath.Join(currentDir, DirectoryPath)
+    currentDir, err := os.Getwd()
+    if err != nil {
+        return nil, err
+    }
+    
+    matchingNotes := make([]scripts.File, 0)
+    notesPath := filepath.Join(currentDir, DirectoryPath)
 
-	err = filepath.Walk(notesPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+    err = filepath.Walk(notesPath, func(path string, info os.FileInfo, err error) error {
+        if err != nil {
+            return err
+        }
 
-		if !info.IsDir() {
-			file, err := os.Open(path)
-			if err != nil {
-				return err
-			}
-			defer file.Close()
+        if !info.IsDir() {
+            file, err := os.Open(path)
+            if err != nil {
+                return err
+            }
+            defer file.Close()
 
-			scanner := bufio.NewScanner(file)
-			allTagsFound := true
+            scanner := bufio.NewScanner(file)
+            allTagsFound := false
+            
+            for scanner.Scan() {
+                line := scanner.Text()
 
-			for scanner.Scan() {
-				line := scanner.Text()
+                if strings.HasPrefix(line, "tags:") {
+                    tagsLine := strings.TrimPrefix(line, "tags:")
+                    tagsLine = strings.TrimSpace(tagsLine)
+                    tagsLine = strings.Trim(tagsLine, "[]")
+                    
+                    // Changed: Split by spaces instead of commas, and handle both formats
+                    var fileTags []string
+                    if strings.Contains(tagsLine, ",") {
+                        // Handle comma-separated format
+                        parts := strings.Split(tagsLine, ",")
+                        for _, p := range parts {
+                            fileTags = append(fileTags, strings.TrimSpace(p))
+                        }
+                    } else {
+                        // Handle space-separated format
+                        fileTags = strings.Fields(tagsLine)
+                    }
+                    
+                    // Check if all query tags are in the file tags
+                    allTagsFound = true
+                    for _, tag := range tags {
+                        if !contains(fileTags, tag) {
+                            allTagsFound = false
+                            break
+                        }
+                    }
 
-				if strings.HasPrefix(line, "tags:") {
-					tagsLine := strings.TrimPrefix(line, "tags:")
-					tagsLine = strings.TrimSpace(tagsLine)
-					tagsLine = strings.Trim(tagsLine, "[]")
-					fileTags := strings.Split(tagsLine, ",")
+                    if allTagsFound {
+                        matchingFile, err := getFileIfQueryMatches(path, "tags:")
+                        if err != nil {
+                            return err
+                        }
+                        matchingNotes = append(matchingNotes, *matchingFile)
+                    }
+                    break
+                }
+            }
 
-					for _, tag := range tags {
-						if !contains(fileTags, tag) {
-							allTagsFound = false
-							break
-						}
-					}
+            if err := scanner.Err(); err != nil {
+                return err
+            }
+        }
+        return nil
+    })
 
-					if allTagsFound {
-						matchingFile, err := getFileIfQueryMatches(path, "tags:")
-						if err != nil {
-							return err
-						}
-						matchingNotes = append(matchingNotes, *matchingFile)
-					}
-					break
-				}
-			}
+    if err != nil {
+        return nil, err
+    }
 
-			if err := scanner.Err(); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return matchingNotes, nil
+    return matchingNotes, nil
 }
 
 func timeToString(time time.Time) string {
