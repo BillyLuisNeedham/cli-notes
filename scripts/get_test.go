@@ -561,6 +561,15 @@ This is a test note for delaying.`
 	fileAfterSelection := testFile
 	fileAfterSelection.Content = contentBuilder.String()
 
+	// Save the original implementation to restore after the test
+	originalReadLatestFileContent := readLatestFileContent
+	defer func() { readLatestFileContent = originalReadLatestFileContent }()
+
+	// Mock the readLatestFileContent function to return the file as is
+	readLatestFileContent = func(file File) (File, error) {
+		return file, nil
+	}
+
 	// Mock the file writer that should now trim leading newlines
 	var writtenContent string
 	mockWriteFile := func(file File) error {
