@@ -78,14 +78,17 @@ func WriteFile(newFile scripts.File) error {
 		return err
 	}
 
-	_, err = file.WriteString(newFile.Content)
+	// Trim leading newlines to prevent accumulating extra lines
+	// when files are read and written multiple times
+	content := strings.TrimLeft(newFile.Content, "\n")
+
+	_, err = file.WriteString(content)
 	if err != nil {
 		fmt.Println("Error writing file content:", err)
 		return err
 	}
 
 	return nil
-
 }
 
 func QueryFilesByDone(isDone bool) ([]scripts.File, error) {
