@@ -422,6 +422,17 @@ func TestQueryCompletedTodosByDateRange(t *testing.T) {
 		Content:   "This is a completed task at end of range",
 	})
 
+	// Date range query note (should be excluded even though it's in range and completed)
+	createTestFile(t, scripts.File{
+		Name:      "date_range_query.md",
+		Title:     "Date Range Query 2023-01-01 - 2023-01-31",
+		CreatedAt: now,
+		DueAt:     time.Date(2023, 1, 15, 0, 0, 0, 0, time.UTC), // In range
+		Tags:      []string{"date-range-query"},
+		Done:      true,
+		Content:   "This is a date range query note that should be excluded",
+	})
+
 	// Out of range (completed todos)
 	createTestFile(t, scripts.File{
 		Name:      "completed_before.md",
@@ -467,7 +478,7 @@ func TestQueryCompletedTodosByDateRange(t *testing.T) {
 		t.Fatalf("QueryCompletedTodosByDateRange failed: %v", err)
 	}
 
-	// Should find 4 completed todos in the date range
+	// Should find 4 completed todos in the date range (excluding the date range query note)
 	if len(files) != 4 {
 		t.Fatalf("Expected 4 files, got %d", len(files))
 	}
@@ -489,6 +500,11 @@ func TestQueryCompletedTodosByDateRange(t *testing.T) {
 		if !file.Done {
 			t.Errorf("File %s should be marked as done", file.Name)
 		}
+
+		// Verify no date range query notes are included
+		if isDateRangeQueryNote(&file) {
+			t.Errorf("File %s is a date range query note but was included in results", file.Name)
+		}
 	}
 
 	// Verify files outside the range weren't included
@@ -496,6 +512,7 @@ func TestQueryCompletedTodosByDateRange(t *testing.T) {
 		"completed_before.md",
 		"completed_after.md",
 		"not_completed.md",
+		"date_range_query.md", // This should be excluded explicitly
 	}
 
 	for _, fileName := range unexpectedFiles {

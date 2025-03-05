@@ -400,6 +400,21 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
+// Helper function to check if a file is a date range query note
+func isDateRangeQueryNote(file *scripts.File) bool {
+	if file == nil || file.Tags == nil {
+		return false
+	}
+
+	for _, tag := range file.Tags {
+		if tag == "date-range-query" {
+			return true
+		}
+	}
+
+	return false
+}
+
 func QueryCompletedTodosByDateRange(dateCheck func(dueDate string, dueDateParsed time.Time) bool) ([]scripts.File, error) {
 	currentDir, err := os.Getwd()
 	if err != nil {
@@ -457,7 +472,11 @@ func QueryCompletedTodosByDateRange(dateCheck func(dueDate string, dueDateParsed
 					if err != nil {
 						return err
 					}
-					matchingFiles = append(matchingFiles, *matchingFile)
+
+					// Only include the file if it's not a date range query note
+					if matchingFile != nil && !isDateRangeQueryNote(matchingFile) {
+						matchingFiles = append(matchingFiles, *matchingFile)
+					}
 				}
 			}
 		}
