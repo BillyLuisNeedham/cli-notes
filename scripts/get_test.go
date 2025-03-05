@@ -25,6 +25,8 @@ Areas for improvement in get.go:
 */
 
 import (
+	"bufio"
+	"strings"
 	"testing"
 	"time"
 )
@@ -517,4 +519,144 @@ func containsString(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+func TestDelayDueDate(t *testing.T) {
+	// Initial file would have proper formatting with exactly one newline after metadata
+	initialContent := `---
+title: Test Delay Note
+date-created: 2023-03-05
+tags: [test]
+date-due: 2023-03-05
+done: false
+---
+
+# Test Delay Note
+
+This is a test note for delaying.`
+
+	// Create a test note with the initial content
+	testFile := File{
+		Name:      "test-delay-note.md",
+		Title:     "Test Delay Note",
+		CreatedAt: time.Now(),
+		DueAt:     time.Now(),
+		Tags:      []string{"test"},
+		Done:      false,
+		Content:   initialContent,
+	}
+
+	// This simulates the first read of a note as it would happen after 'gto' command
+	// and arrow key selection
+	simSelectedFileContent := initialContent
+	var contentBuilder strings.Builder
+	scanner := bufio.NewScanner(strings.NewReader(simSelectedFileContent))
+	for scanner.Scan() {
+		line := scanner.Text()
+		contentBuilder.WriteString(line)
+		contentBuilder.WriteString("\n")
+	}
+
+	// Update the test file with content as it would be after selection
+	fileAfterSelection := testFile
+	fileAfterSelection.Content = contentBuilder.String()
+
+	// Mock the file writer that should now trim leading newlines
+	var writtenContent string
+	mockWriteFile := func(file File) error {
+		// In the actual code, this writes the metadata and then appends content
+		metadataSection := `---
+title: Test Delay Note
+date-created: 2023-03-05
+tags: [test]
+date-due: 2023-03-06
+done: false
+---
+
+` // Note the single newline here
+
+		// Trim leading newlines from content to prevent accumulation
+		content := strings.TrimLeft(file.Content, "\n")
+		writtenContent = metadataSection + content
+		return nil
+	}
+
+	// First delay after selection
+	err := DelayDueDate(1, fileAfterSelection, mockWriteFile)
+	if err != nil {
+		t.Fatalf("DelayDueDate returned an error: %v", err)
+	}
+
+	// Count the number of newlines between metadata section and title after first delay
+	lines := strings.Split(writtenContent, "\n")
+	metadataEndIndex := -1
+	titleIndex := -1
+
+	for i, line := range lines {
+		if line == "---" && i > 0 {
+			metadataEndIndex = i
+		}
+		if strings.HasPrefix(line, "# Test Delay Note") {
+			titleIndex = i
+			break
+		}
+	}
+
+	if metadataEndIndex == -1 || titleIndex == -1 {
+		t.Fatalf("Could not find metadata end or title line after first delay: %s", writtenContent)
+	}
+
+	newlinesCountAfterFirstDelay := titleIndex - metadataEndIndex - 1
+
+	// Now simulate a second delay on the same file
+	// Read the content as it was written after first delay
+	var secondContentBuilder strings.Builder
+	scanner = bufio.NewScanner(strings.NewReader(writtenContent))
+	for scanner.Scan() {
+		line := scanner.Text()
+		secondContentBuilder.WriteString(line)
+		secondContentBuilder.WriteString("\n")
+	}
+
+	fileAfterFirstDelay := fileAfterSelection
+	fileAfterFirstDelay.Content = secondContentBuilder.String()
+	fileAfterFirstDelay.DueAt = fileAfterFirstDelay.DueAt.AddDate(0, 0, 1) // Simulate first delay
+
+	// Second delay
+	err = DelayDueDate(1, fileAfterFirstDelay, mockWriteFile)
+	if err != nil {
+		t.Fatalf("Second DelayDueDate returned an error: %v", err)
+	}
+
+	// Count newlines after second delay
+	lines = strings.Split(writtenContent, "\n")
+	metadataEndIndex = -1
+	titleIndex = -1
+
+	for i, line := range lines {
+		if line == "---" && i > 0 {
+			metadataEndIndex = i
+		}
+		if strings.HasPrefix(line, "# Test Delay Note") {
+			titleIndex = i
+			break
+		}
+	}
+
+	if metadataEndIndex == -1 || titleIndex == -1 {
+		t.Fatalf("Could not find metadata end or title line after second delay: %s", writtenContent)
+	}
+
+	newlinesCountAfterSecondDelay := titleIndex - metadataEndIndex - 1
+
+	// We should have exactly one newline between the metadata and title
+	if newlinesCountAfterFirstDelay != 1 {
+		t.Errorf("Expected exactly 1 newline after first delay, but got %d newlines",
+			newlinesCountAfterFirstDelay)
+	}
+
+	if newlinesCountAfterSecondDelay != 1 {
+		t.Errorf("Expected exactly 1 newline after second delay, but got %d newlines",
+			newlinesCountAfterSecondDelay)
+	}
 }
