@@ -420,6 +420,16 @@ func TestContainsTag(t *testing.T) {
 	}
 }
 
+// Helper function to check if a file has a specific tag
+func fileHasTag(file File, tagName string) bool {
+	for _, tag := range file.Tags {
+		if tag == tagName {
+			return true
+		}
+	}
+	return false
+}
+
 // TestGetCompletedTodosByDateRange tests the GetCompletedTodosByDateRange function
 func TestGetCompletedTodosByDateRange(t *testing.T) {
 	// Setup dates for testing
@@ -443,18 +453,23 @@ func TestGetCompletedTodosByDateRange(t *testing.T) {
 	getFilesByDateRangeQueryMock := func(dateQuery DateQuery) ([]File, error) {
 		// Create test files with various dates
 		testFiles := []File{
-			{Name: "in-range-1.md", DueAt: parseDate(inRangeDate1), Done: true},
-			{Name: "in-range-2.md", DueAt: parseDate(inRangeDate2), Done: true},
-			{Name: "in-range-3.md", DueAt: parseDate(inRangeDate3), Done: true},
-			{Name: "before-range.md", DueAt: parseDate(beforeRangeDate), Done: true},
-			{Name: "after-range.md", DueAt: parseDate(afterRangeDate), Done: true},
+			{Name: "in-range-1.md", DueAt: parseDate(inRangeDate1), Done: true, Tags: []string{"task"}},
+			{Name: "in-range-2.md", DueAt: parseDate(inRangeDate2), Done: true, Tags: []string{"task"}},
+			{Name: "in-range-3.md", DueAt: parseDate(inRangeDate3), Done: true, Tags: []string{"task"}},
+			{Name: "before-range.md", DueAt: parseDate(beforeRangeDate), Done: true, Tags: []string{"task"}},
+			{Name: "after-range.md", DueAt: parseDate(afterRangeDate), Done: true, Tags: []string{"task"}},
+			// Add a date range query note that is in range and completed
+			{Name: "date-range-query.md", DueAt: parseDate(inRangeDate1), Done: true, Tags: []string{"date-range-query"}},
 		}
 
-		// Filter files based on date query
+		// Filter files based on date query and exclude date range query notes
 		var matchingFiles []File
 		for _, file := range testFiles {
 			if dateQuery(file.DueAt.Format("2006-01-02"), file.DueAt) {
-				matchingFiles = append(matchingFiles, file)
+				// Exclude date range query notes
+				if !fileHasTag(file, "date-range-query") {
+					matchingFiles = append(matchingFiles, file)
+				}
 			}
 		}
 
@@ -486,7 +501,7 @@ func TestGetCompletedTodosByDateRange(t *testing.T) {
 		}
 	}
 
-	unexpectedFileNames := []string{"before-range.md", "after-range.md"}
+	unexpectedFileNames := []string{"before-range.md", "after-range.md", "date-range-query.md"}
 	for _, name := range unexpectedFileNames {
 		if containsString(fileNames, name) {
 			t.Errorf("File %s should not be in results, but it was", name)
