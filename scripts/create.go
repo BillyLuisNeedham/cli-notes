@@ -75,9 +75,43 @@ func CreateSevenQuestions(title string, onFileCreated OnFileCreated) (File, erro
 
 func CreateDateRangeQueryNote(startDate, endDate string, files []File, onFileCreated OnFileCreated) (File, error) {
 	now := time.Now()
+	exampleSummary := `
+	Completed Tasks
+
+🎯 People Management
+
+- Put together the team members for the cross-functional team with Jeff 
+
+- Onboarding 2 New Team Members into Green Lizards
+
+🤖 Technical Execution
+
+- Developing in the sprint at good pace and maintaining my Manager role at the same time
+
+🎨 Jetpack Compose Migration (specific high level projects)
+
+- Successfully prototyped Figma→Compose theme extraction using AI:
+
+  - Automated color/typography/shape conversions
+
+  - Validated against Figma specs
+
+  - Zero design workflow changes required
+
+🔧 Operations
+
+- Created a plan to improve Android install conversion metrics from Ops Social meeting and UI/UX Show & Tell
+
+  - Focus on improving the app experience for users
+
+  - Chat is the first area, reported by users as the best feature but also 29% of users report issues with it
+
+  - Will also look for improvements in the Booking flows`
+
 	title := fmt.Sprintf("Date Range Query %s - %s", startDate, endDate)
 
 	content := fmt.Sprintf("# %s\n\n", title)
+	content += fmt.Sprintf("## Example Summary\n\n%s\n\n", exampleSummary)
 	content += fmt.Sprintf("## Completed notes between %s and %s\n\n", startDate, endDate)
 
 	for _, file := range files {
