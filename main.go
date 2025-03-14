@@ -12,6 +12,7 @@ import (
 	"github.com/eiannone/keyboard"
 )
 
+
 func main() {
 	closeChannel := make(chan bool)
 	var searchedFilesStore = data.NewSearchedFilesStore()

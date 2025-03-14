@@ -64,6 +64,11 @@ func (th *testHelper) cleanup(t *testing.T) {
 
 // Helper to create test files
 func createTestFile(t *testing.T, file scripts.File) {
+	// Set default priority if not set
+	if file.Priority == 0 {
+		file.Priority = scripts.P2
+	}
+
 	err := WriteFile(file)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
@@ -85,6 +90,7 @@ func TestWriteFile(t *testing.T) {
 		Tags:      []string{"test", "unit-test"},
 		Done:      false,
 		Content:   "This is test content",
+		Priority:  scripts.P2,
 	}
 
 	// Call WriteFile
@@ -116,6 +122,7 @@ func TestWriteFile(t *testing.T) {
 		"title: Test File 1",
 		"date-created: " + timeToString(now),
 		"tags: [test unit-test]",
+		"priority: 2",
 		"date-due: " + timeToString(dueDate),
 		"done: false",
 		"---",
@@ -138,23 +145,25 @@ func TestQueryFilesByDone(t *testing.T) {
 
 	// Create test files
 	createTestFile(t, scripts.File{
-		Name:      "done1.md",
-		Title:     "Done Task 1",
+		Name:      "test-done.md",
+		Title:     "Test Done",
 		CreatedAt: now,
 		DueAt:     now,
 		Tags:      []string{"test"},
 		Done:      true,
 		Content:   "This is a completed task",
+		Priority:  scripts.P1,
 	})
 
 	createTestFile(t, scripts.File{
-		Name:      "todo1.md",
-		Title:     "Todo Task 1",
+		Name:      "test-not-done.md",
+		Title:     "Test Not Done",
 		CreatedAt: now,
 		DueAt:     now,
 		Tags:      []string{"test"},
 		Done:      false,
 		Content:   "This is an incomplete task",
+		Priority:  scripts.P3,
 	})
 
 	// Test querying done files
@@ -167,8 +176,8 @@ func TestQueryFilesByDone(t *testing.T) {
 		t.Errorf("Expected 1 done file, got %d", len(doneFiles))
 	}
 
-	if len(doneFiles) > 0 && doneFiles[0].Name != "done1.md" {
-		t.Errorf("Expected file name done1.md, got %s", doneFiles[0].Name)
+	if len(doneFiles) > 0 && doneFiles[0].Name != "test-done.md" {
+		t.Errorf("Expected file name test-done.md, got %s", doneFiles[0].Name)
 	}
 
 	// Test querying todo files
@@ -181,8 +190,8 @@ func TestQueryFilesByDone(t *testing.T) {
 		t.Errorf("Expected 1 todo file, got %d", len(todoFiles))
 	}
 
-	if len(todoFiles) > 0 && todoFiles[0].Name != "todo1.md" {
-		t.Errorf("Expected file name todo1.md, got %s", todoFiles[0].Name)
+	if len(todoFiles) > 0 && todoFiles[0].Name != "test-not-done.md" {
+		t.Errorf("Expected file name test-not-done.md, got %s", todoFiles[0].Name)
 	}
 }
 

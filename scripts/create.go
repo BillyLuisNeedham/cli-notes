@@ -35,6 +35,11 @@ func CreateStandup(getTeamNames func() ([]string, error), onFileCreated OnFileCr
 		nextFriday = nextFriday.Add(24 * time.Hour)
 	}
 
+	// If today is Friday, add 7 days to get next Friday
+	if now.Weekday() == time.Friday {
+		nextFriday = nextFriday.AddDate(0, 0, 7)
+	}
+
 	title := "standup"
 	content := fmt.Sprintf("# %v\n\n", title)
 	weekdays := []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"}
@@ -175,6 +180,7 @@ func createFile(title string, tags []string, content string, dueAt time.Time, do
 		DueAt:     dueAt,
 		Done:      done,
 		Content:   content,
+		Priority:  P2, // Default priority is 2 (medium)
 	}
 
 	if err := onFileCreated(newFile); err != nil {
