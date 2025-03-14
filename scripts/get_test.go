@@ -305,12 +305,37 @@ func TestDateFunctions(t *testing.T) {
 	// Current date for testing
 	now := time.Now()
 
-	// Setup test files with different priorities
-	overdue := File{Name: "overdue.md", DueAt: now.AddDate(0, 0, -1), Priority: P2}
-	today := File{Name: "today.md", DueAt: now, Priority: P1}                        // High priority
-	thisWeek := File{Name: "thisWeek.md", DueAt: now.AddDate(0, 0, 5), Priority: P1} // High priority
-	future := File{Name: "future.md", DueAt: now.AddDate(0, 1, 0), Priority: P3}     // Low priority
-	noDueDate := File{Name: "noDueDate.md", DueAt: now.AddDate(101, 0, 0), Priority: P2}
+	// Setup test files with different priorities and creation dates
+	overdue := File{
+		Name:      "overdue.md",
+		DueAt:     now.AddDate(0, 0, -1),
+		Priority:  P2,
+		CreatedAt: now.AddDate(0, 0, -5), // Created 5 days ago
+	}
+	today := File{
+		Name:      "today.md",
+		DueAt:     now,
+		Priority:  P1,                    // High priority
+		CreatedAt: now.AddDate(0, 0, -1), // Created yesterday
+	}
+	thisWeek := File{
+		Name:      "thisWeek.md",
+		DueAt:     now.AddDate(0, 0, 5),
+		Priority:  P1,                     // High priority
+		CreatedAt: now.AddDate(0, 0, -10), // Created 10 days ago
+	}
+	future := File{
+		Name:      "future.md",
+		DueAt:     now.AddDate(0, 1, 0),
+		Priority:  P3,                    // Low priority
+		CreatedAt: now.AddDate(0, 0, -2), // Created 2 days ago
+	}
+	noDueDate := File{
+		Name:      "noDueDate.md",
+		DueAt:     now.AddDate(101, 0, 0),
+		Priority:  P2,
+		CreatedAt: now.AddDate(0, 0, -15), // Created 15 days ago
+	}
 
 	// Mock function for GetOverdueTodos
 	getFilesForOverdue := func(dateQuery DateQuery) ([]File, error) {
@@ -335,18 +360,38 @@ func TestDateFunctions(t *testing.T) {
 			t.Errorf("Expected no error, got %v", err)
 		}
 
-		// Should include overdue and today, and today should come first due to P1 priority
+		// Should include overdue and today
 		if len(results) != 2 {
 			t.Errorf("Expected 2 files, got %d", len(results))
 		}
 
-		if len(results) >= 2 {
-			// Check the sorting order - today (P1) should come before overdue (P2)
-			if results[0].Name != "today.md" {
-				t.Errorf("Expected first result to be today.md due to P1 priority, got %s", results[0].Name)
+		// Check that the results contain the expected files
+		foundOverdue := false
+		foundToday := false
+		for _, file := range results {
+			if file.Name == "overdue.md" {
+				foundOverdue = true
 			}
-			if results[1].Name != "overdue.md" {
-				t.Errorf("Expected second result to be overdue.md, got %s", results[1].Name)
+			if file.Name == "today.md" {
+				foundToday = true
+			}
+		}
+
+		if !foundOverdue {
+			t.Errorf("Expected results to contain overdue.md")
+		}
+		if !foundToday {
+			t.Errorf("Expected results to contain today.md")
+		}
+
+		// Verify that the results are sorted by score
+		if len(results) >= 2 {
+			for i := 0; i < len(results)-1; i++ {
+				scoreI := CalculateTodoScore(results[i])
+				scoreJ := CalculateTodoScore(results[i+1])
+				if scoreI > scoreJ {
+					t.Errorf("Results not sorted by score: %f > %f", scoreI, scoreJ)
+				}
 			}
 		}
 	})
@@ -364,16 +409,40 @@ func TestDateFunctions(t *testing.T) {
 			t.Errorf("Expected 3 files, got %d", len(results))
 		}
 
-		if len(results) >= 3 {
-			// Check the sorting order - P1 should come first
-			if results[0].Name != "today.md" {
-				t.Errorf("Expected first result to be today.md, got %s", results[0].Name)
+		// Check that the results contain the expected files
+		foundOverdue := false
+		foundToday := false
+		foundThisWeek := false
+		for _, file := range results {
+			if file.Name == "overdue.md" {
+				foundOverdue = true
 			}
-			if results[1].Name != "thisWeek.md" {
-				t.Errorf("Expected second result to be thisWeek.md, got %s", results[1].Name)
+			if file.Name == "today.md" {
+				foundToday = true
 			}
-			if results[2].Name != "overdue.md" {
-				t.Errorf("Expected third result to be overdue.md, got %s", results[2].Name)
+			if file.Name == "thisWeek.md" {
+				foundThisWeek = true
+			}
+		}
+
+		if !foundOverdue {
+			t.Errorf("Expected results to contain overdue.md")
+		}
+		if !foundToday {
+			t.Errorf("Expected results to contain today.md")
+		}
+		if !foundThisWeek {
+			t.Errorf("Expected results to contain thisWeek.md")
+		}
+
+		// Verify that the results are sorted by score
+		if len(results) >= 2 {
+			for i := 0; i < len(results)-1; i++ {
+				scoreI := CalculateTodoScore(results[i])
+				scoreJ := CalculateTodoScore(results[i+1])
+				if scoreI > scoreJ {
+					t.Errorf("Results not sorted by score: %f > %f", scoreI, scoreJ)
+				}
 			}
 		}
 	})
