@@ -12,11 +12,6 @@ import (
 	"github.com/eiannone/keyboard"
 )
 
-/*
- TODO write the logic to sort todos by weighted sort
- TODO write logic to get todos by priority
- TODO write logic to get todos by priority and date
-*/
 
 func main() {
 	closeChannel := make(chan bool)
