@@ -3,6 +3,7 @@ package scripts
 import (
 	"bufio"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 )
@@ -17,8 +18,39 @@ type GetFilesByTag func(tags []string) ([]File, error)
 type DateQuery func(dueDate string, dueDateParsed time.Time) bool
 type GetFilesByDateQuery func(dateQuery DateQuery) ([]File, error)
 
+// SortTodosByPriorityAndDueDate sorts a slice of File (todos) first by priority
+// (P1 > P2 > P3) and then by due date (earlier dates first).
+// It modifies the slice in place and also returns it for convenience.
+func SortTodosByPriorityAndDueDate(todos []File) []File {
+	sort.Slice(todos, func(i, j int) bool {
+		// First, compare by priority (lower priority number = higher priority)
+		if todos[i].Priority != todos[j].Priority {
+			return todos[i].Priority < todos[j].Priority
+		}
+
+		// If priorities are equal, compare by due date (earlier date comes first)
+		// Handle "no due date" case (very far future date) to appear last
+		if todos[i].DueAt.Year() > 2100 && todos[j].DueAt.Year() <= 2100 {
+			return false // i has no real due date, should come after j
+		}
+		if todos[j].DueAt.Year() > 2100 && todos[i].DueAt.Year() <= 2100 {
+			return true // j has no real due date, should come after i
+		}
+
+		// Normal date comparison
+		return todos[i].DueAt.Before(todos[j].DueAt)
+	})
+
+	return todos
+}
+
 func GetTodos(getFilesByIsDone GetFilesByIsDone) ([]File, error) {
-	return getFilesByIsDone(false)
+	todos, err := getFilesByIsDone(false)
+	if err != nil {
+		return nil, err
+	}
+
+	return SortTodosByPriorityAndDueDate(todos), nil
 }
 
 func QueryOpenTodos(queries []string, getFilesByIsDone GetFilesByIsDone) ([]File, error) {
@@ -45,7 +77,7 @@ func QueryOpenTodos(queries []string, getFilesByIsDone GetFilesByIsDone) ([]File
 		}
 	}
 
-	return matchingTodos, nil
+	return SortTodosByPriorityAndDueDate(matchingTodos), nil
 }
 
 func QueryAllFiles(queries []string, getFilesByQuery GetFilesByQuery) ([]File, error) {
@@ -60,9 +92,20 @@ func QueryAllFiles(queries []string, getFilesByQuery GetFilesByQuery) ([]File, e
 
 	if len(queries) > 1 {
 		matchingFiles := QueryFiles(queries[1:], files)
-
 		return matchingFiles, nil
 	} else {
+		// Sort by priority and due date if these are todos
+		hasTodos := false
+		for _, file := range files {
+			if !file.DueAt.IsZero() {
+				hasTodos = true
+				break
+			}
+		}
+
+		if hasTodos {
+			return SortTodosByPriorityAndDueDate(files), nil
+		}
 		return files, nil
 	}
 }
@@ -88,11 +131,43 @@ func QueryFiles(queries []string, files []File) []File {
 		}
 	}
 
+	// Sort by priority and due date if these are todos
+	// We can determine if files are todos by checking if at least one file has a defined DueAt time
+	hasTodos := false
+	for _, file := range matchingFiles {
+		if !file.DueAt.IsZero() {
+			hasTodos = true
+			break
+		}
+	}
+
+	if hasTodos {
+		return SortTodosByPriorityAndDueDate(matchingFiles)
+	}
+
 	return matchingFiles
 }
 
 func SearchNotesByTags(tags []string, getFilesByTag GetFilesByTag) ([]File, error) {
-	return getFilesByTag(tags)
+	files, err := getFilesByTag(tags)
+	if err != nil {
+		return nil, err
+	}
+
+	// Sort by priority and due date if these are todos
+	hasTodos := false
+	for _, file := range files {
+		if !file.DueAt.IsZero() {
+			hasTodos = true
+			break
+		}
+	}
+
+	if hasTodos {
+		return SortTodosByPriorityAndDueDate(files), nil
+	}
+
+	return files, nil
 }
 
 func GetUncompletedTasksInFiles(files []File) ([]string, error) {
@@ -128,37 +203,56 @@ func GetUncompletedTasksInFiles(files []File) ([]string, error) {
 
 func GetOverdueTodos(getFiles GetFilesByDateQuery) ([]File, error) {
 	today := time.Now().Format("2006-01-02")
-	return getFiles(func(dueDate string, _ time.Time) bool {
+	files, err := getFiles(func(dueDate string, _ time.Time) bool {
 		return dueDate <= today
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return SortTodosByPriorityAndDueDate(files), nil
 }
 
 func GetSoonTodos(getFiles GetFilesByDateQuery) ([]File, error) {
 	now := time.Now()
 	oneWeekFromNow := now.AddDate(0, 0, 7)
 
-	return getFiles(func(dueDate string, dueDateParsed time.Time) bool {
+	files, err := getFiles(func(dueDate string, dueDateParsed time.Time) bool {
 		// Only use time.Time comparison for consistency
 		// A todo is considered "soon" if it's due within a week
 		return dueDateParsed.Before(oneWeekFromNow) || dueDateParsed.Equal(oneWeekFromNow)
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return SortTodosByPriorityAndDueDate(files), nil
 }
 
 func GetTodosWithNoDueDate(getFiles GetFilesByDateQuery) ([]File, error) {
 	today := time.Now()
 	oneHundredYearsFromNow := today.AddDate(100, 0, 0)
 
-	return getFiles(func(dueDate string, dueDateParsed time.Time) bool {
+	files, err := getFiles(func(dueDate string, dueDateParsed time.Time) bool {
 		return dueDateParsed.After(oneHundredYearsFromNow)
 	})
+	if err != nil {
+		return nil, err
+	}
 
+	return SortTodosByPriorityAndDueDate(files), nil
 }
 
 func GetCompletedTodosByDateRange(startDate, endDate string, getFilesByDateRangeQuery GetFilesByDateQuery) ([]File, error) {
-	return getFilesByDateRangeQuery(func(dueDate string, dueDateParsed time.Time) bool {
+	files, err := getFilesByDateRangeQuery(func(dueDate string, dueDateParsed time.Time) bool {
 		// Check if the dueDate is within the range (inclusive)
 		return dueDate >= startDate && dueDate <= endDate
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return SortTodosByPriorityAndDueDate(files), nil
 }
 
 func fileMatchesQuery(todo File, query string) bool {

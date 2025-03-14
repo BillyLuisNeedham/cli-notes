@@ -2,14 +2,10 @@
 title: test
 date-created: 2024-10-28
 tags: [todo]
-date-due: 2025-02-09
+priority: 0
+date-due: 2025-03-14
 done: false
 ---
-
-
-
-
-
 
 # test
 

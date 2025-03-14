@@ -1,29 +1,5 @@
 package scripts
 
-/*
-Areas for improvement in get.go:
-
-1. Case sensitivity in containsTag: ✅ FIXED
-   - The containsTag function now handles case-insensitive matching consistently with fileMatchesQuery
-   - Both functions now convert strings to lowercase before comparing
-
-2. QueryAllFiles and QueryFiles inconsistency: ✅ FIXED
-   - Both QueryAllFiles and QueryFiles now use AND logic consistently
-   - All queries must match for a file to be included in the results
-
-3. Date handling in GetSoonTodos: ✅ FIXED
-   - Now only uses time.Time comparison for consistency and clarity
-   - Removed confusing mix of string and time.Time comparisons
-
-4. Magic number in GetTodosWithNoDueDate:
-   - Uses 100 years as a magic number to determine files with no due date
-   - A more explicit approach or a dedicated field would be clearer
-
-5. Dependency injection approach:
-   - While the code uses dependency injection for testability, the function signatures are complex
-   - Consider simplifying with interfaces or a more standard repository pattern
-*/
-
 import (
 	"bufio"
 	"strings"
@@ -59,11 +35,38 @@ func TestGetTodos(t *testing.T) {
 
 // TestQueryOpenTodos tests the QueryOpenTodos function
 func TestQueryOpenTodos(t *testing.T) {
-	// Setup mock data
+	// Setup current time for due dates
+	now := time.Now()
+
+	// Setup mock data with priorities and due dates
 	mockTodos := []File{
-		{Name: "todo1.md", Title: "Shopping", Content: "Get groceries", Tags: []string{"personal"}, Done: false},
-		{Name: "todo2.md", Title: "Work", Content: "Finish report", Tags: []string{"work"}, Done: false},
-		{Name: "todo3.md", Title: "Exercise", Content: "Go for a run", Tags: []string{"health"}, Done: false},
+		{
+			Name:     "todo1.md",
+			Title:    "Shopping",
+			Content:  "Get groceries",
+			Tags:     []string{"personal"},
+			Done:     false,
+			Priority: P2,
+			DueAt:    now.AddDate(0, 0, 3), // Due in 3 days
+		},
+		{
+			Name:     "todo2.md",
+			Title:    "Work",
+			Content:  "Finish report",
+			Tags:     []string{"work"},
+			Done:     false,
+			Priority: P1,                   // High priority
+			DueAt:    now.AddDate(0, 0, 1), // Due tomorrow
+		},
+		{
+			Name:     "todo3.md",
+			Title:    "Exercise",
+			Content:  "Go for a run",
+			Tags:     []string{"health"},
+			Done:     false,
+			Priority: P3,                   // Low priority
+			DueAt:    now.AddDate(0, 0, 2), // Due in 2 days
+		},
 	}
 
 	// Setup mock function
@@ -76,17 +79,18 @@ func TestQueryOpenTodos(t *testing.T) {
 
 	// Test cases
 	testCases := []struct {
-		name     string
-		queries  []string
-		expected int
+		name          string
+		queries       []string
+		expected      int
+		firstTodoName string // To verify sorting order
 	}{
-		{"No queries", []string{}, 0},
-		{"Single query match title", []string{"work"}, 1},
-		{"Single query match content", []string{"groceries"}, 1},
-		{"Single query match tag", []string{"health"}, 1},
-		{"No matches", []string{"invalid"}, 0},
-		{"Multiple queries - all should match", []string{"work", "report"}, 1},
-		{"Multiple queries - no matches", []string{"work", "invalid"}, 0},
+		{"No queries", []string{}, 0, ""},
+		{"Single query match title", []string{"work"}, 1, "todo2.md"},        // P1 todo
+		{"Single query match content", []string{"groceries"}, 1, "todo1.md"}, // P2 todo
+		{"Single query match tag", []string{"health"}, 1, "todo3.md"},        // P3 todo
+		{"No matches", []string{"invalid"}, 0, ""},
+		{"Multiple queries - all should match", []string{"work", "report"}, 1, "todo2.md"}, // P1 todo
+		{"Multiple queries - no matches", []string{"work", "invalid"}, 0, ""},
 	}
 
 	for _, tc := range testCases {
@@ -99,6 +103,14 @@ func TestQueryOpenTodos(t *testing.T) {
 
 			if len(result) != tc.expected {
 				t.Errorf("Expected %d todos, got %d", tc.expected, len(result))
+			}
+
+			// Check sorting order when we have results
+			if len(result) > 0 && tc.firstTodoName != "" {
+				if result[0].Name != tc.firstTodoName {
+					t.Errorf("Expected first todo to be %s (based on priority), got %s",
+						tc.firstTodoName, result[0].Name)
+				}
 			}
 		})
 	}
@@ -293,12 +305,12 @@ func TestDateFunctions(t *testing.T) {
 	// Current date for testing
 	now := time.Now()
 
-	// Setup test files
-	overdue := File{Name: "overdue.md", DueAt: now.AddDate(0, 0, -1)}
-	today := File{Name: "today.md", DueAt: now}
-	thisWeek := File{Name: "thisWeek.md", DueAt: now.AddDate(0, 0, 5)}
-	future := File{Name: "future.md", DueAt: now.AddDate(0, 1, 0)}
-	noDueDate := File{Name: "noDueDate.md", DueAt: now.AddDate(101, 0, 0)}
+	// Setup test files with different priorities
+	overdue := File{Name: "overdue.md", DueAt: now.AddDate(0, 0, -1), Priority: P2}
+	today := File{Name: "today.md", DueAt: now, Priority: P1}                        // High priority
+	thisWeek := File{Name: "thisWeek.md", DueAt: now.AddDate(0, 0, 5), Priority: P1} // High priority
+	future := File{Name: "future.md", DueAt: now.AddDate(0, 1, 0), Priority: P3}     // Low priority
+	noDueDate := File{Name: "noDueDate.md", DueAt: now.AddDate(101, 0, 0), Priority: P2}
 
 	// Mock function for GetOverdueTodos
 	getFilesForOverdue := func(dateQuery DateQuery) ([]File, error) {
@@ -323,9 +335,19 @@ func TestDateFunctions(t *testing.T) {
 			t.Errorf("Expected no error, got %v", err)
 		}
 
-		// Should include overdue and today
+		// Should include overdue and today, and today should come first due to P1 priority
 		if len(results) != 2 {
 			t.Errorf("Expected 2 files, got %d", len(results))
+		}
+
+		if len(results) >= 2 {
+			// Check the sorting order - today (P1) should come before overdue (P2)
+			if results[0].Name != "today.md" {
+				t.Errorf("Expected first result to be today.md due to P1 priority, got %s", results[0].Name)
+			}
+			if results[1].Name != "overdue.md" {
+				t.Errorf("Expected second result to be overdue.md, got %s", results[1].Name)
+			}
 		}
 	})
 
@@ -341,6 +363,19 @@ func TestDateFunctions(t *testing.T) {
 		if len(results) != 3 {
 			t.Errorf("Expected 3 files, got %d", len(results))
 		}
+
+		if len(results) >= 3 {
+			// Check the sorting order - P1 should come first
+			if results[0].Name != "today.md" {
+				t.Errorf("Expected first result to be today.md, got %s", results[0].Name)
+			}
+			if results[1].Name != "thisWeek.md" {
+				t.Errorf("Expected second result to be thisWeek.md, got %s", results[1].Name)
+			}
+			if results[2].Name != "overdue.md" {
+				t.Errorf("Expected third result to be overdue.md, got %s", results[2].Name)
+			}
+		}
 	})
 
 	// Test GetTodosWithNoDueDate
@@ -354,6 +389,10 @@ func TestDateFunctions(t *testing.T) {
 		// Should only include noDueDate
 		if len(results) != 1 {
 			t.Errorf("Expected 1 file, got %d", len(results))
+		}
+
+		if len(results) == 1 && results[0].Name != "noDueDate.md" {
+			t.Errorf("Expected result to be noDueDate.md, got %s", results[0].Name)
 		}
 	})
 }
