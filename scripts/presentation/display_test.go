@@ -26,34 +26,59 @@ func TestPrintAllFiles(t *testing.T) {
 			name: "single file",
 			files: []scripts.File{
 				{
-					Name:  "test.md",
-					DueAt: time.Date(2023, 5, 15, 0, 0, 0, 0, time.UTC),
+					Name:     "test.md",
+					DueAt:    time.Date(2023, 5, 15, 0, 0, 0, 0, time.UTC),
+					Priority: scripts.P2,
 				},
 			},
 			expectedLines: []string{
-				"test.md  due: 2023-05-15",
+				"test.md  due: 2023-05-15  P2",
 			},
 		},
 		{
-			name: "multiple files",
+			name: "multiple files same priority",
 			files: []scripts.File{
 				{
-					Name:  "task1.md",
-					DueAt: time.Date(2023, 5, 15, 0, 0, 0, 0, time.UTC),
+					Name:     "task1.md",
+					DueAt:    time.Date(2023, 5, 15, 0, 0, 0, 0, time.UTC),
+					Priority: scripts.P1,
 				},
 				{
-					Name:  "task2.md",
-					DueAt: time.Date(2023, 6, 20, 0, 0, 0, 0, time.UTC),
-				},
-				{
-					Name:  "meeting.md",
-					DueAt: time.Date(2023, 7, 30, 0, 0, 0, 0, time.UTC),
+					Name:     "task2.md",
+					DueAt:    time.Date(2023, 6, 20, 0, 0, 0, 0, time.UTC),
+					Priority: scripts.P1,
 				},
 			},
 			expectedLines: []string{
-				"task1.md  due: 2023-05-15",
-				"task2.md  due: 2023-06-20",
-				"meeting.md  due: 2023-07-30",
+				"task1.md  due: 2023-05-15  P1",
+				"task2.md  due: 2023-06-20  P1",
+			},
+		},
+		{
+			name: "multiple files different priorities",
+			files: []scripts.File{
+				{
+					Name:     "task1.md",
+					DueAt:    time.Date(2023, 5, 15, 0, 0, 0, 0, time.UTC),
+					Priority: scripts.P1,
+				},
+				{
+					Name:     "task2.md",
+					DueAt:    time.Date(2023, 6, 20, 0, 0, 0, 0, time.UTC),
+					Priority: scripts.P2,
+				},
+				{
+					Name:     "meeting.md",
+					DueAt:    time.Date(2023, 7, 30, 0, 0, 0, 0, time.UTC),
+					Priority: scripts.P3,
+				},
+			},
+			expectedLines: []string{
+				"task1.md  due: 2023-05-15  P1",
+				"",
+				"task2.md  due: 2023-06-20  P2",
+				"",
+				"meeting.md  due: 2023-07-30  P3",
 			},
 		},
 		{
@@ -66,6 +91,18 @@ func TestPrintAllFiles(t *testing.T) {
 			},
 			expectedLines: []string{
 				"no-due-date.md  due: 0001-01-01",
+			},
+		},
+		{
+			name: "files with no priority",
+			files: []scripts.File{
+				{
+					Name:  "no-priority.md",
+					DueAt: time.Date(2023, 5, 15, 0, 0, 0, 0, time.UTC),
+				},
+			},
+			expectedLines: []string{
+				"no-priority.md  due: 2023-05-15",
 			},
 		},
 	}
@@ -90,13 +127,14 @@ func TestPrintAllFiles(t *testing.T) {
 			output := buf.String()
 
 			// Verify output
-			outputLines := strings.Split(strings.TrimSpace(output), "\n")
+			outputLines := strings.Split(strings.TrimRight(output, "\n"), "\n")
 			if len(outputLines) == 1 && outputLines[0] == "" {
 				outputLines = []string{}
 			}
 
 			if len(outputLines) != len(tc.expectedLines) {
-				t.Errorf("Expected %d lines, got %d lines", len(tc.expectedLines), len(outputLines))
+				t.Errorf("Expected %d lines, got %d lines: %v", len(tc.expectedLines), len(outputLines), outputLines)
+				return
 			}
 
 			for i, expectedLine := range tc.expectedLines {
@@ -106,4 +144,4 @@ func TestPrintAllFiles(t *testing.T) {
 			}
 		})
 	}
-} 
+}
