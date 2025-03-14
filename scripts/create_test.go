@@ -372,6 +372,11 @@ func TestCreateFile(t *testing.T) {
 			if file.Content != expectedContent {
 				t.Errorf("Expected content %s, got %s", expectedContent, file.Content)
 			}
+
+			// Check priority is set to default P2
+			if file.Priority != P2 {
+				t.Errorf("Expected priority %v, got %v", P2, file.Priority)
+			}
 		})
 	}
 }

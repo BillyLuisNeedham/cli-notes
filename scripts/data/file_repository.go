@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -31,6 +32,10 @@ func WriteFile(newFile scripts.File) error {
 		{
 			Key:   "tags",
 			Value: fmt.Sprintf("%v", newFile.Tags),
+		},
+		{
+			Key:   "priority",
+			Value: fmt.Sprintf("%v", newFile.Priority),
 		},
 		{
 			Key:   "date-due",
@@ -366,6 +371,14 @@ func getFileIfQueryMatches(path, lineQuery string) (*scripts.File, error) {
 				}
 			case "done":
 				result.Done = value == "true"
+			case "priority":
+				priority, err := strconv.Atoi(value)
+				if err != nil || priority < 1 || priority > 3 {
+					// Default to P2 if parsing fails or value is out of range
+					result.Priority = scripts.P2
+				} else {
+					result.Priority = scripts.Priority(priority)
+				}
 			}
 		} else {
 			// Append to content
