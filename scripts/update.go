@@ -74,6 +74,12 @@ var readLatestFileContent = func(file File) (File, error) {
 	return updatedFile, nil
 }
 
+// timeNow is a variable that returns the current time
+// Can be overridden in tests
+var timeNow = func() time.Time {
+	return time.Now()
+}
+
 func DelayDueDate(delayDays int, file File, writeFile WriteFile) error {
 	// Read the latest content from the file to ensure we don't lose any updates
 	updatedFile, err := readLatestFileContent(file)
@@ -82,7 +88,7 @@ func DelayDueDate(delayDays int, file File, writeFile WriteFile) error {
 	}
 
 	// Update the due date on the file with the latest content
-	today := time.Now()
+	today := timeNow()
 	updatedFile.DueAt = today.AddDate(0, 0, delayDays)
 	return writeFile(updatedFile)
 }
@@ -94,6 +100,30 @@ func SetDueDateToToday(file File, writeFile WriteFile) error {
 		return err
 	}
 
-	updatedFile.DueAt = time.Now()
+	updatedFile.DueAt = timeNow()
+	return writeFile(updatedFile)
+}
+
+// SetDueDateToNextDay sets the due date of a file to the next occurrence of the specified day of the week
+func SetDueDateToNextDay(dayOfWeek time.Weekday, file File, writeFile WriteFile) error {
+	// Read the latest content from the file to ensure we don't lose any updates
+	updatedFile, err := readLatestFileContent(file)
+	if err != nil {
+		return err
+	}
+
+	// Get the current date and time
+	now := timeNow()
+
+	// Calculate days until the next occurrence of the specified day
+	daysUntil := int(dayOfWeek - now.Weekday())
+	if daysUntil <= 0 {
+		// If the day has already passed this week or is today, get next week's occurrence
+		daysUntil += 7
+	}
+
+	// Set the due date to the next occurrence of the specified day at the same time
+	updatedFile.DueAt = now.AddDate(0, 0, daysUntil)
+
 	return writeFile(updatedFile)
 }

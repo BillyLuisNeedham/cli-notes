@@ -44,6 +44,9 @@ To run the program using the `go run` command, follow these steps:
 - `gtnd` - Get all todos with no due date
 - `gts` - Get todos due soon (within the next week)
 - `ct <title>` - Create a new todo with the specified title
+- `p1` - Get high priority (P1) todos
+- `p2` - Get medium priority (P2) todos
+- `p3` - Get low priority (P3) todos
 
 ### Meeting Notes
 
@@ -64,6 +67,19 @@ To run the program using the `go run` command, follow these steps:
 - `gqa <query>` - Search within the previously queried results
 - `gat` - Get all uncompleted tasks from previously queried files
 - `o <filename>` - Open a specific note in the editor
+- `gd <start-date> <end-date>` - Get completed todos between the specified dates (format: YYYY-MM-DD) and create a summary note
+
+### Due Date Management
+
+- `d <days>` - Delay the due date of the selected todo by the specified number of days
+- `t` - Set the due date of the selected todo to today
+- `m` - Set the due date of the selected todo to next Monday
+- `tu` - Set the due date of the selected todo to next Tuesday
+- `w` - Set the due date of the selected todo to next Wednesday
+- `th` - Set the due date of the selected todo to next Thursday
+- `f` - Set the due date of the selected todo to next Friday
+- `sa` - Set the due date of the selected todo to next Saturday
+- `su` - Set the due date of the selected todo to next Sunday
 
 ### Navigation
 
