@@ -12,7 +12,6 @@ import (
 	"github.com/eiannone/keyboard"
 )
 
-
 func main() {
 	closeChannel := make(chan bool)
 	var searchedFilesStore = data.NewSearchedFilesStore()
@@ -137,6 +136,30 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 			}
 			onFilesFetched(files, fileStore)
 		}
+
+	case "p1":
+		files, err := scripts.GetTodosByPriority(scripts.P1, data.QueryFilesByDone)
+		if err != nil {
+			fmt.Printf("Error getting P1 todos: %v\n", err)
+			return
+		}
+		onFilesFetched(files, fileStore)
+
+	case "p2":
+		files, err := scripts.GetTodosByPriority(scripts.P2, data.QueryFilesByDone)
+		if err != nil {
+			fmt.Printf("Error getting P2 todos: %v\n", err)
+			return
+		}
+		onFilesFetched(files, fileStore)
+
+	case "p3":
+		files, err := scripts.GetTodosByPriority(scripts.P3, data.QueryFilesByDone)
+		if err != nil {
+			fmt.Printf("Error getting P3 todos: %v\n", err)
+			return
+		}
+		onFilesFetched(files, fileStore)
 
 	case "gta":
 		if len(command.Queries) == 0 {

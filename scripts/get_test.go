@@ -777,3 +777,114 @@ done: false
 			newlinesCountAfterSecondDelay)
 	}
 }
+
+// TestGetTodosByPriority tests the GetTodosByPriority function
+func TestGetTodosByPriority(t *testing.T) {
+	// Setup current time for due dates
+	now := time.Now()
+	yesterday := now.AddDate(0, 0, -1)
+	tomorrow := now.AddDate(0, 0, 1)
+	dayAfterTomorrow := now.AddDate(0, 0, 2)
+	noDueDate := time.Date(9999, 12, 31, 0, 0, 0, 0, time.UTC)
+
+	// Setup mock data with priorities and due dates
+	mockTodos := []File{
+		{
+			Name:     "p1-overdue.md",
+			Priority: P1,
+			DueAt:    yesterday,
+			Done:     false,
+		},
+		{
+			Name:     "p1-tomorrow.md",
+			Priority: P1,
+			DueAt:    tomorrow,
+			Done:     false,
+		},
+		{
+			Name:     "p1-no-date.md",
+			Priority: P1,
+			DueAt:    noDueDate,
+			Done:     false,
+		},
+		{
+			Name:     "p2-overdue.md",
+			Priority: P2,
+			DueAt:    yesterday,
+			Done:     false,
+		},
+		{
+			Name:     "p2-tomorrow.md",
+			Priority: P2,
+			DueAt:    tomorrow,
+			Done:     false,
+		},
+		{
+			Name:     "p3-day-after.md",
+			Priority: P3,
+			DueAt:    dayAfterTomorrow,
+			Done:     false,
+		},
+	}
+
+	// Mock function that returns all todos
+	getFilesByIsDoneMock := func(isDone bool) ([]File, error) {
+		if !isDone {
+			return mockTodos, nil
+		}
+		return []File{}, nil
+	}
+
+	// Test cases
+	testCases := []struct {
+		name          string
+		priority      Priority
+		expectedCount int
+		expectedOrder []string
+	}{
+		{
+			name:          "P1 todos",
+			priority:      P1,
+			expectedCount: 3,
+			expectedOrder: []string{"p1-overdue.md", "p1-tomorrow.md", "p1-no-date.md"},
+		},
+		{
+			name:          "P2 todos",
+			priority:      P2,
+			expectedCount: 2,
+			expectedOrder: []string{"p2-overdue.md", "p2-tomorrow.md"},
+		},
+		{
+			name:          "P3 todos",
+			priority:      P3,
+			expectedCount: 1,
+			expectedOrder: []string{"p3-day-after.md"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := GetTodosByPriority(tc.priority, getFilesByIsDoneMock)
+
+			// Check for errors
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			// Check count
+			if len(result) != tc.expectedCount {
+				t.Errorf("Expected %d todos, got %d", tc.expectedCount, len(result))
+			}
+
+			// Check order if we have results
+			if len(result) > 0 {
+				for i, expectedName := range tc.expectedOrder {
+					if i < len(result) && result[i].Name != expectedName {
+						t.Errorf("Wrong order at position %d: expected %s, got %s",
+							i, expectedName, result[i].Name)
+					}
+				}
+			}
+		})
+	}
+}
