@@ -304,7 +304,91 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 			return
 		}
 
-		fmt.Printf("%v due date set to today\n", command.Name)
+		fmt.Printf("%v due date set to today\n", command.SelectedFile.Name)
+
+	case "m":
+		if command.SelectedFile.Name == "" {
+			fmt.Println("No file selected")
+			return
+		}
+		err := scripts.SetDueDateToNextDay(time.Monday, command.SelectedFile, data.WriteFile)
+		if err != nil {
+			fmt.Printf("Error setting due date to next Monday: %v\n", err)
+			return
+		}
+		fmt.Printf("%v due date set to next Monday\n", command.SelectedFile.Name)
+
+	case "tu":
+		if command.SelectedFile.Name == "" {
+			fmt.Println("No file selected")
+			return
+		}
+		err := scripts.SetDueDateToNextDay(time.Tuesday, command.SelectedFile, data.WriteFile)
+		if err != nil {
+			fmt.Printf("Error setting due date to next Tuesday: %v\n", err)
+			return
+		}
+		fmt.Printf("%v due date set to next Tuesday\n", command.SelectedFile.Name)
+
+	case "w":
+		if command.SelectedFile.Name == "" {
+			fmt.Println("No file selected")
+			return
+		}
+		err := scripts.SetDueDateToNextDay(time.Wednesday, command.SelectedFile, data.WriteFile)
+		if err != nil {
+			fmt.Printf("Error setting due date to next Wednesday: %v\n", err)
+			return
+		}
+		fmt.Printf("%v due date set to next Wednesday\n", command.SelectedFile.Name)
+
+	case "th":
+		if command.SelectedFile.Name == "" {
+			fmt.Println("No file selected")
+			return
+		}
+		err := scripts.SetDueDateToNextDay(time.Thursday, command.SelectedFile, data.WriteFile)
+		if err != nil {
+			fmt.Printf("Error setting due date to next Thursday: %v\n", err)
+			return
+		}
+		fmt.Printf("%v due date set to next Thursday\n", command.SelectedFile.Name)
+
+	case "f":
+		if command.SelectedFile.Name == "" {
+			fmt.Println("No file selected")
+			return
+		}
+		err := scripts.SetDueDateToNextDay(time.Friday, command.SelectedFile, data.WriteFile)
+		if err != nil {
+			fmt.Printf("Error setting due date to next Friday: %v\n", err)
+			return
+		}
+		fmt.Printf("%v due date set to next Friday\n", command.SelectedFile.Name)
+
+	case "sa":
+		if command.SelectedFile.Name == "" {
+			fmt.Println("No file selected")
+			return
+		}
+		err := scripts.SetDueDateToNextDay(time.Saturday, command.SelectedFile, data.WriteFile)
+		if err != nil {
+			fmt.Printf("Error setting due date to next Saturday: %v\n", err)
+			return
+		}
+		fmt.Printf("%v due date set to next Saturday\n", command.SelectedFile.Name)
+
+	case "su":
+		if command.SelectedFile.Name == "" {
+			fmt.Println("No file selected")
+			return
+		}
+		err := scripts.SetDueDateToNextDay(time.Sunday, command.SelectedFile, data.WriteFile)
+		if err != nil {
+			fmt.Printf("Error setting due date to next Sunday: %v\n", err)
+			return
+		}
+		fmt.Printf("%v due date set to next Sunday\n", command.SelectedFile.Name)
 
 	case "gd":
 		if len(command.Queries) != 2 {

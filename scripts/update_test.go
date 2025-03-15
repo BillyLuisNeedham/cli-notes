@@ -120,3 +120,86 @@ done: false
 		t.Error("Bug still exists: The update to the note was lost when delaying it")
 	}
 }
+
+func TestSetDueDateToNextDay(t *testing.T) {
+	// Setup a mock file
+	mockFile := File{
+		Name:      "test-next-day.md",
+		Title:     "Test Next Day",
+		Tags:      []string{"test"},
+		CreatedAt: time.Date(2023, 3, 5, 0, 0, 0, 0, time.UTC),
+		DueAt:     time.Date(2023, 3, 5, 0, 0, 0, 0, time.UTC),
+		Done:      false,
+		Content:   "# Test Next Day\n\nThis is test content.",
+	}
+
+	// Mock the readLatestFileContent function
+	originalReadLatestFileContent := readLatestFileContent
+	defer func() { readLatestFileContent = originalReadLatestFileContent }()
+
+	readLatestFileContent = func(file File) (File, error) {
+		return file, nil
+	}
+
+	// Test cases for different days of the week
+	tests := []struct {
+		name      string
+		mockNow   time.Time
+		dayOfWeek time.Weekday
+		expected  time.Time
+	}{
+		{
+			name:      "Monday from Sunday",
+			mockNow:   time.Date(2023, 7, 9, 12, 0, 0, 0, time.UTC), // Sunday
+			dayOfWeek: time.Monday,
+			expected:  time.Date(2023, 7, 10, 12, 0, 0, 0, time.UTC), // Next day (Monday)
+		},
+		{
+			name:      "Monday from Monday",
+			mockNow:   time.Date(2023, 7, 10, 12, 0, 0, 0, time.UTC), // Monday
+			dayOfWeek: time.Monday,
+			expected:  time.Date(2023, 7, 17, 12, 0, 0, 0, time.UTC), // Next week's Monday
+		},
+		{
+			name:      "Friday from Wednesday",
+			mockNow:   time.Date(2023, 7, 12, 12, 0, 0, 0, time.UTC), // Wednesday
+			dayOfWeek: time.Friday,
+			expected:  time.Date(2023, 7, 14, 12, 0, 0, 0, time.UTC), // Coming Friday
+		},
+		{
+			name:      "Wednesday from Thursday",
+			mockNow:   time.Date(2023, 7, 13, 12, 0, 0, 0, time.UTC), // Thursday
+			dayOfWeek: time.Wednesday,
+			expected:  time.Date(2023, 7, 19, 12, 0, 0, 0, time.UTC), // Next week's Wednesday
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save original timeNow function and restore after test
+			originalTimeNow := timeNow
+			defer func() { timeNow = originalTimeNow }()
+
+			// Override timeNow for this test
+			timeNow = func() time.Time {
+				return tt.mockNow
+			}
+
+			var updatedFile File
+			mockWriteFile := func(file File) error {
+				updatedFile = file
+				return nil
+			}
+
+			err := SetDueDateToNextDay(tt.dayOfWeek, mockFile, mockWriteFile)
+			if err != nil {
+				t.Fatalf("SetDueDateToNextDay returned an error: %v", err)
+			}
+
+			// Check if the due date was set correctly
+			if !updatedFile.DueAt.Equal(tt.expected) {
+				t.Errorf("Expected due date %v, got %v", tt.expected, updatedFile.DueAt)
+			}
+		})
+	}
+}

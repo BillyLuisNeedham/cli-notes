@@ -68,6 +68,139 @@ func TestHandleCommand(t *testing.T) {
 				// No validation needed - just checking it doesn't panic
 			},
 		},
+		{
+			name: "m command without file",
+			command: presentation.CompletedCommand{
+				Name: "m",
+			},
+			validate: func(t *testing.T) {
+				// No validation needed - just checking it doesn't panic
+			},
+		},
+		{
+			name: "m command with file",
+			command: presentation.CompletedCommand{
+				Name:         "m",
+				SelectedFile: scripts.File{Name: "test.md"},
+			},
+			validate: func(t *testing.T) {
+				// No validation needed - just checking it doesn't panic
+			},
+		},
+		{
+			name: "tu command without file",
+			command: presentation.CompletedCommand{
+				Name: "tu",
+			},
+			validate: func(t *testing.T) {
+				// No validation needed - just checking it doesn't panic
+			},
+		},
+		{
+			name: "tu command with file",
+			command: presentation.CompletedCommand{
+				Name:         "tu",
+				SelectedFile: scripts.File{Name: "test.md"},
+			},
+			validate: func(t *testing.T) {
+				// No validation needed - just checking it doesn't panic
+			},
+		},
+		{
+			name: "w command without file",
+			command: presentation.CompletedCommand{
+				Name: "w",
+			},
+			validate: func(t *testing.T) {
+				// No validation needed - just checking it doesn't panic
+			},
+		},
+		{
+			name: "w command with file",
+			command: presentation.CompletedCommand{
+				Name:         "w",
+				SelectedFile: scripts.File{Name: "test.md"},
+			},
+			validate: func(t *testing.T) {
+				// No validation needed - just checking it doesn't panic
+			},
+		},
+		{
+			name: "th command without file",
+			command: presentation.CompletedCommand{
+				Name: "th",
+			},
+			validate: func(t *testing.T) {
+				// No validation needed - just checking it doesn't panic
+			},
+		},
+		{
+			name: "th command with file",
+			command: presentation.CompletedCommand{
+				Name:         "th",
+				SelectedFile: scripts.File{Name: "test.md"},
+			},
+			validate: func(t *testing.T) {
+				// No validation needed - just checking it doesn't panic
+			},
+		},
+		{
+			name: "f command without file",
+			command: presentation.CompletedCommand{
+				Name: "f",
+			},
+			validate: func(t *testing.T) {
+				// No validation needed - just checking it doesn't panic
+			},
+		},
+		{
+			name: "f command with file",
+			command: presentation.CompletedCommand{
+				Name:         "f",
+				SelectedFile: scripts.File{Name: "test.md"},
+			},
+			validate: func(t *testing.T) {
+				// No validation needed - just checking it doesn't panic
+			},
+		},
+		{
+			name: "sa command without file",
+			command: presentation.CompletedCommand{
+				Name: "sa",
+			},
+			validate: func(t *testing.T) {
+				// No validation needed - just checking it doesn't panic
+			},
+		},
+		{
+			name: "sa command with file",
+			command: presentation.CompletedCommand{
+				Name:         "sa",
+				SelectedFile: scripts.File{Name: "test.md"},
+			},
+			validate: func(t *testing.T) {
+				// No validation needed - just checking it doesn't panic
+			},
+		},
+		{
+			name: "su command without file",
+			command: presentation.CompletedCommand{
+				Name: "su",
+			},
+			validate: func(t *testing.T) {
+				// No validation needed - just checking it doesn't panic
+			},
+		},
+		{
+			name: "su command with file",
+			command: presentation.CompletedCommand{
+				Name:         "su",
+				SelectedFile: scripts.File{Name: "test.md"},
+			},
+			validate: func(t *testing.T) {
+				// No validation needed - just checking it doesn't panic
+			},
+		},
 	}
 
 	for _, tc := range testCases {
