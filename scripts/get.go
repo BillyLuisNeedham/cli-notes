@@ -307,3 +307,48 @@ func containsTag(tags []string, query string) bool {
 	}
 	return false
 }
+
+// GetTodosByPriority returns todos with the specified priority level
+// and sorts them by due date (overdue first, then by ascending due date, with no due date last)
+func GetTodosByPriority(priority Priority, getFilesByIsDone GetFilesByIsDone) ([]File, error) {
+	// Get all open todos
+	todos, err := getFilesByIsDone(false)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter by priority
+	filteredTodos := make([]File, 0)
+	for _, todo := range todos {
+		if todo.Priority == priority {
+			filteredTodos = append(filteredTodos, todo)
+		}
+	}
+
+	// Sort todos by due date (overdue first, then ascending)
+	now := time.Now()
+	sort.Slice(filteredTodos, func(i, j int) bool {
+		// Check if todo i is overdue but j is not
+		iOverdue := !filteredTodos[i].DueAt.IsZero() && filteredTodos[i].DueAt.Before(now)
+		jOverdue := !filteredTodos[j].DueAt.IsZero() && filteredTodos[j].DueAt.Before(now)
+
+		// Both overdue or both not overdue, sort by due date
+		if iOverdue == jOverdue {
+			// If i has no due date, it comes after j
+			if filteredTodos[i].DueAt.Year() > 2100 {
+				return false
+			}
+			// If j has no due date, i comes before j
+			if filteredTodos[j].DueAt.Year() > 2100 {
+				return true
+			}
+			// Both have due dates, sort by date
+			return filteredTodos[i].DueAt.Before(filteredTodos[j].DueAt)
+		}
+
+		// Overdue comes first
+		return iOverdue && !jOverdue
+	})
+
+	return filteredTodos, nil
+}
