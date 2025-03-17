@@ -203,3 +203,91 @@ func TestSetDueDateToNextDay(t *testing.T) {
 		})
 	}
 }
+
+func TestDelayDueDatePreservesPriority(t *testing.T) {
+	// Save original functions and restore after test
+	originalReadLatestFileContent := readLatestFileContent
+	originalTimeNow := timeNow
+	defer func() { 
+		readLatestFileContent = originalReadLatestFileContent 
+		timeNow = originalTimeNow
+	}()
+
+	// Test with a specific date
+	mockTime := time.Date(2023, 5, 15, 10, 0, 0, 0, time.UTC)
+	timeNow = func() time.Time {
+		return mockTime
+	}
+
+	// Setup a file with priority 1
+	originalFile := File{
+		Name:      "test-priority.md",
+		Title:     "Test Priority Preservation",
+		Tags:      []string{"test", "priority"},
+		CreatedAt: time.Date(2023, 5, 10, 0, 0, 0, 0, time.UTC),
+		DueAt:     time.Date(2023, 5, 15, 0, 0, 0, 0, time.UTC),
+		Done:      false,
+		Content:   "# Test Priority\n\nThis tests that priority is preserved.",
+		Priority:  P1, // Set to highest priority
+	}
+
+	// Mock the readLatestFileContent function to return a file without priority
+	readLatestFileContent = func(file File) (File, error) {
+		// Return file without setting priority, to simulate the bug
+		return File{
+			Name:      file.Name,
+			Title:     file.Title,
+			Tags:      file.Tags,
+			CreatedAt: file.CreatedAt,
+			DueAt:     file.DueAt,
+			Done:      file.Done,
+			Content:   file.Content,
+			// Priority intentionally not set to mimic bug
+		}, nil
+	}
+
+	var writtenFile File
+	mockWriteFile := func(file File) error {
+		writtenFile = file
+		return nil
+	}
+
+	// Test delaying by 1 day
+	err := DelayDueDate(1, originalFile, mockWriteFile)
+	if err != nil {
+		t.Fatalf("DelayDueDate returned an error: %v", err)
+	}
+
+	// Verify due date was updated correctly
+	expectedDueDate := mockTime.AddDate(0, 0, 1)
+	if !writtenFile.DueAt.Equal(expectedDueDate) {
+		t.Errorf("Expected due date %v, got %v", expectedDueDate, writtenFile.DueAt)
+	}
+
+	// Verify priority was preserved
+	if writtenFile.Priority != P1 {
+		t.Errorf("Expected priority P1, got %v", writtenFile.Priority)
+	}
+	
+	// Test with SetDueDateToToday
+	err = SetDueDateToToday(originalFile, mockWriteFile)
+	if err != nil {
+		t.Fatalf("SetDueDateToToday returned an error: %v", err)
+	}
+	
+	// Verify priority was preserved
+	if writtenFile.Priority != P1 {
+		t.Errorf("Expected priority P1, got %v", writtenFile.Priority)
+	}
+	
+	// Test with SetDueDateToNextDay
+	err = SetDueDateToNextDay(time.Monday, originalFile, mockWriteFile)
+	if err != nil {
+		t.Fatalf("SetDueDateToNextDay returned an error: %v", err)
+	}
+	
+	// Verify priority was preserved
+	if writtenFile.Priority != P1 {
+		t.Errorf("Expected priority P1, got %v", writtenFile.Priority)
+	}
+}

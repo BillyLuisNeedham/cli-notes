@@ -90,6 +90,12 @@ func DelayDueDate(delayDays int, file File, writeFile WriteFile) error {
 	// Update the due date on the file with the latest content
 	today := timeNow()
 	updatedFile.DueAt = today.AddDate(0, 0, delayDays)
+	
+	// Ensure priority is preserved from the original file if it exists
+	if file.Priority > 0 {
+		updatedFile.Priority = file.Priority
+	}
+	
 	return writeFile(updatedFile)
 }
 
@@ -101,6 +107,12 @@ func SetDueDateToToday(file File, writeFile WriteFile) error {
 	}
 
 	updatedFile.DueAt = timeNow()
+	
+	// Ensure priority is preserved from the original file if it exists
+	if file.Priority > 0 {
+		updatedFile.Priority = file.Priority
+	}
+	
 	return writeFile(updatedFile)
 }
 
@@ -125,5 +137,10 @@ func SetDueDateToNextDay(dayOfWeek time.Weekday, file File, writeFile WriteFile)
 	// Set the due date to the next occurrence of the specified day at the same time
 	updatedFile.DueAt = now.AddDate(0, 0, daysUntil)
 
+	// Ensure priority is preserved from the original file if it exists
+	if file.Priority > 0 {
+		updatedFile.Priority = file.Priority
+	}
+	
 	return writeFile(updatedFile)
 }
