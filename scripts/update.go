@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -33,12 +34,15 @@ var readLatestFileContent = func(file File) (File, error) {
 	}
 	defer f.Close()
 
-	// Read the file and extract content without frontmatter
+	// Read the file and extract content and metadata
 	scanner := bufio.NewScanner(f)
 	inFrontmatter := false
 	firstFrontmatterDelimiter := false
 	var contentBuilder strings.Builder
-
+	
+	// Create a new file struct with original properties but with updated content and metadata
+	updatedFile := file
+	
 	for scanner.Scan() {
 		line := scanner.Text()
 
@@ -56,8 +60,23 @@ var readLatestFileContent = func(file File) (File, error) {
 			}
 		}
 
-		// Skip frontmatter lines but include everything else
-		if !inFrontmatter {
+		// Extract metadata from frontmatter
+		if inFrontmatter {
+			parts := strings.SplitN(line, ":", 2)
+			if len(parts) == 2 {
+				key := strings.TrimSpace(parts[0])
+				value := strings.TrimSpace(parts[1])
+				
+				switch key {
+				case "priority":
+					priority, err := strconv.Atoi(value)
+					if err == nil && priority >= 1 && priority <= 3 {
+						updatedFile.Priority = Priority(priority)
+					}
+				}
+			}
+		} else {
+			// Skip frontmatter lines but include everything else for content
 			contentBuilder.WriteString(line)
 			contentBuilder.WriteString("\n")
 		}
@@ -67,10 +86,7 @@ var readLatestFileContent = func(file File) (File, error) {
 		return file, err
 	}
 
-	// Create a new file struct with the updated content
-	updatedFile := file
 	updatedFile.Content = contentBuilder.String()
-
 	return updatedFile, nil
 }
 

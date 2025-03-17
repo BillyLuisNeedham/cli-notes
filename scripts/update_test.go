@@ -291,3 +291,96 @@ func TestDelayDueDatePreservesPriority(t *testing.T) {
 		t.Errorf("Expected priority P1, got %v", writtenFile.Priority)
 	}
 }
+
+func TestReadLatestFileContentReadsPriority(t *testing.T) {
+	// Setup: Create a temporary directory for test files
+	tempDir, err := os.MkdirTemp("", "notes-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Initial content with priority: 1
+	fileContent := `---
+title: Test Priority Reading
+date-created: 2023-03-05
+tags: [test, priority]
+priority: 1
+date-due: 2023-03-05
+done: false
+---
+
+# Test Priority Reading
+
+This file has priority 1 in its metadata.`
+
+	// Create file on disk
+	fileName := "test-priority-reading.md"
+	filePath := filepath.Join(tempDir, fileName)
+	err = os.WriteFile(filePath, []byte(fileContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write file: %v", err)
+	}
+
+	// Save original function and replace it with our test implementation
+	originalReadLatestFileContent := readLatestFileContent
+	defer func() { readLatestFileContent = originalReadLatestFileContent }()
+
+	// Create a test notes directory
+	notesDir := filepath.Join(tempDir, "notes")
+	err = os.Mkdir(notesDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create notes directory: %v", err)
+	}
+
+	// Copy test file to notes directory
+	noteFilePath := filepath.Join(notesDir, fileName)
+	noteFileContent, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("Failed to read test file: %v", err)
+	}
+	err = os.WriteFile(noteFilePath, noteFileContent, 0644)
+	if err != nil {
+		t.Fatalf("Failed to write to notes directory: %v", err)
+	}
+
+	// Create a custom readLatestFileContent that uses our temp directory
+	readLatestFileContent = func(file File) (File, error) {
+		// Override current directory to our temp directory
+		oldWd, err := os.Getwd()
+		if err != nil {
+			return file, err
+		}
+		defer os.Chdir(oldWd) // Restore original working directory
+		
+		err = os.Chdir(tempDir)
+		if err != nil {
+			return file, err
+		}
+		
+		// Now call the original implementation we just modified
+		return originalReadLatestFileContent(file)
+	}
+
+	// Create a test file object without priority
+	testFile := File{
+		Name:      fileName,
+		Title:     "Test Priority Reading",
+		Tags:      []string{"test", "priority"},
+		CreatedAt: time.Date(2023, 3, 5, 0, 0, 0, 0, time.UTC),
+		DueAt:     time.Date(2023, 3, 5, 0, 0, 0, 0, time.UTC),
+		Done:      false,
+		// Priority intentionally not set
+	}
+
+	// Call readLatestFileContent
+	updatedFile, err := readLatestFileContent(testFile)
+	if err != nil {
+		t.Fatalf("readLatestFileContent returned an error: %v", err)
+	}
+
+	// Verify priority was correctly read from file
+	if updatedFile.Priority != P1 {
+		t.Errorf("Expected priority P1, got %v", updatedFile.Priority)
+	}
+}
