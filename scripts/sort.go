@@ -41,16 +41,71 @@ func CalculateTodoScore(todo File) float64 {
 	return score
 }
 
-// SortTodosByPriorityAndDueDate sorts a slice of File (todos) using a weighted scoring system
-// that considers days until due date (50%), days since creation (20%), and manual priority (30%).
+// SortTodosByPriorityAndDueDate sorts a slice of File (todos) according to the following rules:
+//  1. Priority order: P1 > P2 > P3 (P1 tasks always come first)
+//  2. Within each priority group:
+//     a. Overdue tasks come first
+//     b. Then tasks sorted by due date (soonest first)
+//     c. Tasks with no due date come last within their priority group
+//     d. When tasks have the same due date, sort by creation date (oldest first)
+//
 // It modifies the slice in place and also returns it for convenience.
 func SortTodosByPriorityAndDueDate(todos []File) []File {
-	sort.Slice(todos, func(i, j int) bool {
-		scoreI := CalculateTodoScore(todos[i])
-		scoreJ := CalculateTodoScore(todos[j])
+	now := time.Now()
 
-		// Lower scores come first (higher priority)
-		return scoreI < scoreJ
+	// Custom sorting function that follows the priority rules
+	sort.Slice(todos, func(i, j int) bool {
+		// First, sort by priority (P1 < P2 < P3)
+		if todos[i].Priority != todos[j].Priority {
+			return todos[i].Priority < todos[j].Priority
+		}
+
+		// Within the same priority, check for no due date
+		iNoDueDate := todos[i].DueAt.Year() > 2100
+		jNoDueDate := todos[j].DueAt.Year() > 2100
+
+		// If one has no due date and the other does, the task with a due date comes first
+		if iNoDueDate != jNoDueDate {
+			return !iNoDueDate // Return true if i has a due date and j doesn't
+		}
+
+		// Both have due dates or both don't have due dates
+		// Check overdue status
+		iOverdue := todos[i].DueAt.Before(now)
+		jOverdue := todos[j].DueAt.Before(now)
+
+		// If one is overdue and the other isn't, the overdue task comes first
+		if iOverdue != jOverdue {
+			return iOverdue
+		}
+
+		// If both have the same overdue status and both have due dates, sort by due date
+		if !iNoDueDate && !jNoDueDate && !todos[i].DueAt.Equal(todos[j].DueAt) {
+			// Sort by due date (earlier comes first)
+			return todos[i].DueAt.Before(todos[j].DueAt)
+		}
+
+		// If due dates are equal or both have no due date, sort by creation date
+		// Older creation dates (tasks created longer ago) come first
+		iHasCreationDate := !todos[i].CreatedAt.IsZero()
+		jHasCreationDate := !todos[j].CreatedAt.IsZero()
+
+		// If both have creation dates, older comes first
+		if iHasCreationDate && jHasCreationDate {
+			// Note: Tasks created earlier (older) should come before those created later
+			return todos[i].CreatedAt.Before(todos[j].CreatedAt)
+		}
+
+		// If only one has a creation date, it comes first
+		if iHasCreationDate {
+			return true
+		}
+		if jHasCreationDate {
+			return false
+		}
+
+		// If neither has a creation date, keep original order
+		return i < j
 	})
 
 	return todos
