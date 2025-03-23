@@ -17,7 +17,6 @@ type GetFilesByTag func(tags []string) ([]File, error)
 type DateQuery func(dueDate string, dueDateParsed time.Time) bool
 type GetFilesByDateQuery func(dateQuery DateQuery) ([]File, error)
 
-
 func GetTodos(getFilesByIsDone GetFilesByIsDone) ([]File, error) {
 	todos, err := getFilesByIsDone(false)
 	if err != nil {
