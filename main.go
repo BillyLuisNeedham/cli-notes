@@ -12,6 +12,26 @@ import (
 	"github.com/eiannone/keyboard"
 )
 
+var keyboardOpen bool
+
+func closeKeyboard() {
+	if keyboardOpen {
+		keyboard.Close()
+		keyboardOpen = false
+	}
+}
+
+func reopenKeyboard() error {
+	if !keyboardOpen {
+		err := keyboard.Open()
+		if err != nil {
+			return err
+		}
+		keyboardOpen = true
+	}
+	return nil
+}
+
 func main() {
 	closeChannel := make(chan bool)
 	var searchedFilesStore = data.NewSearchedFilesStore()
@@ -30,11 +50,11 @@ func main() {
 }
 
 func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
-	err := keyboard.Open()
+	err := reopenKeyboard()
 	if err != nil {
 		panic(err)
 	}
-	defer keyboard.Close()
+	defer closeKeyboard()
 
 	command := presentation.WIPCommand{}
 
@@ -454,7 +474,11 @@ func searchRecentFilesPrintIfNotFound(search func() *scripts.File) scripts.File 
 
 func openNoteInEditor(fileName string) {
 	filePath := "notes/" + fileName
-	err := presentation.OpenNoteInEditor(filePath)
+	err := presentation.OpenNoteInEditor(filePath, closeKeyboard, func() {
+		if err := reopenKeyboard(); err != nil {
+			fmt.Printf("Error reopening keyboard: %v\n", err)
+		}
+	})
 	if err != nil {
 		fmt.Printf("Error opening note in editor: %v", err)
 	}
