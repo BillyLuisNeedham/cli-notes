@@ -410,6 +410,35 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 		}
 		fmt.Printf("%v due date set to next Sunday\n", command.SelectedFile.Name)
 
+	case "r":
+		if command.SelectedFile.Name == "" {
+			fmt.Println("No file selected")
+			return
+		}
+		if len(command.Queries) < 1 || command.Queries[0] == "" {
+			fmt.Println("Please provide a new title for the file")
+			return
+		}
+
+		newTitle := strings.Join(command.Queries, "-")
+		renamedFile, err := scripts.RenameFile(newTitle, command.SelectedFile, data.WriteFile)
+		if err != nil {
+			fmt.Printf("Error renaming file: %v\n", err)
+			return
+		}
+
+		// Update the file store with the renamed file
+		previousFiles := fileStore.GetFilesSearched()
+		for i, file := range previousFiles {
+			if file.Name == command.SelectedFile.Name {
+				previousFiles[i] = renamedFile
+				break
+			}
+		}
+		fileStore.SetFilesSearched(previousFiles)
+
+		fmt.Printf("Renamed %v to %v\n", command.SelectedFile.Name, renamedFile.Name)
+
 	case "gd":
 		if len(command.Queries) != 2 {
 			fmt.Println("Please provide exactly two dates in the format YYYY-MM-DD")

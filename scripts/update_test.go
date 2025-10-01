@@ -2,6 +2,7 @@ package scripts
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -382,5 +383,296 @@ This file has priority 1 in its metadata.`
 	// Verify priority was correctly read from file
 	if updatedFile.Priority != P1 {
 		t.Errorf("Expected priority P1, got %v", updatedFile.Priority)
+	}
+}
+
+func TestRenameFile(t *testing.T) {
+	// Setup: Create a temporary directory for test files
+	tempDir, err := os.MkdirTemp("", "notes-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Initial content
+	initialContent := `---
+title: old-title
+date-created: 2023-03-05
+tags: [test]
+priority: 2
+date-due: 2023-03-10
+done: false
+---
+
+# old-title
+
+This is some content.`
+
+	// Create initial file on disk
+	originalFileName := "old-title-2023-03-05.md"
+	notesDir := filepath.Join(tempDir, "notes")
+	err = os.Mkdir(notesDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create notes directory: %v", err)
+	}
+
+	originalFilePath := filepath.Join(notesDir, originalFileName)
+	err = os.WriteFile(originalFilePath, []byte(initialContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write initial file: %v", err)
+	}
+
+	// Save original functions and replace them with test implementations
+	originalReadLatestFileContent := readLatestFileContent
+	defer func() { readLatestFileContent = originalReadLatestFileContent }()
+
+	// Override readLatestFileContent to use our temp directory
+	readLatestFileContent = func(file File) (File, error) {
+		oldWd, err := os.Getwd()
+		if err != nil {
+			return file, err
+		}
+		defer os.Chdir(oldWd)
+
+		err = os.Chdir(tempDir)
+		if err != nil {
+			return file, err
+		}
+
+		return originalReadLatestFileContent(file)
+	}
+
+	// Create a mock writeFile that uses our temp directory
+	mockWriteFile := func(file File) error {
+		oldWd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		defer os.Chdir(oldWd)
+
+		err = os.Chdir(tempDir)
+		if err != nil {
+			return err
+		}
+
+		// Write the file using the same logic as the actual WriteFile
+		meta := fmt.Sprintf(`---
+title: %s
+date-created: %s
+tags: %v
+priority: %v
+date-due: %s
+done: %v
+---
+
+`, file.Title, file.CreatedAt.Format("2006-01-02"), file.Tags, file.Priority, file.DueAt.Format("2006-01-02"), file.Done)
+
+		content := strings.TrimLeft(file.Content, "\n")
+		fullPath := filepath.Join("notes", file.Name)
+		return os.WriteFile(fullPath, []byte(meta+content), 0644)
+	}
+
+	// Create a file object representing the original file
+	originalFile := File{
+		Name:      originalFileName,
+		Title:     "old-title",
+		Tags:      []string{"test"},
+		CreatedAt: time.Date(2023, 3, 5, 0, 0, 0, 0, time.UTC),
+		DueAt:     time.Date(2023, 3, 10, 0, 0, 0, 0, time.UTC),
+		Done:      false,
+		Priority:  P2,
+	}
+
+	// Change to temp directory for the rename operation
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer os.Chdir(oldWd)
+
+	err = os.Chdir(tempDir)
+	if err != nil {
+		t.Fatalf("Failed to change to temp directory: %v", err)
+	}
+
+	// Perform the rename
+	newTitle := "new-title"
+	renamedFile, err := RenameFile(newTitle, originalFile, mockWriteFile)
+	if err != nil {
+		t.Fatalf("RenameFile returned an error: %v", err)
+	}
+
+	// Verify the filename has the new title with the same date
+	expectedFileName := "new-title-2023-03-05.md"
+	if renamedFile.Name != expectedFileName {
+		t.Errorf("Expected filename %s, got %s", expectedFileName, renamedFile.Name)
+	}
+
+	// Verify the title was updated in the struct
+	if renamedFile.Title != newTitle {
+		t.Errorf("Expected title %s, got %s", newTitle, renamedFile.Title)
+	}
+
+	// Verify the new file exists
+	newFilePath := filepath.Join(notesDir, expectedFileName)
+	if _, err := os.Stat(newFilePath); os.IsNotExist(err) {
+		t.Fatalf("New file %s does not exist", newFilePath)
+	}
+
+	// Verify the old file was removed
+	if _, err := os.Stat(originalFilePath); !os.IsNotExist(err) {
+		t.Errorf("Old file %s still exists", originalFilePath)
+	}
+
+	// Read the new file and verify content
+	newContent, err := os.ReadFile(newFilePath)
+	if err != nil {
+		t.Fatalf("Failed to read new file: %v", err)
+	}
+
+	newContentStr := string(newContent)
+
+	// Verify metadata title was updated
+	if !strings.Contains(newContentStr, "title: new-title") {
+		t.Errorf("New file does not contain updated title in metadata")
+	}
+
+	// Verify content heading was updated
+	if !strings.Contains(newContentStr, "# new-title") {
+		t.Errorf("New file does not contain updated heading")
+	}
+
+	// Verify content was preserved
+	if !strings.Contains(newContentStr, "This is some content.") {
+		t.Errorf("New file does not contain original content")
+	}
+
+	// Verify other metadata was preserved
+	if !strings.Contains(newContentStr, "tags: [test]") {
+		t.Errorf("New file does not contain original tags")
+	}
+	if !strings.Contains(newContentStr, "priority: 2") {
+		t.Errorf("New file does not contain original priority")
+	}
+	if !strings.Contains(newContentStr, "date-due: 2023-03-10") {
+		t.Errorf("New file does not contain original due date")
+	}
+}
+
+func TestRenameFileInvalidDateSuffix(t *testing.T) {
+	// Test with a file that doesn't have a valid date suffix
+	invalidFile := File{
+		Name:  "no-date.md",
+		Title: "no-date",
+	}
+
+	mockWriteFile := func(file File) error {
+		return nil
+	}
+
+	_, err := RenameFile("new-title", invalidFile, mockWriteFile)
+	if err == nil {
+		t.Error("Expected error for file without valid date suffix, got nil")
+	}
+}
+
+func TestRenameFilePreservesPriority(t *testing.T) {
+	// Setup: Create a temporary directory for test files
+	tempDir, err := os.MkdirTemp("", "notes-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Initial content with priority 1
+	initialContent := `---
+title: test-priority
+date-created: 2023-03-05
+tags: [test]
+priority: 1
+date-due: 2023-03-10
+done: false
+---
+
+# test-priority
+
+Content here.`
+
+	// Create initial file on disk
+	originalFileName := "test-priority-2023-03-05.md"
+	notesDir := filepath.Join(tempDir, "notes")
+	err = os.Mkdir(notesDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create notes directory: %v", err)
+	}
+
+	originalFilePath := filepath.Join(notesDir, originalFileName)
+	err = os.WriteFile(originalFilePath, []byte(initialContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write initial file: %v", err)
+	}
+
+	// Save original function
+	originalReadLatestFileContent := readLatestFileContent
+	defer func() { readLatestFileContent = originalReadLatestFileContent }()
+
+	// Override readLatestFileContent
+	readLatestFileContent = func(file File) (File, error) {
+		oldWd, err := os.Getwd()
+		if err != nil {
+			return file, err
+		}
+		defer os.Chdir(oldWd)
+
+		err = os.Chdir(tempDir)
+		if err != nil {
+			return file, err
+		}
+
+		return originalReadLatestFileContent(file)
+	}
+
+	var writtenFile File
+	mockWriteFile := func(file File) error {
+		writtenFile = file
+		return nil
+	}
+
+	// Create a file object with P1 priority
+	originalFile := File{
+		Name:      originalFileName,
+		Title:     "test-priority",
+		Tags:      []string{"test"},
+		CreatedAt: time.Date(2023, 3, 5, 0, 0, 0, 0, time.UTC),
+		DueAt:     time.Date(2023, 3, 10, 0, 0, 0, 0, time.UTC),
+		Done:      false,
+		Priority:  P1,
+	}
+
+	// Change to temp directory
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer os.Chdir(oldWd)
+
+	err = os.Chdir(tempDir)
+	if err != nil {
+		t.Fatalf("Failed to change to temp directory: %v", err)
+	}
+
+	// Perform the rename
+	renamedFile, err := RenameFile("renamed-priority", originalFile, mockWriteFile)
+	if err != nil {
+		t.Fatalf("RenameFile returned an error: %v", err)
+	}
+
+	// Verify priority was preserved
+	if renamedFile.Priority != P1 {
+		t.Errorf("Expected priority P1, got %v", renamedFile.Priority)
+	}
+
+	if writtenFile.Priority != P1 {
+		t.Errorf("Written file: Expected priority P1, got %v", writtenFile.Priority)
 	}
 }
