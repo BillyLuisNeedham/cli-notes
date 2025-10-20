@@ -162,6 +162,27 @@ func SetDueDateToNextDay(dayOfWeek time.Weekday, file File, writeFile WriteFile)
 	return writeFile(updatedFile)
 }
 
+// ChangePriority updates the priority of a file to the specified priority level
+// Priority must be P1 (1), P2 (2), or P3 (3)
+func ChangePriority(newPriority Priority, file File, writeFile WriteFile) error {
+	// Validate priority is within range
+	if newPriority < P1 || newPriority > P3 {
+		return fmt.Errorf("invalid priority: must be 1, 2, or 3")
+	}
+
+	// Read the latest content from the file to ensure we don't lose any updates
+	updatedFile, err := readLatestFileContent(file)
+	if err != nil {
+		return err
+	}
+
+	// Update the priority
+	updatedFile.Priority = newPriority
+
+	// Write the updated file
+	return writeFile(updatedFile)
+}
+
 // RenameFile renames a file by extracting the date suffix, creating a new filename,
 // updating the title in metadata and content, and renaming the file on disk
 func RenameFile(newTitle string, file File, writeFile WriteFile) (File, error) {

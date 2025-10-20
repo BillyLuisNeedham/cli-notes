@@ -410,6 +410,36 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 		}
 		fmt.Printf("%v due date set to next Sunday\n", command.SelectedFile.Name)
 
+	case "p":
+		if command.SelectedFile.Name == "" {
+			fmt.Println("No file selected")
+			return
+		}
+		if len(command.Queries) < 1 {
+			fmt.Println("Please provide a priority (1, 2, or 3)")
+			return
+		}
+
+		priorityNum, err := strconv.Atoi(command.Queries[0])
+		if err != nil {
+			fmt.Printf("Error converting priority: %v\n", err)
+			return
+		}
+
+		if priorityNum < 1 || priorityNum > 3 {
+			fmt.Println("Priority must be 1, 2, or 3")
+			return
+		}
+
+		newPriority := scripts.Priority(priorityNum)
+		err = scripts.ChangePriority(newPriority, command.SelectedFile, data.WriteFile)
+		if err != nil {
+			fmt.Printf("Error changing priority: %v\n", err)
+			return
+		}
+
+		fmt.Printf("%v priority changed to P%d\n", command.SelectedFile.Name, priorityNum)
+
 	case "r":
 		if command.SelectedFile.Name == "" {
 			fmt.Println("No file selected")
