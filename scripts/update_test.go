@@ -676,3 +676,224 @@ Content here.`
 		t.Errorf("Written file: Expected priority P1, got %v", writtenFile.Priority)
 	}
 }
+
+func TestChangePriority(t *testing.T) {
+	// Create test file with P2 priority
+	testFile := File{
+		Name:      "test-priority-change.md",
+		Title:     "Test Priority Change",
+		Tags:      []string{"test"},
+		CreatedAt: time.Date(2023, 5, 10, 0, 0, 0, 0, time.UTC),
+		DueAt:     time.Date(2023, 5, 15, 0, 0, 0, 0, time.UTC),
+		Done:      false,
+		Content:   "# Test\n\nTest content.",
+		Priority:  P2,
+	}
+
+	// Mock readLatestFileContent
+	originalReadLatestFileContent := readLatestFileContent
+	defer func() { readLatestFileContent = originalReadLatestFileContent }()
+
+	readLatestFileContent = func(file File) (File, error) {
+		return file, nil
+	}
+
+	var writtenFile File
+	mockWriteFile := func(file File) error {
+		writtenFile = file
+		return nil
+	}
+
+	// Change priority to P1
+	err := ChangePriority(P1, testFile, mockWriteFile)
+	if err != nil {
+		t.Fatalf("ChangePriority returned an error: %v", err)
+	}
+
+	// Verify priority was changed
+	if writtenFile.Priority != P1 {
+		t.Errorf("Expected priority P1, got %v", writtenFile.Priority)
+	}
+
+	// Verify other fields preserved
+	if writtenFile.Title != testFile.Title {
+		t.Errorf("Title was not preserved")
+	}
+	if writtenFile.Content != testFile.Content {
+		t.Errorf("Content was not preserved")
+	}
+	if !writtenFile.DueAt.Equal(testFile.DueAt) {
+		t.Errorf("Due date was not preserved")
+	}
+}
+
+func TestChangePriorityInvalidPriority(t *testing.T) {
+	testFile := File{
+		Name:      "test-invalid-priority.md",
+		Title:     "Test Invalid Priority",
+		Tags:      []string{"test"},
+		CreatedAt: time.Date(2023, 5, 10, 0, 0, 0, 0, time.UTC),
+		Priority:  P2,
+	}
+
+	// Mock readLatestFileContent
+	originalReadLatestFileContent := readLatestFileContent
+	defer func() { readLatestFileContent = originalReadLatestFileContent }()
+
+	readLatestFileContent = func(file File) (File, error) {
+		return file, nil
+	}
+
+	mockWriteFile := func(file File) error {
+		return nil
+	}
+
+	// Test invalid priority 0
+	err := ChangePriority(Priority(0), testFile, mockWriteFile)
+	if err == nil {
+		t.Error("Expected error for priority 0, got nil")
+	}
+
+	// Test invalid priority 4
+	err = ChangePriority(Priority(4), testFile, mockWriteFile)
+	if err == nil {
+		t.Error("Expected error for priority 4, got nil")
+	}
+
+	// Test valid priorities should not error
+	err = ChangePriority(P1, testFile, mockWriteFile)
+	if err != nil {
+		t.Errorf("Expected no error for P1, got %v", err)
+	}
+
+	err = ChangePriority(P2, testFile, mockWriteFile)
+	if err != nil {
+		t.Errorf("Expected no error for P2, got %v", err)
+	}
+
+	err = ChangePriority(P3, testFile, mockWriteFile)
+	if err != nil {
+		t.Errorf("Expected no error for P3, got %v", err)
+	}
+}
+
+func TestChangePriorityPreservesContent(t *testing.T) {
+	// Setup: Create a temporary directory for test files
+	tempDir, err := os.MkdirTemp("", "notes-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Initial content with P2 priority
+	initialContent := `---
+title: Test Content Preservation
+date-created: 2023-05-10
+tags: [test, priority]
+priority: 2
+date-due: 2023-05-15
+done: false
+---
+
+# Test Content Preservation
+
+This is the original content.
+- Task 1
+- Task 2`
+
+	// Create file on disk
+	fileName := "test-content-preservation.md"
+	notesDir := filepath.Join(tempDir, "notes")
+	err = os.Mkdir(notesDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create notes directory: %v", err)
+	}
+
+	filePath := filepath.Join(notesDir, fileName)
+	err = os.WriteFile(filePath, []byte(initialContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write initial file: %v", err)
+	}
+
+	// Save original function
+	originalReadLatestFileContent := readLatestFileContent
+	defer func() { readLatestFileContent = originalReadLatestFileContent }()
+
+	// Override readLatestFileContent to use our temp directory
+	readLatestFileContent = func(file File) (File, error) {
+		oldWd, err := os.Getwd()
+		if err != nil {
+			return file, err
+		}
+		defer os.Chdir(oldWd)
+
+		err = os.Chdir(tempDir)
+		if err != nil {
+			return file, err
+		}
+
+		return originalReadLatestFileContent(file)
+	}
+
+	// Create test file object
+	testFile := File{
+		Name:      fileName,
+		Title:     "Test Content Preservation",
+		Tags:      []string{"test", "priority"},
+		CreatedAt: time.Date(2023, 5, 10, 0, 0, 0, 0, time.UTC),
+		DueAt:     time.Date(2023, 5, 15, 0, 0, 0, 0, time.UTC),
+		Done:      false,
+		Priority:  P2,
+	}
+
+	var writtenFile File
+	mockWriteFile := func(file File) error {
+		writtenFile = file
+		return nil
+	}
+
+	// Change to temp directory
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer os.Chdir(oldWd)
+
+	err = os.Chdir(tempDir)
+	if err != nil {
+		t.Fatalf("Failed to change to temp directory: %v", err)
+	}
+
+	// Change priority from P2 to P1
+	err = ChangePriority(P1, testFile, mockWriteFile)
+	if err != nil {
+		t.Fatalf("ChangePriority returned an error: %v", err)
+	}
+
+	// Verify priority was changed
+	if writtenFile.Priority != P1 {
+		t.Errorf("Expected priority P1, got %v", writtenFile.Priority)
+	}
+
+	// Verify content was preserved
+	if !strings.Contains(writtenFile.Content, "This is the original content.") {
+		t.Errorf("Original content was not preserved")
+	}
+	if !strings.Contains(writtenFile.Content, "- Task 1") {
+		t.Errorf("Task 1 was not preserved")
+	}
+	if !strings.Contains(writtenFile.Content, "- Task 2") {
+		t.Errorf("Task 2 was not preserved")
+	}
+
+	// Verify metadata was preserved
+	if writtenFile.Title != testFile.Title {
+		t.Errorf("Title was not preserved")
+	}
+	if !writtenFile.DueAt.Equal(testFile.DueAt) {
+		t.Errorf("Due date was not preserved")
+	}
+	if writtenFile.Done != testFile.Done {
+		t.Errorf("Done status was not preserved")
+	}
+}
