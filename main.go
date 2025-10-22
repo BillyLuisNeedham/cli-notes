@@ -666,6 +666,27 @@ func runWeekPlanner() error {
 			continue
 		}
 
+		// Handle opening a note (special case - needs keyboard management)
+		if input.Action == presentation.OpenTodo {
+			selectedTodo := state.GetSelectedTodo()
+			if selectedTodo == nil {
+				lastMessage = "No todo selected"
+				continue
+			}
+
+			// Open the note in editor
+			openNoteInEditor(selectedTodo.Name)
+
+			// Reload the week plan from disk to pick up any changes made in the editor
+			err := state.Reset()
+			if err != nil {
+				lastMessage = fmt.Sprintf("Error reloading week plan: %v", err)
+			} else {
+				lastMessage = "Week plan reloaded"
+			}
+			continue
+		}
+
 		shouldExit, message, err := presentation.HandleWeekPlannerInput(state, input)
 		if err != nil {
 			return err

@@ -25,6 +25,7 @@ const (
 	Quit
 	NextDay
 	PreviousDay
+	OpenTodo
 )
 
 // WeekPlannerInput represents a parsed input from the keyboard
@@ -37,6 +38,8 @@ type WeekPlannerInput struct {
 func ParseWeekPlannerInput(char rune, key keyboard.Key) WeekPlannerInput {
 	// Handle special keys
 	switch key {
+	case keyboard.KeyEnter:
+		return WeekPlannerInput{Action: OpenTodo}
 	case keyboard.KeyTab:
 		return WeekPlannerInput{Action: NextDay}
 	}

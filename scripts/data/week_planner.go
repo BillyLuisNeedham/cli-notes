@@ -70,7 +70,9 @@ func NewWeekPlan(startDate time.Time) *WeekPlan {
 		startDate = startDate.AddDate(0, 0, -daysToMonday)
 	}
 
-	endDate := startDate.AddDate(0, 0, 6) // Sunday
+	// Normalize to midnight in local time for consistent date comparisons
+	startDate = time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, time.Local)
+	endDate := startDate.AddDate(0, 0, 6) // Sunday at midnight
 
 	return &WeekPlan{
 		StartDate:  startDate,
@@ -83,19 +85,24 @@ func NewWeekPlan(startDate time.Time) *WeekPlan {
 }
 
 // GetDateForWeekDay returns the date for a given weekday in this week plan
+// Returns the date normalized to midnight in local time
 func (wp *WeekPlan) GetDateForWeekDay(day WeekDay) time.Time {
+	var date time.Time
 	if day == NextMonday {
 		// Next Monday is 7 days after the end of current week
-		return wp.EndDate.AddDate(0, 0, 1)
+		date = wp.EndDate.AddDate(0, 0, 1)
+	} else {
+		date = wp.StartDate.AddDate(0, 0, int(day))
 	}
-	return wp.StartDate.AddDate(0, 0, int(day))
+	// Normalize to midnight in local time
+	return time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local)
 }
 
 // GetWeekDayForDate returns the WeekDay for a given date within the week
 // Returns -1 if the date is not in this week
 func (wp *WeekPlan) GetWeekDayForDate(date time.Time) WeekDay {
-	// Normalize to midnight for comparison
-	normalized := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	// Normalize to midnight in local time for consistent comparison with StartDate/EndDate
+	normalized := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local)
 
 	if normalized.Before(wp.StartDate) || normalized.After(wp.EndDate) {
 		return -1
@@ -236,7 +243,7 @@ func (wp *WeekPlan) Reset() error {
 
 // SaveChanges writes all modified todos back to disk
 func (wp *WeekPlan) SaveChanges() error {
-	// Collect all modified todos
+	// Collect all todos in the current week (these may have updated due dates)
 	modifiedTodos := make(map[string]scripts.File)
 
 	for _, todos := range wp.TodosByDay {
@@ -245,7 +252,7 @@ func (wp *WeekPlan) SaveChanges() error {
 		}
 	}
 
-	// Write each modified todo
+	// Write each todo
 	for _, todo := range modifiedTodos {
 		if err := WriteFile(todo); err != nil {
 			return err

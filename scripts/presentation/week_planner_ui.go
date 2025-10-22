@@ -237,6 +237,7 @@ func renderContent(state *data.WeekPlannerState) []string {
 	lines = append(lines, renderSplitLine("  Controls:", ""))
 	lines = append(lines, renderSplitLine("  • j/k Select todo", ""))
 	lines = append(lines, renderSplitLine("  • h/l Move to prev/next day", ""))
+	lines = append(lines, renderSplitLine("  • Enter Open note", ""))
 	lines = append(lines, renderSplitLine("  • Tab Switch day", ""))
 	lines = append(lines, renderSplitLine("  • m/tu/w/th/f/sa/su Day shortcuts", ""))
 
