@@ -26,6 +26,8 @@ const (
 	NextDay
 	PreviousDay
 	OpenTodo
+	PreviousWeek
+	NextWeek
 )
 
 // WeekPlannerInput represents a parsed input from the keyboard
@@ -55,6 +57,12 @@ func ParseWeekPlannerInput(char rune, key keyboard.Key) WeekPlannerInput {
 		return WeekPlannerInput{Action: MoveLeft}
 	case 'l':
 		return WeekPlannerInput{Action: MoveRight}
+
+	// Week navigation
+	case '[':
+		return WeekPlannerInput{Action: PreviousWeek}
+	case ']':
+		return WeekPlannerInput{Action: NextWeek}
 
 	// Commands
 	case 'u':
@@ -155,6 +163,20 @@ func HandleWeekPlannerInput(state *data.WeekPlannerState, input WeekPlannerInput
 
 	case Quit:
 		return true, "", nil
+
+	case PreviousWeek:
+		err := state.NavigateToPreviousWeek()
+		if err != nil {
+			return false, "", err
+		}
+		return false, "Navigated to previous week", nil
+
+	case NextWeek:
+		err := state.NavigateToNextWeek()
+		if err != nil {
+			return false, "", err
+		}
+		return false, "Navigated to next week", nil
 
 	case NoAction:
 		return false, "", nil

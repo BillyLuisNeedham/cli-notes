@@ -9,8 +9,8 @@ import (
 
 const (
 	// Terminal dimensions (adjust as needed)
-	terminalWidth = 90
-	leftPanelWidth = 54
+	terminalWidth = 100
+	leftPanelWidth = 60
 	rightPanelWidth = terminalWidth - leftPanelWidth - 3 // -3 for borders
 )
 
@@ -109,17 +109,17 @@ func renderDayTabs(state *data.WeekPlannerState) string {
 
 	// Pad to full width
 	currentLen := tabs.Len() - 2 // -2 for initial "│ "
-	padding := terminalWidth - currentLen - 3 // -3 for " │\n"
+	padding := terminalWidth - currentLen - 4 // -4 for initial "│ " and ending " │"
 	tabs.WriteString(strings.Repeat(" ", padding))
-	tabs.WriteString("│\n")
+	tabs.WriteString(" │\n")
 
 	return tabs.String()
 }
 
 // renderControlsBar renders the controls help bar
 func renderControlsBar(state *data.WeekPlannerState) string {
-	controls := "j/k:Select │ h/l:Move │ n:Next Mon │ u:Undo r:Redo │ s:Save x:Reset q:Quit"
-	padding := terminalWidth - len(controls) - 3
+	controls := "j/k:Select │ h/l:Move │ [/]:Week │ n:Next Mon │ u:Undo r:Redo │ s:Save x:Reset q:Quit"
+	padding := terminalWidth - len(controls) - 4 // -4 for "│ " and " │"
 	return fmt.Sprintf("│ %s%s │\n", controls, strings.Repeat(" ", padding))
 }
 

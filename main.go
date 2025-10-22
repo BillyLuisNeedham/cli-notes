@@ -666,6 +666,21 @@ func runWeekPlanner() error {
 			continue
 		}
 
+		// Handle reset with confirmation (special case - needs confirmation)
+		if input.Action == presentation.Reset {
+			if promptResetConfirmation(state) {
+				err := state.Reset()
+				if err != nil {
+					lastMessage = fmt.Sprintf("Error resetting: %v", err)
+				} else {
+					lastMessage = "Plan reset from disk"
+				}
+			} else {
+				lastMessage = "Reset cancelled"
+			}
+			continue
+		}
+
 		// Handle opening a note (special case - needs keyboard management)
 		if input.Action == presentation.OpenTodo {
 			selectedTodo := state.GetSelectedTodo()
@@ -747,6 +762,38 @@ func promptSaveChanges(state *data.WeekPlannerState) bool {
 			fmt.Println("Cancelled. Returning to week planner...")
 			time.Sleep(500 * time.Millisecond)
 			return true // Return to planner
+
+		default:
+			// Invalid input, keep prompting
+			continue
+		}
+	}
+}
+
+// promptResetConfirmation prompts the user to confirm reset action
+// Returns true if user confirms reset, false if cancelled
+func promptResetConfirmation(state *data.WeekPlannerState) bool {
+	if state.Plan.HasChanges() {
+		fmt.Printf("\nYou have %d unsaved changes. Reset and discard all changes? (y/n): ", len(state.Plan.Changes))
+	} else {
+		fmt.Print("\nReset and reload plan from disk? (y/n): ")
+	}
+
+	for {
+		char, _, err := keyboard.GetKey()
+		if err != nil {
+			fmt.Printf("Error reading input: %v\n", err)
+			return false
+		}
+
+		switch char {
+		case 'y', 'Y':
+			fmt.Println("y")
+			return true // Confirm reset
+
+		case 'n', 'N':
+			fmt.Println("n")
+			return false // Cancel reset
 
 		default:
 			// Invalid input, keep prompting

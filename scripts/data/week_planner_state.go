@@ -169,6 +169,36 @@ func (wps *WeekPlannerState) Save() error {
 	return wps.Plan.SaveChanges()
 }
 
+// NavigateToPreviousWeek loads the week plan for the previous week
+func (wps *WeekPlannerState) NavigateToPreviousWeek() error {
+	// Move back 7 days to get to previous week
+	previousWeekStart := wps.Plan.StartDate.AddDate(0, 0, -7)
+	plan, err := LoadWeekTodos(previousWeekStart)
+	if err != nil {
+		return err
+	}
+
+	wps.Plan = plan
+	wps.SelectedTodo = 0
+	// Keep the same day of week selected if possible
+	return nil
+}
+
+// NavigateToNextWeek loads the week plan for the next week
+func (wps *WeekPlannerState) NavigateToNextWeek() error {
+	// Move forward 7 days to get to next week
+	nextWeekStart := wps.Plan.StartDate.AddDate(0, 0, 7)
+	plan, err := LoadWeekTodos(nextWeekStart)
+	if err != nil {
+		return err
+	}
+
+	wps.Plan = plan
+	wps.SelectedTodo = 0
+	// Keep the same day of week selected if possible
+	return nil
+}
+
 // GetSelectedTodo returns the currently selected todo, or nil if none
 func (wps *WeekPlannerState) GetSelectedTodo() *scripts.File {
 	todos := wps.Plan.TodosByDay[wps.SelectedDay]
