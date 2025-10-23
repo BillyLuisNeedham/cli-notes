@@ -509,6 +509,13 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 		fmt.Printf("Created date range query note: %s\n", newFile.Name)
 		openNoteInEditor(newFile.Name)
 
+	case "wp", "week":
+		err := runWeekPlanner()
+		if err != nil {
+			fmt.Printf("Error running week planner: %v\n", err)
+			return
+		}
+
 	default:
 		fmt.Println("Unknown command.")
 		return
@@ -560,4 +567,237 @@ func handleCreateFile(fileType string, queries []string, createFn func(string, s
 func isValidDate(date string) bool {
 	_, err := time.Parse("2006-01-02", date)
 	return err == nil
+}
+
+func runWeekPlanner() error {
+	// Initialize week planner state
+	state, err := data.NewWeekPlannerState()
+	if err != nil {
+		return fmt.Errorf("error initializing week planner: %w", err)
+	}
+
+	// Command buffer for multi-character commands (tu, th, sa, su)
+	commandBuffer := ""
+	lastMessage := ""
+
+	// Main week planner event loop
+	for {
+		// Render the UI
+		display := presentation.RenderWeekView(state)
+		fmt.Print(display)
+
+		// Display last message if any
+		if lastMessage != "" {
+			fmt.Printf("\n%s\n", lastMessage)
+			lastMessage = ""
+		}
+
+		// Get keyboard input
+		char, key, err := keyboard.GetKey()
+		if err != nil {
+			return fmt.Errorf("error reading keyboard input: %w", err)
+		}
+
+		// Try to build multi-character command
+		if char >= 'a' && char <= 'z' && key == 0 {
+			commandBuffer += string(char)
+
+			// Check if we have a complete multi-char command
+			if day, ok := presentation.ParseMultiCharCommand(commandBuffer); ok {
+				input := presentation.WeekPlannerInput{
+					Action: presentation.SwitchDay,
+					Day:    day,
+				}
+				shouldExit, message, err := presentation.HandleWeekPlannerInput(state, input)
+				if err != nil {
+					return err
+				}
+				lastMessage = message
+				commandBuffer = ""
+
+				if shouldExit {
+					break
+				}
+				continue
+			}
+
+			// Check if buffer is getting too long (invalid command)
+			if len(commandBuffer) > 2 {
+				commandBuffer = ""
+			}
+
+			// For single-char commands, process immediately
+			if len(commandBuffer) == 1 {
+				input := presentation.ParseWeekPlannerInput(rune(commandBuffer[0]), key)
+				if input.Action != presentation.NoAction {
+					shouldExit, message, err := presentation.HandleWeekPlannerInput(state, input)
+					if err != nil {
+						return err
+					}
+
+					// Handle quit with save prompt
+					if shouldExit {
+						if state.Plan.HasChanges() {
+							if !promptSaveChanges(state) {
+								break
+							}
+							// User cancelled, continue the loop
+							commandBuffer = ""
+							continue
+						}
+						break
+					}
+
+					lastMessage = message
+					commandBuffer = ""
+					continue
+				}
+			}
+
+			// Wait for more chars to complete the command
+			continue
+		}
+
+		// Process non-character input (arrow keys, etc.)
+		commandBuffer = "" // Reset buffer for non-char input
+		input := presentation.ParseWeekPlannerInput(char, key)
+
+		if input.Action == presentation.NoAction {
+			continue
+		}
+
+		// Handle reset with confirmation (special case - needs confirmation)
+		if input.Action == presentation.Reset {
+			if promptResetConfirmation(state) {
+				err := state.Reset()
+				if err != nil {
+					lastMessage = fmt.Sprintf("Error resetting: %v", err)
+				} else {
+					lastMessage = "Plan reset from disk"
+				}
+			} else {
+				lastMessage = "Reset cancelled"
+			}
+			continue
+		}
+
+		// Handle opening a note (special case - needs keyboard management)
+		if input.Action == presentation.OpenTodo {
+			selectedTodo := state.GetSelectedTodo()
+			if selectedTodo == nil {
+				lastMessage = "No todo selected"
+				continue
+			}
+
+			// Open the note in editor
+			openNoteInEditor(selectedTodo.Name)
+
+			// Reload the week plan from disk to pick up any changes made in the editor
+			err := state.Reset()
+			if err != nil {
+				lastMessage = fmt.Sprintf("Error reloading week plan: %v", err)
+			} else {
+				lastMessage = "Week plan reloaded"
+			}
+			continue
+		}
+
+		shouldExit, message, err := presentation.HandleWeekPlannerInput(state, input)
+		if err != nil {
+			return err
+		}
+
+		// Handle quit with save prompt
+		if shouldExit {
+			if state.Plan.HasChanges() {
+				if !promptSaveChanges(state) {
+					break
+				}
+				// User cancelled, continue the loop
+				continue
+			}
+			break
+		}
+
+		lastMessage = message
+	}
+
+	// Clear screen and return to main prompt
+	fmt.Print("\033[2J\033[H")
+	return nil
+}
+
+// promptSaveChanges prompts the user to save changes before exiting
+// Returns false if user wants to exit, true if user cancels exit
+func promptSaveChanges(state *data.WeekPlannerState) bool {
+	fmt.Printf("\nYou have %d unsaved changes. Save before exiting? (y/n/c): ", len(state.Plan.Changes))
+
+	for {
+		char, _, err := keyboard.GetKey()
+		if err != nil {
+			fmt.Printf("Error reading input: %v\n", err)
+			return false
+		}
+
+		switch char {
+		case 'y', 'Y':
+			fmt.Println("y")
+			err := state.Save()
+			if err != nil {
+				fmt.Printf("Error saving changes: %v\n", err)
+				fmt.Println("Press any key to continue...")
+				keyboard.GetKey()
+				return true // Return to planner to try again
+			}
+			fmt.Println("Changes saved successfully!")
+			return false // Exit
+
+		case 'n', 'N':
+			fmt.Println("n")
+			fmt.Println("Changes discarded.")
+			return false // Exit without saving
+
+		case 'c', 'C':
+			fmt.Println("c")
+			fmt.Println("Cancelled. Returning to week planner...")
+			time.Sleep(500 * time.Millisecond)
+			return true // Return to planner
+
+		default:
+			// Invalid input, keep prompting
+			continue
+		}
+	}
+}
+
+// promptResetConfirmation prompts the user to confirm reset action
+// Returns true if user confirms reset, false if cancelled
+func promptResetConfirmation(state *data.WeekPlannerState) bool {
+	if state.Plan.HasChanges() {
+		fmt.Printf("\nYou have %d unsaved changes. Reset and discard all changes? (y/n): ", len(state.Plan.Changes))
+	} else {
+		fmt.Print("\nReset and reload plan from disk? (y/n): ")
+	}
+
+	for {
+		char, _, err := keyboard.GetKey()
+		if err != nil {
+			fmt.Printf("Error reading input: %v\n", err)
+			return false
+		}
+
+		switch char {
+		case 'y', 'Y':
+			fmt.Println("y")
+			return true // Confirm reset
+
+		case 'n', 'N':
+			fmt.Println("n")
+			return false // Cancel reset
+
+		default:
+			// Invalid input, keep prompting
+			continue
+		}
+	}
 }
