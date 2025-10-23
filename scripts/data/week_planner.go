@@ -9,7 +9,8 @@ import (
 type WeekDay int
 
 const (
-	Monday WeekDay = iota
+	Earlier WeekDay = iota // Tasks due before current week
+	Monday
 	Tuesday
 	Wednesday
 	Thursday
@@ -21,6 +22,7 @@ const (
 
 // WeekDayNames maps WeekDay to string representations
 var WeekDayNames = map[WeekDay]string{
+	Earlier:    "Earlier",
 	Monday:     "Monday",
 	Tuesday:    "Tuesday",
 	Wednesday:  "Wednesday",
@@ -33,6 +35,7 @@ var WeekDayNames = map[WeekDay]string{
 
 // WeekDayShortNames maps WeekDay to short string representations
 var WeekDayShortNames = map[WeekDay]string{
+	Earlier:    "Earlier",
 	Monday:     "Mon",
 	Tuesday:    "Tue",
 	Wednesday:  "Wed",
@@ -65,7 +68,7 @@ type PlanChange struct {
 func NewWeekPlan(startDate time.Time) *WeekPlan {
 	// Ensure start date is a Monday
 	weekday := startDate.Weekday()
-	daysToMonday := (int(time.Monday) - int(weekday) + 7) % 7
+	daysToMonday := (int(weekday) - int(time.Monday) + 7) % 7
 	if daysToMonday != 0 {
 		startDate = startDate.AddDate(0, 0, -daysToMonday)
 	}
@@ -88,31 +91,41 @@ func NewWeekPlan(startDate time.Time) *WeekPlan {
 // Returns the date normalized to midnight in local time
 func (wp *WeekPlan) GetDateForWeekDay(day WeekDay) time.Time {
 	var date time.Time
-	if day == NextMonday {
+	switch day {
+	case Earlier:
+		// Return Sunday before the week starts (one day before StartDate)
+		date = wp.StartDate.AddDate(0, 0, -1)
+	case NextMonday:
 		// Next Monday is 7 days after the end of current week
 		date = wp.EndDate.AddDate(0, 0, 1)
-	} else {
-		date = wp.StartDate.AddDate(0, 0, int(day))
+	default:
+		// For Monday (1) through Sunday (7), adjust by subtracting 1
+		date = wp.StartDate.AddDate(0, 0, int(day)-1)
 	}
 	// Normalize to midnight in local time
 	return time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local)
 }
 
 // GetWeekDayForDate returns the WeekDay for a given date within the week
-// Returns -1 if the date is not in this week
+// Returns Earlier for dates before the week, -1 for dates after the week
 func (wp *WeekPlan) GetWeekDayForDate(date time.Time) WeekDay {
 	// Normalize to midnight in local time for consistent comparison with StartDate/EndDate
 	normalized := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local)
 
-	if normalized.Before(wp.StartDate) || normalized.After(wp.EndDate) {
+	if normalized.Before(wp.StartDate) {
+		return Earlier
+	}
+
+	if normalized.After(wp.EndDate) {
 		return -1
 	}
 
+	// Calculate day offset: Monday = 1, Tuesday = 2, etc.
 	diff := int(normalized.Sub(wp.StartDate).Hours() / 24)
-	return WeekDay(diff)
+	return WeekDay(diff + 1) // +1 because Earlier = 0, Monday = 1
 }
 
-// LoadWeekTodos loads all todos with due dates in the current week
+// LoadWeekTodos loads all todos with due dates in the current week and earlier
 func LoadWeekTodos(startDate time.Time) (*WeekPlan, error) {
 	plan := NewWeekPlan(startDate)
 
@@ -129,11 +142,16 @@ func LoadWeekTodos(startDate time.Time) (*WeekPlan, error) {
 			continue
 		}
 
-		// Check if todo falls within this week
+		// Get the day for this todo (includes Earlier for dates before week)
 		day := plan.GetWeekDayForDate(todo.DueAt)
 		if day >= 0 {
 			plan.TodosByDay[day] = append(plan.TodosByDay[day], todo)
 		}
+	}
+
+	// Sort all days by priority (P1, P2, P3)
+	for day := range plan.TodosByDay {
+		sortTodosByPriority(plan.TodosByDay[day])
 	}
 
 	return plan, nil
@@ -284,6 +302,19 @@ func (wp *WeekPlan) removeTodoFromDay(todo scripts.File, day WeekDay) {
 		if t.Name == todo.Name {
 			wp.TodosByDay[day] = append(todos[:i], todos[i+1:]...)
 			break
+		}
+	}
+}
+
+// sortTodosByPriority sorts a slice of todos by priority (P1 first, then P2, then P3)
+func sortTodosByPriority(todos []scripts.File) {
+	// Sort by priority: P1 (1) < P2 (2) < P3 (3)
+	// Lower number = higher priority, so ascending order
+	for i := 0; i < len(todos); i++ {
+		for j := i + 1; j < len(todos); j++ {
+			if todos[i].Priority > todos[j].Priority {
+				todos[i], todos[j] = todos[j], todos[i]
+			}
 		}
 	}
 }

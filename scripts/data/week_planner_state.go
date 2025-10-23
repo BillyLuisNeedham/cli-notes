@@ -34,6 +34,9 @@ func NewWeekPlannerState() (*WeekPlannerState, error) {
 
 // MoveSelectedTodoLeft moves the selected todo to the previous day
 func (wps *WeekPlannerState) MoveSelectedTodoLeft() error {
+	if wps.SelectedDay == Earlier {
+		return fmt.Errorf("cannot move tasks from Earlier (read-only)")
+	}
 	if wps.SelectedDay == Monday {
 		return fmt.Errorf("cannot move left from Monday")
 	}
@@ -43,6 +46,9 @@ func (wps *WeekPlannerState) MoveSelectedTodoLeft() error {
 
 // MoveSelectedTodoRight moves the selected todo to the next day
 func (wps *WeekPlannerState) MoveSelectedTodoRight() error {
+	if wps.SelectedDay == Earlier {
+		return fmt.Errorf("cannot move tasks from Earlier (read-only)")
+	}
 	if wps.SelectedDay == NextMonday {
 		return fmt.Errorf("cannot move right from Next Monday")
 	}
@@ -52,6 +58,9 @@ func (wps *WeekPlannerState) MoveSelectedTodoRight() error {
 
 // MoveSelectedTodoToNextMonday moves the selected todo to the overflow (next Monday)
 func (wps *WeekPlannerState) MoveSelectedTodoToNextMonday() error {
+	if wps.SelectedDay == Earlier {
+		return fmt.Errorf("cannot move tasks from Earlier (read-only)")
+	}
 	return wps.moveSelectedTodo(NextMonday)
 }
 
@@ -131,7 +140,7 @@ func (wps *WeekPlannerState) SwitchToNextDay() {
 
 // SwitchToPreviousDay moves to the previous day in the week
 func (wps *WeekPlannerState) SwitchToPreviousDay() {
-	if wps.SelectedDay > Monday {
+	if wps.SelectedDay > Earlier {
 		wps.SelectedDay--
 		wps.SelectedTodo = 0
 	}

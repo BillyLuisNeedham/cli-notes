@@ -101,7 +101,7 @@ func renderDayTabs(state *data.WeekPlannerState, dims uiDimensions) string {
 	tabs.WriteString("│ ")
 
 	days := []data.WeekDay{
-		data.Monday, data.Tuesday, data.Wednesday, data.Thursday,
+		data.Earlier, data.Monday, data.Tuesday, data.Wednesday, data.Thursday,
 		data.Friday, data.Saturday, data.Sunday, data.NextMonday,
 	}
 
@@ -212,34 +212,36 @@ func renderContent(state *data.WeekPlannerState, dims uiDimensions) []string {
 			leftContent = ""
 		}
 
-		// Right panel: week overview
-		if i < 9 { // 7 days + 1 for next monday + 1 for legend
+		// Right panel: week overview (Earlier + 7 days + NextMonday)
+		if i < 10 { // Earlier + 7 days + 1 for next monday + 1 for blank
 			if i == 0 {
-				rightContent = renderOverviewLine(state, data.Monday)
+				rightContent = renderOverviewLine(state, data.Earlier)
 			} else if i == 1 {
-				rightContent = renderOverviewLine(state, data.Tuesday)
+				rightContent = renderOverviewLine(state, data.Monday)
 			} else if i == 2 {
-				rightContent = renderOverviewLine(state, data.Wednesday)
+				rightContent = renderOverviewLine(state, data.Tuesday)
 			} else if i == 3 {
-				rightContent = renderOverviewLine(state, data.Thursday)
+				rightContent = renderOverviewLine(state, data.Wednesday)
 			} else if i == 4 {
-				rightContent = renderOverviewLine(state, data.Friday)
+				rightContent = renderOverviewLine(state, data.Thursday)
 			} else if i == 5 {
-				rightContent = renderOverviewLine(state, data.Saturday)
+				rightContent = renderOverviewLine(state, data.Friday)
 			} else if i == 6 {
-				rightContent = renderOverviewLine(state, data.Sunday)
+				rightContent = renderOverviewLine(state, data.Saturday)
 			} else if i == 7 {
-				rightContent = ""
+				rightContent = renderOverviewLine(state, data.Sunday)
 			} else if i == 8 {
+				rightContent = ""
+			} else if i == 9 {
 				rightContent = renderOverviewLine(state, data.NextMonday)
 			}
-		} else if i == 10 {
-			rightContent = "  Legend:"
 		} else if i == 11 {
-			rightContent = "  ▓ Priority 1 (urgent)"
+			rightContent = "  Legend:"
 		} else if i == 12 {
-			rightContent = "  █ Priority 2 (normal)"
+			rightContent = "  ▓ Priority 1 (urgent)"
 		} else if i == 13 {
+			rightContent = "  █ Priority 2 (normal)"
+		} else if i == 14 {
 			rightContent = "  ░ Priority 3 (low)"
 		} else {
 			rightContent = ""
