@@ -80,7 +80,7 @@ func CommandHandler(
 		}, nil
 
 	case keyboard.KeyEnter:
-		completed := toCompletedCommand(currentCommand)
+		completed := ToCompletedCommand(currentCommand)
 		return completed, nil
 
 	case keyboard.KeyBackspace, keyboard.KeyBackspace2:
@@ -116,16 +116,28 @@ func CommandHandler(
 	}
 }
 
-func toCompletedCommand(wip WIPCommand) CompletedCommand {
+func ToCompletedCommand(wip WIPCommand) CompletedCommand {
 	parts := strings.Split(wip.Text, " ")
 	name := parts[0]
 
 	remaining := strings.Join(parts[1:], " ")
 
-	queries := strings.Split(remaining, ",")
-
-	for i, query := range queries {
-		queries[i] = strings.TrimSpace(query)
+	var queries []string
+	
+	// Special handling for gd command - use space-separated arguments
+	if name == "gd" {
+		// Split by spaces for date arguments
+		spaceParts := strings.Fields(remaining)
+		queries = make([]string, len(spaceParts))
+		for i, part := range spaceParts {
+			queries[i] = strings.TrimSpace(part)
+		}
+	} else {
+		// Default behavior: split by commas for other commands
+		queries = strings.Split(remaining, ",")
+		for i, query := range queries {
+			queries[i] = strings.TrimSpace(query)
+		}
 	}
 
 	selectedFile := scripts.File{}

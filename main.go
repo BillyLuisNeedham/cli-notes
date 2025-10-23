@@ -5,11 +5,13 @@ import (
 	"cli-notes/scripts/data"
 	"cli-notes/scripts/presentation"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/eiannone/keyboard"
+	"golang.org/x/term"
 )
 
 var keyboardOpen bool
@@ -570,6 +572,22 @@ func isValidDate(date string) bool {
 }
 
 func runWeekPlanner() error {
+	// Get terminal size
+	termWidth, termHeight, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		// Fallback to default size if unable to get terminal size
+		termWidth = 100
+		termHeight = 30
+	}
+
+	// Check minimum terminal size
+	const minWidth = 80
+	const minHeight = 24
+	if termWidth < minWidth || termHeight < minHeight {
+		return fmt.Errorf("terminal too small. Minimum size: %dx%d (current: %dx%d)",
+			minWidth, minHeight, termWidth, termHeight)
+	}
+
 	// Initialize week planner state
 	state, err := data.NewWeekPlannerState()
 	if err != nil {
@@ -583,7 +601,7 @@ func runWeekPlanner() error {
 	// Main week planner event loop
 	for {
 		// Render the UI
-		display := presentation.RenderWeekView(state)
+		display := presentation.RenderWeekView(state, termWidth, termHeight)
 		fmt.Print(display)
 
 		// Display last message if any

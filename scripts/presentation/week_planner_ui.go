@@ -7,49 +7,65 @@ import (
 	"strings"
 )
 
-const (
-	// Terminal dimensions (adjust as needed)
-	terminalWidth = 100
-	leftPanelWidth = 60
-	rightPanelWidth = terminalWidth - leftPanelWidth - 3 // -3 for borders
-)
+// uiDimensions holds the calculated UI dimensions
+type uiDimensions struct {
+	terminalWidth   int
+	terminalHeight  int
+	leftPanelWidth  int
+	rightPanelWidth int
+}
+
+// calculateDimensions calculates panel widths based on terminal size
+func calculateDimensions(termWidth, termHeight int) uiDimensions {
+	// Calculate panel widths proportionally (~60% left, ~40% right)
+	leftWidth := int(float64(termWidth) * 0.6)
+	rightWidth := termWidth - leftWidth - 3 // -3 for borders
+
+	return uiDimensions{
+		terminalWidth:   termWidth,
+		terminalHeight:  termHeight,
+		leftPanelWidth:  leftWidth,
+		rightPanelWidth: rightWidth,
+	}
+}
 
 // RenderWeekView renders the complete week planner UI
-func RenderWeekView(state *data.WeekPlannerState) string {
+func RenderWeekView(state *data.WeekPlannerState, termWidth, termHeight int) string {
+	dims := calculateDimensions(termWidth, termHeight)
 	var output strings.Builder
 
 	// Clear screen (ANSI escape code)
 	output.WriteString("\033[2J\033[H")
 
 	// Render top border
-	output.WriteString("┌" + strings.Repeat("─", terminalWidth-2) + "┐\n")
+	output.WriteString("┌" + strings.Repeat("─", dims.terminalWidth-2) + "┐\n")
 
 	// Render header
-	output.WriteString(renderHeader(state))
+	output.WriteString(renderHeader(state, dims))
 
 	// Render day tabs
-	output.WriteString(renderDayTabs(state))
+	output.WriteString(renderDayTabs(state, dims))
 
 	// Render controls help
-	output.WriteString(renderControlsBar(state))
+	output.WriteString(renderControlsBar(state, dims))
 
 	// Render main content split
-	output.WriteString(renderSplitBorder())
+	output.WriteString(renderSplitBorder(dims))
 
 	// Render content rows (left panel + right panel)
-	contentLines := renderContent(state)
+	contentLines := renderContent(state, dims)
 	for _, line := range contentLines {
 		output.WriteString(line)
 	}
 
 	// Render bottom border
-	output.WriteString("└" + strings.Repeat("─", terminalWidth-2) + "┘\n")
+	output.WriteString("└" + strings.Repeat("─", dims.terminalWidth-2) + "┘\n")
 
 	return output.String()
 }
 
 // renderHeader renders the title and status bar
-func renderHeader(state *data.WeekPlannerState) string {
+func renderHeader(state *data.WeekPlannerState, dims uiDimensions) string {
 	plan := state.Plan
 	startDate := plan.StartDate.Format("Jan 02")
 	endDate := plan.EndDate.Format("Jan 02, 2006")
@@ -63,7 +79,7 @@ func renderHeader(state *data.WeekPlannerState) string {
 	}
 
 	// Center the title, right-align the changes
-	titlePadding := (terminalWidth - len(title) - len(changesIndicator) - 4) / 2
+	titlePadding := (dims.terminalWidth - len(title) - len(changesIndicator) - 4) / 2
 	if titlePadding < 1 {
 		titlePadding = 1
 	}
@@ -72,7 +88,7 @@ func renderHeader(state *data.WeekPlannerState) string {
 		strings.Repeat(" ", titlePadding),
 		title,
 		strings.Repeat(" ", titlePadding),
-		strings.Repeat(" ", terminalWidth-len(title)-len(changesIndicator)-4-2*titlePadding),
+		strings.Repeat(" ", dims.terminalWidth-len(title)-len(changesIndicator)-4-2*titlePadding),
 		changesIndicator,
 	)
 
@@ -80,7 +96,7 @@ func renderHeader(state *data.WeekPlannerState) string {
 }
 
 // renderDayTabs renders the day selection tabs
-func renderDayTabs(state *data.WeekPlannerState) string {
+func renderDayTabs(state *data.WeekPlannerState, dims uiDimensions) string {
 	var tabs strings.Builder
 	tabs.WriteString("│ ")
 
@@ -109,7 +125,7 @@ func renderDayTabs(state *data.WeekPlannerState) string {
 
 	// Pad to full width
 	currentLen := tabs.Len() - 2 // -2 for initial "│ "
-	padding := terminalWidth - currentLen - 4 // -4 for initial "│ " and ending " │"
+	padding := dims.terminalWidth - currentLen - 4 // -4 for initial "│ " and ending " │"
 	tabs.WriteString(strings.Repeat(" ", padding))
 	tabs.WriteString(" │\n")
 
@@ -117,22 +133,22 @@ func renderDayTabs(state *data.WeekPlannerState) string {
 }
 
 // renderControlsBar renders the controls help bar
-func renderControlsBar(state *data.WeekPlannerState) string {
+func renderControlsBar(state *data.WeekPlannerState, dims uiDimensions) string {
 	controls := "j/k:Select │ h/l:Move │ [/]:Week │ n:Next Mon │ u:Undo r:Redo │ s:Save x:Reset q:Quit"
-	padding := terminalWidth - len(controls) - 4 // -4 for "│ " and " │"
+	padding := dims.terminalWidth - len(controls) - 4 // -4 for "│ " and " │"
 	return fmt.Sprintf("│ %s%s │\n", controls, strings.Repeat(" ", padding))
 }
 
 // renderSplitBorder renders the border between header and content with split
-func renderSplitBorder() string {
+func renderSplitBorder(dims uiDimensions) string {
 	return fmt.Sprintf("├%s┬%s┤\n",
-		strings.Repeat("─", leftPanelWidth),
-		strings.Repeat("─", rightPanelWidth),
+		strings.Repeat("─", dims.leftPanelWidth),
+		strings.Repeat("─", dims.rightPanelWidth),
 	)
 }
 
 // renderContent renders the main content area (both panels)
-func renderContent(state *data.WeekPlannerState) []string {
+func renderContent(state *data.WeekPlannerState, dims uiDimensions) []string {
 	lines := make([]string, 0)
 
 	// Render panel titles
@@ -141,8 +157,8 @@ func renderContent(state *data.WeekPlannerState) []string {
 		state.Plan.GetTodoCount(state.SelectedDay))
 	rightTitle := "  WEEK OVERVIEW"
 
-	lines = append(lines, renderSplitLine(leftTitle, rightTitle))
-	lines = append(lines, renderSplitLine("", ""))
+	lines = append(lines, renderSplitLine(leftTitle, rightTitle, dims))
+	lines = append(lines, renderSplitLine("", "", dims))
 
 	// Get todos for selected day
 	todos := state.Plan.TodosByDay[state.SelectedDay]
@@ -160,7 +176,7 @@ func renderContent(state *data.WeekPlannerState) []string {
 			isSelected := i == state.SelectedTodo
 
 			// Truncate title if too long
-			maxTitleLen := leftPanelWidth - 10 // Account for priority and selector
+			maxTitleLen := dims.leftPanelWidth - 10 // Account for priority and selector
 			title := todo.Title
 			if len(title) > maxTitleLen {
 				title = title[:maxTitleLen-3] + "..."
@@ -183,7 +199,7 @@ func renderContent(state *data.WeekPlannerState) []string {
 				fromDay := data.WeekDayShortNames[change.FromDay]
 				toDay := data.WeekDayShortNames[change.ToDay]
 
-				maxChangeLen := leftPanelWidth - 4
+				maxChangeLen := dims.leftPanelWidth - 4
 				changeText := fmt.Sprintf("Moved %s→%s: %s", fromDay, toDay, change.Todo.Title)
 				if len(changeText) > maxChangeLen {
 					changeText = changeText[:maxChangeLen-3] + "..."
@@ -229,17 +245,17 @@ func renderContent(state *data.WeekPlannerState) []string {
 			rightContent = ""
 		}
 
-		lines = append(lines, renderSplitLine(leftContent, rightContent))
+		lines = append(lines, renderSplitLine(leftContent, rightContent, dims))
 	}
 
 	// Add control hints at bottom of left panel
-	lines = append(lines, renderSplitLine("", ""))
-	lines = append(lines, renderSplitLine("  Controls:", ""))
-	lines = append(lines, renderSplitLine("  • j/k Select todo", ""))
-	lines = append(lines, renderSplitLine("  • h/l Move to prev/next day", ""))
-	lines = append(lines, renderSplitLine("  • Enter Open note", ""))
-	lines = append(lines, renderSplitLine("  • Tab Switch day", ""))
-	lines = append(lines, renderSplitLine("  • m/tu/w/th/f/sa/su Day shortcuts", ""))
+	lines = append(lines, renderSplitLine("", "", dims))
+	lines = append(lines, renderSplitLine("  Controls:", "", dims))
+	lines = append(lines, renderSplitLine("  • j/k Select todo", "", dims))
+	lines = append(lines, renderSplitLine("  • h/l Move to prev/next day", "", dims))
+	lines = append(lines, renderSplitLine("  • Enter Open note", "", dims))
+	lines = append(lines, renderSplitLine("  • Tab Switch day", "", dims))
+	lines = append(lines, renderSplitLine("  • m/tu/w/th/f/sa/su Day shortcuts", "", dims))
 
 	return lines
 }
@@ -269,29 +285,35 @@ func renderOverviewLine(state *data.WeekPlannerState, day data.WeekDay) string {
 		indicator = "◄"
 	}
 
+	// Calculate spacing, ensuring it never goes negative
+	spacing := 15 - bars.Len()
+	if spacing < 0 {
+		spacing = 0
+	}
+
 	return fmt.Sprintf("  %-4s %s%s(%d) %s",
 		dayName,
 		bars.String(),
-		strings.Repeat(" ", 15-bars.Len()),
+		strings.Repeat(" ", spacing),
 		count,
 		indicator,
 	)
 }
 
 // renderSplitLine renders a line split between left and right panels
-func renderSplitLine(leftContent, rightContent string) string {
+func renderSplitLine(leftContent, rightContent string, dims uiDimensions) string {
 	// Pad left content to left panel width
-	leftPadding := leftPanelWidth - len(leftContent)
+	leftPadding := dims.leftPanelWidth - len(leftContent)
 	if leftPadding < 0 {
 		leftPadding = 0
-		leftContent = leftContent[:leftPanelWidth]
+		leftContent = leftContent[:dims.leftPanelWidth]
 	}
 
 	// Pad right content to right panel width
-	rightPadding := rightPanelWidth - len(rightContent)
+	rightPadding := dims.rightPanelWidth - len(rightContent)
 	if rightPadding < 0 {
 		rightPadding = 0
-		rightContent = rightContent[:rightPanelWidth]
+		rightContent = rightContent[:dims.rightPanelWidth]
 	}
 
 	return fmt.Sprintf("│%s%s│%s%s│\n",

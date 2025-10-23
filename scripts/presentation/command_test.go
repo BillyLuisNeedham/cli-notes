@@ -283,7 +283,7 @@ func TestToCompletedCommand(t *testing.T) {
 	
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := toCompletedCommand(tt.input)
+			result := ToCompletedCommand(tt.input)
 			
 			if result.Name != tt.expected.Name {
 				t.Errorf("Expected name %s, got %s", tt.expected.Name, result.Name)
