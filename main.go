@@ -572,6 +572,12 @@ func isValidDate(date string) bool {
 }
 
 func runWeekPlanner() error {
+	// Ensure terminal is cleaned up on all exit paths
+	defer func() {
+		// Clear screen and reset cursor
+		fmt.Print("\033[2J\033[H")
+	}()
+
 	// Get terminal size
 	termWidth, termHeight, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
@@ -594,8 +600,6 @@ func runWeekPlanner() error {
 		return fmt.Errorf("error initializing week planner: %w", err)
 	}
 
-	// Command buffer for multi-character commands (tu, th, sa, su)
-	commandBuffer := ""
 	lastMessage := ""
 
 	// Main week planner event loop
@@ -616,68 +620,28 @@ func runWeekPlanner() error {
 			return fmt.Errorf("error reading keyboard input: %w", err)
 		}
 
-		// Try to build multi-character command
-		if char >= 'a' && char <= 'z' && key == 0 {
-			commandBuffer += string(char)
-
-			// Check if we have a complete multi-char command
-			if day, ok := presentation.ParseMultiCharCommand(commandBuffer); ok {
+		// Check for capital letter move-to-day commands
+		if presentation.IsMoveToDayKey(char) {
+			targetDay, ok := presentation.ParseMoveToDay(char)
+			if ok {
 				input := presentation.WeekPlannerInput{
-					Action: presentation.SwitchDay,
-					Day:    day,
+					Action: presentation.MoveTodoToDay,
+					Day:    targetDay,
 				}
 				shouldExit, message, err := presentation.HandleWeekPlannerInput(state, input)
 				if err != nil {
 					return err
 				}
 				lastMessage = message
-				commandBuffer = ""
 
 				if shouldExit {
 					break
 				}
 				continue
 			}
-
-			// Check if buffer is getting too long (invalid command)
-			if len(commandBuffer) > 2 {
-				commandBuffer = ""
-			}
-
-			// For single-char commands, process immediately
-			if len(commandBuffer) == 1 {
-				input := presentation.ParseWeekPlannerInput(rune(commandBuffer[0]), key)
-				if input.Action != presentation.NoAction {
-					shouldExit, message, err := presentation.HandleWeekPlannerInput(state, input)
-					if err != nil {
-						return err
-					}
-
-					// Handle quit with save prompt
-					if shouldExit {
-						if state.Plan.HasChanges() {
-							if !promptSaveChanges(state) {
-								break
-							}
-							// User cancelled, continue the loop
-							commandBuffer = ""
-							continue
-						}
-						break
-					}
-
-					lastMessage = message
-					commandBuffer = ""
-					continue
-				}
-			}
-
-			// Wait for more chars to complete the command
-			continue
 		}
 
-		// Process non-character input (arrow keys, etc.)
-		commandBuffer = "" // Reset buffer for non-char input
+		// Parse all other input (lowercase commands, special keys, etc.)
 		input := presentation.ParseWeekPlannerInput(char, key)
 
 		if input.Action == presentation.NoAction {
@@ -740,8 +704,7 @@ func runWeekPlanner() error {
 		lastMessage = message
 	}
 
-	// Clear screen and return to main prompt
-	fmt.Print("\033[2J\033[H")
+	// Screen will be cleared by defer
 	return nil
 }
 
@@ -764,7 +727,7 @@ func promptSaveChanges(state *data.WeekPlannerState) bool {
 			if err != nil {
 				fmt.Printf("Error saving changes: %v\n", err)
 				fmt.Println("Press any key to continue...")
-				keyboard.GetKey()
+				_, _, _ = keyboard.GetKey() // Ignore error, just wait for key
 				return true // Return to planner to try again
 			}
 			fmt.Println("Changes saved successfully!")

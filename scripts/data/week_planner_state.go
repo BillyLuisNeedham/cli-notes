@@ -92,13 +92,13 @@ func (wps *WeekPlannerState) moveSelectedTodo(targetDay WeekDay) error {
 	wps.Plan.MoveTodo(todo, wps.SelectedDay, targetDay)
 
 	// Adjust selection after move
-	wps.adjustSelectionAfterMove()
+	wps.AdjustSelectionAfterMove()
 
 	return nil
 }
 
-// adjustSelectionAfterMove adjusts the selected todo index after a move
-func (wps *WeekPlannerState) adjustSelectionAfterMove() {
+// AdjustSelectionAfterMove adjusts the selected todo index after a move
+func (wps *WeekPlannerState) AdjustSelectionAfterMove() {
 	todosRemaining := len(wps.Plan.TodosByDay[wps.SelectedDay])
 
 	if todosRemaining == 0 {
@@ -162,7 +162,7 @@ func (wps *WeekPlannerState) SwitchToPreviousDay() {
 func (wps *WeekPlannerState) Undo() bool {
 	success := wps.Plan.Undo()
 	if success {
-		wps.adjustSelectionAfterMove()
+		wps.AdjustSelectionAfterMove()
 	}
 	return success
 }
@@ -171,7 +171,7 @@ func (wps *WeekPlannerState) Undo() bool {
 func (wps *WeekPlannerState) Redo() bool {
 	success := wps.Plan.Redo()
 	if success {
-		wps.adjustSelectionAfterMove()
+		wps.AdjustSelectionAfterMove()
 	}
 	return success
 }

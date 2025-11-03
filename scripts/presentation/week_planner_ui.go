@@ -140,8 +140,11 @@ func renderDayTabs(state *data.WeekPlannerState, dims uiDimensions) string {
 
 // renderControlsBar renders the controls help bar
 func renderControlsBar(state *data.WeekPlannerState, dims uiDimensions) string {
-	controls := "j/k:Select │ h/l:Move │ [/]:Week │ n:Next Mon │ u:Undo r:Redo │ s:Save x:Reset q:Quit"
+	controls := "j/k:Sel │ h/l:Move │ mtwrfas:Day │ MTWRFAS:MoveTo │ e:Earlier │ ^S:Save │ u:Undo │ q:Quit"
 	padding := dims.terminalWidth - len(controls) - 4 // -4 for "│ " and " │"
+	if padding < 0 {
+		padding = 0
+	}
 	return fmt.Sprintf("│ %s%s │\n", controls, strings.Repeat(" ", padding))
 }
 
@@ -262,8 +265,10 @@ func renderContent(state *data.WeekPlannerState, dims uiDimensions) []string {
 	lines = append(lines, renderSplitLine("  • j/k Select todo", "", dims))
 	lines = append(lines, renderSplitLine("  • h/l Move to prev/next day", "", dims))
 	lines = append(lines, renderSplitLine("  • Enter Open note", "", dims))
-	lines = append(lines, renderSplitLine("  • Tab Switch day", "", dims))
-	lines = append(lines, renderSplitLine("  • m/tu/w/th/f/sa/su Day shortcuts", "", dims))
+	lines = append(lines, renderSplitLine("  • m/t/w/r/f/a/s Switch to day", "", dims))
+	lines = append(lines, renderSplitLine("  • M/T/W/R/F/A/S Move todo to day", "", dims))
+	lines = append(lines, renderSplitLine("  • e Show earlier todos", "", dims))
+	lines = append(lines, renderSplitLine("  • Ctrl+S Save changes", "", dims))
 
 	return lines
 }
@@ -369,8 +374,11 @@ func RenderExpandedEarlierView(state *data.WeekPlannerState, termWidth, termHeig
 	))
 
 	// Render controls bar
-	controls := "j/k:Select │ l:Move to Monday │ Enter:Open │ ESC:Exit │ u:Undo r:Redo │ s:Save q:Quit"
+	controls := "j/k:Sel │ MTWRFAS:MoveTo │ Enter:Open │ ESC/e:Exit │ ^S:Save │ u:Undo │ q:Quit"
 	padding := termWidth - len(controls) - 4
+	if padding < 0 {
+		padding = 0
+	}
 	output.WriteString(fmt.Sprintf("│ %s%s │\n", controls, strings.Repeat(" ", padding)))
 
 	// Render separator
