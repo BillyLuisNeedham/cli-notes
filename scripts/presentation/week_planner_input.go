@@ -18,6 +18,7 @@ const (
 	SelectUp
 	SelectDown
 	SwitchDay
+	MoveTodoToDay
 	Undo
 	Redo
 	Save
@@ -28,6 +29,8 @@ const (
 	OpenTodo
 	PreviousWeek
 	NextWeek
+	ToggleExpandedEarlier
+	ExitExpandedView
 )
 
 // WeekPlannerInput represents a parsed input from the keyboard
@@ -44,6 +47,10 @@ func ParseWeekPlannerInput(char rune, key keyboard.Key) WeekPlannerInput {
 		return WeekPlannerInput{Action: OpenTodo}
 	case keyboard.KeyTab:
 		return WeekPlannerInput{Action: NextDay}
+	case keyboard.KeyEsc:
+		return WeekPlannerInput{Action: ExitExpandedView}
+	case keyboard.KeyCtrlS:
+		return WeekPlannerInput{Action: Save}
 	}
 
 	// Handle character commands (including vim bindings)
@@ -67,20 +74,30 @@ func ParseWeekPlannerInput(char rune, key keyboard.Key) WeekPlannerInput {
 	// Commands
 	case 'u':
 		return WeekPlannerInput{Action: Undo}
-	case 'r':
-		return WeekPlannerInput{Action: Redo}
-	case 's':
-		return WeekPlannerInput{Action: Save}
 	case 'x':
 		return WeekPlannerInput{Action: Reset}
 	case 'q':
 		return WeekPlannerInput{Action: Quit}
 	case 'n':
 		return WeekPlannerInput{Action: MoveToNextMonday}
+	case 'e':
+		return WeekPlannerInput{Action: ToggleExpandedEarlier}
 
-	// Day shortcuts
+	// Day shortcuts (lowercase = switch view)
 	case 'm':
 		return WeekPlannerInput{Action: SwitchDay, Day: data.Monday}
+	case 't':
+		return WeekPlannerInput{Action: SwitchDay, Day: data.Tuesday}
+	case 'w':
+		return WeekPlannerInput{Action: SwitchDay, Day: data.Wednesday}
+	case 'r':
+		return WeekPlannerInput{Action: SwitchDay, Day: data.Thursday}
+	case 'f':
+		return WeekPlannerInput{Action: SwitchDay, Day: data.Friday}
+	case 'a':
+		return WeekPlannerInput{Action: SwitchDay, Day: data.Saturday}
+	case 's':
+		return WeekPlannerInput{Action: SwitchDay, Day: data.Sunday}
 	}
 
 	// Handle two-character day shortcuts
@@ -108,6 +125,15 @@ func HandleWeekPlannerInput(state *data.WeekPlannerState, input WeekPlannerInput
 		return false, "Moved todo to previous day", nil
 
 	case MoveRight:
+		// Special handling for expanded Earlier view
+		if state.ViewMode == data.ExpandedEarlierView && state.SelectedDay == data.Earlier {
+			err := state.MoveEarlierTodoToMonday()
+			if err != nil {
+				return false, err.Error(), nil
+			}
+			return false, "Moved todo to Monday", nil
+		}
+		// Normal move right behavior
 		err := state.MoveSelectedTodoRight()
 		if err != nil {
 			return false, err.Error(), nil
@@ -124,6 +150,49 @@ func HandleWeekPlannerInput(state *data.WeekPlannerState, input WeekPlannerInput
 	case SwitchDay:
 		state.SwitchToDay(input.Day)
 		return false, fmt.Sprintf("Switched to %s", data.WeekDayNames[input.Day]), nil
+
+	case MoveTodoToDay:
+		selectedTodo := state.GetSelectedTodo()
+		if selectedTodo == nil {
+			return false, "No todo selected", nil
+		}
+
+		sourceDay := state.SelectedDay
+		targetDay := input.Day
+
+		// Don't move if already on target day
+		if sourceDay == targetDay {
+			return false, "", nil
+		}
+
+		// Perform the move
+		state.Plan.MoveTodo(*selectedTodo, sourceDay, targetDay)
+
+		// Special handling for ExpandedEarlierView when moving from Earlier
+		if state.ViewMode == data.ExpandedEarlierView && sourceDay == data.Earlier {
+			// Stay in expanded view, stay on Earlier day
+			// Just adjust selection index since a todo was removed from Earlier list
+			state.AdjustSelectionAfterMove()
+			return false, fmt.Sprintf("Moved todo to %s", data.WeekDayNames[targetDay]), nil
+		}
+
+		// Normal behavior: Exit expanded view if we're in it before switching days
+		if state.ViewMode == data.ExpandedEarlierView {
+			state.ExitExpandedEarlierView()
+		}
+
+		// Switch view to target day and update selection to follow the moved todo
+		state.SwitchToDay(targetDay)
+		// Find the moved todo in the target day
+		targetTodos := state.Plan.TodosByDay[targetDay]
+		for i, todo := range targetTodos {
+			if todo.Name == selectedTodo.Name {
+				state.SelectedTodo = i
+				break
+			}
+		}
+
+		return false, fmt.Sprintf("Moved todo to %s", data.WeekDayNames[targetDay]), nil
 
 	case NextDay:
 		state.SwitchToNextDay()
@@ -178,6 +247,20 @@ func HandleWeekPlannerInput(state *data.WeekPlannerState, input WeekPlannerInput
 		}
 		return false, "Navigated to next week", nil
 
+	case ToggleExpandedEarlier:
+		if state.ViewMode == data.NormalView {
+			state.EnterExpandedEarlierView()
+			return false, "Expanded Earlier view", nil
+		}
+		return false, "", nil
+
+	case ExitExpandedView:
+		if state.ViewMode == data.ExpandedEarlierView {
+			state.ExitExpandedEarlierView()
+			return false, "Returned to normal view", nil
+		}
+		return false, "", nil
+
 	case NoAction:
 		return false, "", nil
 
@@ -207,4 +290,33 @@ func ParseMultiCharCommand(command string) (data.WeekDay, bool) {
 	default:
 		return -1, false
 	}
+}
+
+// ParseMoveToDay parses a single uppercase character into a WeekDay for move operations
+// Returns the target day and true if valid, or -1 and false if invalid
+func ParseMoveToDay(char rune) (data.WeekDay, bool) {
+	switch char {
+	case 'M':
+		return data.Monday, true
+	case 'T':
+		return data.Tuesday, true
+	case 'W':
+		return data.Wednesday, true
+	case 'R':
+		return data.Thursday, true
+	case 'F':
+		return data.Friday, true
+	case 'A':
+		return data.Saturday, true
+	case 'S':
+		return data.Sunday, true
+	default:
+		return -1, false
+	}
+}
+
+// IsMoveToDayKey checks if the character is a valid move-to-day command
+func IsMoveToDayKey(char rune) bool {
+	return char == 'M' || char == 'T' || char == 'W' ||
+		char == 'R' || char == 'F' || char == 'A' || char == 'S'
 }

@@ -6,11 +6,21 @@ import (
 	"time"
 )
 
+// ViewMode represents the current view mode of the week planner
+type ViewMode int
+
+const (
+	NormalView ViewMode = iota
+	ExpandedEarlierView
+)
+
 // WeekPlannerState holds the current state of the week planner
 type WeekPlannerState struct {
 	Plan         *WeekPlan
 	SelectedDay  WeekDay
-	SelectedTodo int // Index of selected todo within the day
+	SelectedTodo int      // Index of selected todo within the day
+	ViewMode     ViewMode // Current view mode
+	ScrollOffset int      // Scroll offset for expanded view
 }
 
 // NewWeekPlannerState creates a new week planner state for the current week
@@ -29,6 +39,8 @@ func NewWeekPlannerState() (*WeekPlannerState, error) {
 		Plan:         plan,
 		SelectedDay:  currentDay,
 		SelectedTodo: 0,
+		ViewMode:     NormalView,
+		ScrollOffset: 0,
 	}, nil
 }
 
@@ -80,13 +92,13 @@ func (wps *WeekPlannerState) moveSelectedTodo(targetDay WeekDay) error {
 	wps.Plan.MoveTodo(todo, wps.SelectedDay, targetDay)
 
 	// Adjust selection after move
-	wps.adjustSelectionAfterMove()
+	wps.AdjustSelectionAfterMove()
 
 	return nil
 }
 
-// adjustSelectionAfterMove adjusts the selected todo index after a move
-func (wps *WeekPlannerState) adjustSelectionAfterMove() {
+// AdjustSelectionAfterMove adjusts the selected todo index after a move
+func (wps *WeekPlannerState) AdjustSelectionAfterMove() {
 	todosRemaining := len(wps.Plan.TodosByDay[wps.SelectedDay])
 
 	if todosRemaining == 0 {
@@ -150,7 +162,7 @@ func (wps *WeekPlannerState) SwitchToPreviousDay() {
 func (wps *WeekPlannerState) Undo() bool {
 	success := wps.Plan.Undo()
 	if success {
-		wps.adjustSelectionAfterMove()
+		wps.AdjustSelectionAfterMove()
 	}
 	return success
 }
@@ -159,7 +171,7 @@ func (wps *WeekPlannerState) Undo() bool {
 func (wps *WeekPlannerState) Redo() bool {
 	success := wps.Plan.Redo()
 	if success {
-		wps.adjustSelectionAfterMove()
+		wps.AdjustSelectionAfterMove()
 	}
 	return success
 }
@@ -249,4 +261,59 @@ func getWeekDayFromTime(t time.Time) WeekDay {
 	default:
 		return Monday
 	}
+}
+
+// EnterExpandedEarlierView switches to expanded Earlier view
+func (wps *WeekPlannerState) EnterExpandedEarlierView() {
+	wps.ViewMode = ExpandedEarlierView
+	wps.SelectedDay = Earlier
+	wps.ScrollOffset = 0
+	// Preserve SelectedTodo index
+}
+
+// ExitExpandedEarlierView returns to normal view
+func (wps *WeekPlannerState) ExitExpandedEarlierView() {
+	wps.ViewMode = NormalView
+	wps.ScrollOffset = 0
+	// Preserve SelectedTodo and SelectedDay
+}
+
+// AdjustScrollOffset updates scroll offset based on selected todo and viewport
+func (wps *WeekPlannerState) AdjustScrollOffset(viewportHeight int) {
+	todos := wps.Plan.TodosByDay[Earlier]
+	if len(todos) == 0 {
+		wps.ScrollOffset = 0
+		return
+	}
+
+	// Ensure selected todo is visible
+	if wps.SelectedTodo < wps.ScrollOffset {
+		wps.ScrollOffset = wps.SelectedTodo
+	} else if wps.SelectedTodo >= wps.ScrollOffset+viewportHeight {
+		wps.ScrollOffset = wps.SelectedTodo - viewportHeight + 1
+	}
+
+	// Ensure scroll offset is valid
+	maxOffset := len(todos) - viewportHeight
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if wps.ScrollOffset > maxOffset {
+		wps.ScrollOffset = maxOffset
+	}
+	if wps.ScrollOffset < 0 {
+		wps.ScrollOffset = 0
+	}
+}
+
+// MoveEarlierTodoToMonday moves a todo from Earlier to Monday (only in expanded view)
+func (wps *WeekPlannerState) MoveEarlierTodoToMonday() error {
+	if wps.SelectedDay != Earlier {
+		return fmt.Errorf("not on Earlier day")
+	}
+	if wps.ViewMode != ExpandedEarlierView {
+		return fmt.Errorf("can only move Earlier todos in expanded view")
+	}
+
+	return wps.moveSelectedTodo(Monday)
 }
