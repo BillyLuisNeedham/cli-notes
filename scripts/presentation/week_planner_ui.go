@@ -31,6 +31,12 @@ func calculateDimensions(termWidth, termHeight int) uiDimensions {
 
 // RenderWeekView renders the complete week planner UI
 func RenderWeekView(state *data.WeekPlannerState, termWidth, termHeight int) string {
+	// Route to appropriate view based on ViewMode
+	if state.ViewMode == data.ExpandedEarlierView {
+		return RenderExpandedEarlierView(state, termWidth, termHeight)
+	}
+
+	// Normal view
 	dims := calculateDimensions(termWidth, termHeight)
 	var output strings.Builder
 
@@ -324,4 +330,124 @@ func renderSplitLine(leftContent, rightContent string, dims uiDimensions) string
 		rightContent,
 		strings.Repeat(" ", rightPadding),
 	)
+}
+
+// RenderExpandedEarlierView renders a full-screen view of all Earlier todos
+func RenderExpandedEarlierView(state *data.WeekPlannerState, termWidth, termHeight int) string {
+	var output strings.Builder
+
+	// Clear screen
+	output.WriteString("\033[2J\033[H")
+
+	// Render top border
+	output.WriteString("┌" + strings.Repeat("─", termWidth-2) + "┐\n")
+
+	// Render header
+	plan := state.Plan
+	startDate := plan.StartDate.Format("Jan 02")
+	title := fmt.Sprintf("EARLIER TODOS (before %s)", startDate)
+
+	changesIndicator := ""
+	if plan.HasChanges() {
+		changesIndicator = fmt.Sprintf("[*] Changes: %d", len(plan.Changes))
+	} else {
+		changesIndicator = "No changes"
+	}
+
+	// Center the title, right-align the changes
+	titlePadding := (termWidth - len(title) - len(changesIndicator) - 4) / 2
+	if titlePadding < 1 {
+		titlePadding = 1
+	}
+
+	output.WriteString(fmt.Sprintf("│ %s%s%s%s%s │\n",
+		strings.Repeat(" ", titlePadding),
+		title,
+		strings.Repeat(" ", titlePadding),
+		strings.Repeat(" ", termWidth-len(title)-len(changesIndicator)-4-2*titlePadding),
+		changesIndicator,
+	))
+
+	// Render controls bar
+	controls := "j/k:Select │ l:Move to Monday │ Enter:Open │ ESC:Exit │ u:Undo r:Redo │ s:Save q:Quit"
+	padding := termWidth - len(controls) - 4
+	output.WriteString(fmt.Sprintf("│ %s%s │\n", controls, strings.Repeat(" ", padding)))
+
+	// Render separator
+	output.WriteString("├" + strings.Repeat("─", termWidth-2) + "┤\n")
+
+	// Calculate content area
+	headerLines := 4  // Top border + header + controls + separator
+	footerLines := 2  // Scroll indicator + bottom border
+	contentHeight := termHeight - headerLines - footerLines
+
+	// Get Earlier todos
+	earlierTodos := state.Plan.TodosByDay[data.Earlier]
+	todoCount := len(earlierTodos)
+
+	// Adjust scroll offset to keep selected todo visible
+	state.AdjustScrollOffset(contentHeight)
+
+	// Render todos in viewport
+	for i := 0; i < contentHeight; i++ {
+		todoIdx := state.ScrollOffset + i
+
+		var line string
+		if todoIdx < todoCount {
+			todo := earlierTodos[todoIdx]
+			isSelected := todoIdx == state.SelectedTodo
+
+			// Format: [►] [P1] Due: Jan 15 │ Task title here...
+			selector := "  "
+			if isSelected {
+				selector = "► "
+			}
+
+			dueDate := todo.DueAt.Format("Jan 02")
+			maxTitleLen := termWidth - 30 // Reserve space for selector, priority, date
+			if maxTitleLen < 20 {
+				maxTitleLen = 20
+			}
+			title := todo.Title
+			if len(title) > maxTitleLen {
+				title = title[:maxTitleLen-3] + "..."
+			}
+
+			line = fmt.Sprintf("%s[P%d] Due: %s │ %s", selector, todo.Priority, dueDate, title)
+		} else {
+			line = ""
+		}
+
+		// Pad to full width
+		linePadding := termWidth - len(line) - 4
+		if linePadding < 0 {
+			linePadding = 0
+			if len(line) > termWidth-4 {
+				line = line[:termWidth-4]
+			}
+		}
+
+		output.WriteString(fmt.Sprintf("│ %s%s │\n", line, strings.Repeat(" ", linePadding)))
+	}
+
+	// Render scroll indicator
+	scrollInfo := ""
+	if todoCount > 0 {
+		visibleStart := state.ScrollOffset + 1
+		visibleEnd := state.ScrollOffset + contentHeight
+		if visibleEnd > todoCount {
+			visibleEnd = todoCount
+		}
+		scrollInfo = fmt.Sprintf("Showing %d-%d of %d todos", visibleStart, visibleEnd, todoCount)
+	} else {
+		scrollInfo = "No Earlier todos"
+	}
+
+	scrollPadding := termWidth - len(scrollInfo) - 4
+	output.WriteString(fmt.Sprintf("│ %s%s │\n", scrollInfo, strings.Repeat(" ", scrollPadding)))
+
+	// Render bottom border
+	output.WriteString("└" + strings.Repeat("─", termWidth-2) + "┘\n")
+
+	return output.String()
 }

@@ -28,6 +28,8 @@ const (
 	OpenTodo
 	PreviousWeek
 	NextWeek
+	ToggleExpandedEarlier
+	ExitExpandedView
 )
 
 // WeekPlannerInput represents a parsed input from the keyboard
@@ -44,6 +46,8 @@ func ParseWeekPlannerInput(char rune, key keyboard.Key) WeekPlannerInput {
 		return WeekPlannerInput{Action: OpenTodo}
 	case keyboard.KeyTab:
 		return WeekPlannerInput{Action: NextDay}
+	case keyboard.KeyEsc:
+		return WeekPlannerInput{Action: ExitExpandedView}
 	}
 
 	// Handle character commands (including vim bindings)
@@ -77,6 +81,8 @@ func ParseWeekPlannerInput(char rune, key keyboard.Key) WeekPlannerInput {
 		return WeekPlannerInput{Action: Quit}
 	case 'n':
 		return WeekPlannerInput{Action: MoveToNextMonday}
+	case 'e':
+		return WeekPlannerInput{Action: ToggleExpandedEarlier}
 
 	// Day shortcuts
 	case 'm':
@@ -108,6 +114,15 @@ func HandleWeekPlannerInput(state *data.WeekPlannerState, input WeekPlannerInput
 		return false, "Moved todo to previous day", nil
 
 	case MoveRight:
+		// Special handling for expanded Earlier view
+		if state.ViewMode == data.ExpandedEarlierView && state.SelectedDay == data.Earlier {
+			err := state.MoveEarlierTodoToMonday()
+			if err != nil {
+				return false, err.Error(), nil
+			}
+			return false, "Moved todo to Monday", nil
+		}
+		// Normal move right behavior
 		err := state.MoveSelectedTodoRight()
 		if err != nil {
 			return false, err.Error(), nil
@@ -177,6 +192,20 @@ func HandleWeekPlannerInput(state *data.WeekPlannerState, input WeekPlannerInput
 			return false, "", err
 		}
 		return false, "Navigated to next week", nil
+
+	case ToggleExpandedEarlier:
+		if state.ViewMode == data.NormalView {
+			state.EnterExpandedEarlierView()
+			return false, "Expanded Earlier view", nil
+		}
+		return false, "", nil
+
+	case ExitExpandedView:
+		if state.ViewMode == data.ExpandedEarlierView {
+			state.ExitExpandedEarlierView()
+			return false, "Returned to normal view", nil
+		}
+		return false, "", nil
 
 	case NoAction:
 		return false, "", nil
