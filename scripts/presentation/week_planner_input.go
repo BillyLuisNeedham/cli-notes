@@ -181,16 +181,8 @@ func HandleWeekPlannerInput(state *data.WeekPlannerState, input WeekPlannerInput
 			state.ExitExpandedEarlierView()
 		}
 
-		// Switch view to target day and update selection to follow the moved todo
-		state.SwitchToDay(targetDay)
-		// Find the moved todo in the target day
-		targetTodos := state.Plan.TodosByDay[targetDay]
-		for i, todo := range targetTodos {
-			if todo.Name == selectedTodo.Name {
-				state.SelectedTodo = i
-				break
-			}
-		}
+		// Stay on the current day and adjust selection after the move
+		state.AdjustSelectionAfterMove()
 
 		return false, fmt.Sprintf("Moved todo to %s", data.WeekDayNames[targetDay]), nil
 
