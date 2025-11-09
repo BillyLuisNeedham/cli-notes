@@ -47,6 +47,20 @@ func WriteFile(newFile scripts.File) error {
 		},
 	}
 
+	// Add objective metadata if present
+	if newFile.ObjectiveRole != "" {
+		meta = append(meta, metaData{
+			Key:   "objective-role",
+			Value: newFile.ObjectiveRole,
+		})
+	}
+	if newFile.ObjectiveID != "" {
+		meta = append(meta, metaData{
+			Key:   "objective-id",
+			Value: newFile.ObjectiveID,
+		})
+	}
+
 	currentDir, err := os.Getwd()
 	if err != nil {
 		fmt.Println("Error getting current directory path:", err)
@@ -379,6 +393,10 @@ func getFileIfQueryMatches(path, lineQuery string) (*scripts.File, error) {
 				} else {
 					result.Priority = scripts.Priority(priority)
 				}
+			case "objective-role":
+				result.ObjectiveRole = value
+			case "objective-id":
+				result.ObjectiveID = value
 			}
 		} else {
 			// Append to content

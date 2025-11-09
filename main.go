@@ -518,6 +518,49 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 			return
 		}
 
+	case "ob":
+		err := runObjectivesView()
+		if err != nil {
+			fmt.Printf("Error running objectives view: %v\n", err)
+			return
+		}
+
+	case "cpo":
+		if command.SelectedFile.Name == "" {
+			fmt.Println("No file selected")
+			return
+		}
+
+		// Check if already a child - show warning
+		if command.SelectedFile.ObjectiveID != "" {
+			parent, err := data.GetObjectiveByID(command.SelectedFile.ObjectiveID)
+			if err == nil && parent != nil {
+				fmt.Printf("WARNING: \"%s\" is currently linked to:\n", command.SelectedFile.Title)
+				fmt.Printf("  Parent Objective: \"%s\" (%s)\n\n", parent.Title, parent.ObjectiveID)
+				fmt.Println("Converting to parent objective will:")
+				fmt.Println("  • Unlink from current objective")
+				fmt.Println("  • Create new objective ID")
+				fmt.Println("  • Become independent parent objective\n")
+				fmt.Print("Continue? (y/n): ")
+
+				char, _, err := keyboard.GetKey()
+				if err != nil || (char != 'y' && char != 'Y') {
+					fmt.Println("\nCancelled.")
+					return
+				}
+				fmt.Println()
+			}
+		}
+
+		newObjective, err := scripts.ConvertTodoToParentObjective(command.SelectedFile, data.WriteFile)
+		if err != nil {
+			fmt.Printf("Error converting to parent objective: %v\n", err)
+			return
+		}
+
+		fmt.Printf("Converted to parent objective.\n")
+		fmt.Printf("Objective ID: %s\n", newObjective.ObjectiveID)
+
 	default:
 		fmt.Println("Unknown command.")
 		return
@@ -781,4 +824,183 @@ func promptResetConfirmation(state *data.WeekPlannerState) bool {
 			continue
 		}
 	}
+}
+
+func runObjectivesView() error {
+	// Initialize state
+	state, err := data.NewObjectivesViewState()
+	if err != nil {
+		return fmt.Errorf("error initializing objectives view: %w", err)
+	}
+
+	lastMessage := ""
+	lastChar := rune(0) // For 'dd' and other multi-key commands
+
+	for {
+		// Render current view
+		var display string
+		if state.ViewMode == data.ObjectivesListView {
+			display = presentation.RenderObjectivesListView(state)
+		} else {
+			display = presentation.RenderSingleObjectiveView(state)
+		}
+		fmt.Print(display)
+
+		if lastMessage != "" {
+			fmt.Printf("\n%s\n", lastMessage)
+			lastMessage = ""
+		}
+
+		// Get input
+		char, key, err := keyboard.GetKey()
+		if err != nil {
+			return fmt.Errorf("error reading input: %w", err)
+		}
+
+		// Handle 'dd' for delete
+		if char == 'd' && lastChar == 'd' {
+			lastChar = rune(0) // Reset
+			if state.ViewMode == data.ObjectivesListView {
+				obj := state.GetSelectedObjective()
+				if obj != nil {
+					_, total, _ := data.GetCompletionStats(obj.ObjectiveID)
+					fmt.Printf("\nDelete objective \"%s\"?\n", obj.Title)
+					if total > 0 {
+						fmt.Printf("(%d linked todo(s) will be unlinked but not deleted)\n", total)
+					}
+					fmt.Print("(y/n): ")
+
+					confirmChar, _, _ := keyboard.GetKey()
+					if confirmChar == 'y' || confirmChar == 'Y' {
+						err := scripts.DeleteParentObjective(*obj, data.QueryChildrenByObjectiveID, data.WriteFile)
+						if err != nil {
+							lastMessage = fmt.Sprintf("Error deleting: %v", err)
+						} else {
+							lastMessage = "Deleted successfully."
+							state.Refresh()
+						}
+					} else {
+						lastMessage = "Cancelled."
+					}
+				}
+			}
+			continue
+		}
+
+		lastChar = char
+
+		input := presentation.ParseObjectivesInput(char, key)
+
+		switch input.Action {
+		case presentation.ObjNavigateNext:
+			state.SelectNext()
+
+		case presentation.ObjNavigatePrevious:
+			state.SelectPrevious()
+
+		case presentation.ObjOpenSelected:
+			if state.ViewMode == data.ObjectivesListView {
+				err := state.OpenSelectedObjective()
+				if err != nil {
+					lastMessage = fmt.Sprintf("Error: %v", err)
+				}
+			} else {
+				// Open in editor
+				if state.OnParent {
+					openNoteInEditor(state.CurrentObjective.Name)
+				} else {
+					child := state.GetSelectedChild()
+					if child != nil {
+						openNoteInEditor(child.Name)
+					}
+				}
+				state.Refresh()
+			}
+
+		case presentation.ObjCreateNew:
+			if state.ViewMode == data.ObjectivesListView {
+				// Create new objective
+				fmt.Print("\nCreate new objective\nTitle: ")
+				title, err := getLineInput()
+				if err != nil {
+					lastMessage = fmt.Sprintf("Error: %v", err)
+					continue
+				}
+
+				newObj, err := scripts.CreateParentObjective(title, data.WriteFile)
+				if err != nil {
+					lastMessage = fmt.Sprintf("Error creating objective: %v", err)
+				} else {
+					lastMessage = fmt.Sprintf("Created objective: \"%s\" (%s)", newObj.Title, newObj.ObjectiveID)
+					state.Refresh()
+				}
+			} else {
+				// Create new child todo
+				fmt.Print("\nCreate new child todo\nTitle: ")
+				title, err := getLineInput()
+				if err != nil {
+					lastMessage = fmt.Sprintf("Error: %v", err)
+					continue
+				}
+
+				newChild, err := scripts.CreateChildTodo(title, *state.CurrentObjective, data.WriteFile)
+				if err != nil {
+					lastMessage = fmt.Sprintf("Error creating child: %v", err)
+				} else {
+					lastMessage = fmt.Sprintf("Created and linked: [P%d] %s", newChild.Priority, newChild.Title)
+					state.Refresh()
+				}
+			}
+
+		case presentation.ObjQuit:
+			if state.ViewMode == data.SingleObjectiveView {
+				state.BackToList()
+			} else {
+				return nil // Exit objectives view
+			}
+
+		case presentation.ObjEditParent:
+			if state.ViewMode == data.SingleObjectiveView {
+				openNoteInEditor(state.CurrentObjective.Name)
+				state.Refresh()
+			}
+
+		case presentation.ObjUnlinkChild:
+			if state.ViewMode == data.SingleObjectiveView && !state.OnParent {
+				child := state.GetSelectedChild()
+				if child != nil {
+					fmt.Printf("\nUnlink \"%s\" from this objective? (y/n): ", child.Title)
+					confirmChar, _, _ := keyboard.GetKey()
+					if confirmChar == 'y' || confirmChar == 'Y' {
+						err := scripts.UnlinkTodoFromObjective(*child, data.WriteFile)
+						if err != nil {
+							lastMessage = fmt.Sprintf("Error unlinking: %v", err)
+						} else {
+							lastMessage = "Unlinked successfully."
+							state.Refresh()
+						}
+					}
+				}
+			}
+
+		case presentation.ObjChangeSort:
+			if state.ViewMode == data.SingleObjectiveView {
+				state.ToggleSortOrder()
+			}
+
+		case presentation.ObjChangeFilter:
+			if state.ViewMode == data.SingleObjectiveView {
+				state.CycleFilterMode()
+			}
+		}
+	}
+}
+
+func getLineInput() (string, error) {
+	closeKeyboard()
+	defer reopenKeyboard()
+
+	var input string
+	fmt.Scanln(&input)
+	return input, nil
 }

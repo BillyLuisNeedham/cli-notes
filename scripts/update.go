@@ -67,13 +67,17 @@ var readLatestFileContent = func(file File) (File, error) {
 			if len(parts) == 2 {
 				key := strings.TrimSpace(parts[0])
 				value := strings.TrimSpace(parts[1])
-				
+
 				switch key {
 				case "priority":
 					priority, err := strconv.Atoi(value)
 					if err == nil && priority >= 1 && priority <= 3 {
 						updatedFile.Priority = Priority(priority)
 					}
+				case "objective-role":
+					updatedFile.ObjectiveRole = value
+				case "objective-id":
+					updatedFile.ObjectiveID = value
 				}
 			}
 		} else {

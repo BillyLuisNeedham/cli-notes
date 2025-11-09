@@ -20,12 +20,12 @@ The Objectives View feature will add hierarchical task organization to the CLI n
 ## Progress Tracking
 
 ### Overall Progress
-- [ ] Phase 1: Core Data Model Extensions (Week 1)
-- [ ] Phase 2: Data Repository Layer (Week 1-2)
-- [ ] Phase 3: Business Logic Layer (Week 2)
-- [ ] Phase 4: View State Management (Week 3)
-- [ ] Phase 5: Presentation Layer (Week 3)
-- [ ] Phase 6: Main Loop Integration (Week 4)
+- [x] Phase 1: Core Data Model Extensions (Week 1)
+- [x] Phase 2: Data Repository Layer (Week 1-2)
+- [x] Phase 3: Business Logic Layer (Week 2)
+- [x] Phase 4: View State Management (Week 3)
+- [x] Phase 5: Presentation Layer (Week 3)
+- [x] Phase 6: Main Loop Integration (Week 4)
 - [ ] Phase 7: Advanced Features (Week 5)
 - [ ] Phase 8: Testing & Polish (Week 6)
 
@@ -36,9 +36,9 @@ The Objectives View feature will add hierarchical task organization to the CLI n
 **Goal**: Extend the File struct and metadata handling to support objectives
 
 ### Phase 1.1: File Struct Extension
-- [ ] Add `ObjectiveRole string` field to File struct in `scripts/file.go`
-- [ ] Add `ObjectiveID string` field to File struct in `scripts/file.go`
-- [ ] Verify struct compiles without errors
+- [x] Add `ObjectiveRole string` field to File struct in `scripts/file.go`
+- [x] Add `ObjectiveID string` field to File struct in `scripts/file.go`
+- [x] Verify struct compiles without errors
 
 **File**: `/home/billy/repos/cli-notes/scripts/file.go`
 
@@ -58,31 +58,31 @@ type File struct {
 ```
 
 ### Phase 1.2: Metadata Writing Extension
-- [ ] Modify `WriteFile` function in `scripts/data/file_repository.go`
-- [ ] Add `objective-role` to metadata array (conditional write if non-empty)
-- [ ] Add `objective-id` to metadata array (conditional write if non-empty)
-- [ ] Test writing note with objective metadata
+- [x] Modify `WriteFile` function in `scripts/data/file_repository.go`
+- [x] Add `objective-role` to metadata array (conditional write if non-empty)
+- [x] Add `objective-id` to metadata array (conditional write if non-empty)
+- [x] Test writing note with objective metadata
 
 **File**: `/home/billy/repos/cli-notes/scripts/data/file_repository.go`
 
 ### Phase 1.3: Metadata Reading Extension
-- [ ] Modify `getFileIfQueryMatches` in `scripts/data/file_repository.go`
-- [ ] Add case for `"objective-role"` in metadata parsing
-- [ ] Add case for `"objective-id"` in metadata parsing
-- [ ] Update `readLatestFileContent` in `scripts/update.go` to preserve objective fields
-- [ ] Test reading note with objective metadata
+- [x] Modify `getFileIfQueryMatches` in `scripts/data/file_repository.go`
+- [x] Add case for `"objective-role"` in metadata parsing
+- [x] Add case for `"objective-id"` in metadata parsing
+- [x] Update `readLatestFileContent` in `scripts/update.go` to preserve objective fields
+- [x] Test reading note with objective metadata
 
 **Files**:
 - `/home/billy/repos/cli-notes/scripts/data/file_repository.go`
 - `/home/billy/repos/cli-notes/scripts/update.go`
 
 ### Phase 1.4: Objective ID Generator
-- [ ] Create new file `scripts/objective_id.go`
-- [ ] Implement `GenerateObjectiveID()` function (8-char hex from crypto/rand)
-- [ ] Implement `ValidateObjectiveID(id string)` function
-- [ ] Write unit tests in `scripts/objective_id_test.go`
-- [ ] Test ID generation uniqueness (generate 1000 IDs, verify no collisions)
-- [ ] Test ID validation with valid and invalid inputs
+- [x] Create new file `scripts/objective_id.go`
+- [x] Implement `GenerateObjectiveID()` function (8-char hex from crypto/rand)
+- [x] Implement `ValidateObjectiveID(id string)` function
+- [x] Write unit tests in `scripts/objective_id_test.go`
+- [x] Test ID generation uniqueness (generate 1000 IDs, verify no collisions)
+- [x] Test ID validation with valid and invalid inputs
 
 **New File**: `/home/billy/repos/cli-notes/scripts/objective_id.go`
 
@@ -96,14 +96,14 @@ type File struct {
 **Goal**: Create functions to query objectives and their children
 
 ### Phase 2.1: Objective-Specific Queries
-- [ ] Create new file `scripts/data/objective_repository.go`
-- [ ] Implement `QueryAllObjectives()` - returns all parent objectives
-- [ ] Implement `QueryChildrenByObjectiveID(objectiveID, includeDone)` - returns children
-- [ ] Implement `GetObjectiveByID(objectiveID)` - finds parent by ID
-- [ ] Implement `QueryTodosWithoutObjective(query)` - returns unlinked todos
-- [ ] Write unit tests in `scripts/data/objective_repository_test.go`
-- [ ] Test each query with various scenarios (empty, single, multiple results)
-- [ ] Test filtering logic (done/not done, with/without objective-id)
+- [x] Create new file `scripts/data/objective_repository.go`
+- [x] Implement `QueryAllObjectives()` - returns all parent objectives
+- [x] Implement `QueryChildrenByObjectiveID(objectiveID, includeDone)` - returns children
+- [x] Implement `GetObjectiveByID(objectiveID)` - finds parent by ID
+- [x] Implement `QueryTodosWithoutObjective(query)` - returns unlinked todos
+- [x] Write unit tests in `scripts/data/objective_repository_test.go`
+- [x] Test each query with various scenarios (empty, single, multiple results)
+- [x] Test filtering logic (done/not done, with/without objective-id)
 
 **New File**: `/home/billy/repos/cli-notes/scripts/data/objective_repository.go`
 
@@ -117,29 +117,29 @@ type File struct {
 **Goal**: Implement core objective operations (create, link, unlink, convert, delete)
 
 ### Phase 3.1: Objective Creation Operations
-- [ ] Create new file `scripts/objectives.go`
-- [ ] Implement `CreateParentObjective(title, onFileCreated)` function
-- [ ] Implement `ConvertTodoToParentObjective(file, writeFile)` function
-- [ ] Implement `CreateChildTodo(title, parentObjective, onFileCreated)` function
-- [ ] Implement tag inheritance logic in `CreateChildTodo`
-- [ ] Write unit tests in `scripts/objectives_test.go` for creation operations
-- [ ] Test CreateParentObjective generates valid ID and metadata
-- [ ] Test ConvertTodoToParentObjective preserves existing content
-- [ ] Test CreateChildTodo inherits parent tags correctly
+- [x] Create new file `scripts/objectives.go`
+- [x] Implement `CreateParentObjective(title, onFileCreated)` function
+- [x] Implement `ConvertTodoToParentObjective(file, writeFile)` function
+- [x] Implement `CreateChildTodo(title, parentObjective, onFileCreated)` function
+- [x] Implement tag inheritance logic in `CreateChildTodo`
+- [x] Write unit tests in `scripts/objectives_test.go` for creation operations
+- [x] Test CreateParentObjective generates valid ID and metadata
+- [x] Test ConvertTodoToParentObjective preserves existing content
+- [x] Test CreateChildTodo inherits parent tags correctly
 
 **New File**: `/home/billy/repos/cli-notes/scripts/objectives.go`
 
 ### Phase 3.2: Link/Unlink Operations
-- [ ] Implement `LinkTodoToObjective(todo, parentObjective, writeFile)` function
-- [ ] Add validation to prevent linking parent objectives as children
-- [ ] Implement tag inheritance in `LinkTodoToObjective`
-- [ ] Implement `UnlinkTodoFromObjective(todo, writeFile)` function
-- [ ] Implement `DeleteParentObjective(parent, getChildrenFunc, writeFile)` function
-- [ ] Write unit tests for link/unlink/delete operations
-- [ ] Test LinkTodoToObjective tag inheritance (child doesn't have parent tags)
-- [ ] Test LinkTodoToObjective prevents linking parent as child
-- [ ] Test UnlinkTodoFromObjective removes only objective-id
-- [ ] Test DeleteParentObjective unlinks all children and removes file
+- [x] Implement `LinkTodoToObjective(todo, parentObjective, writeFile)` function
+- [x] Add validation to prevent linking parent objectives as children
+- [x] Implement tag inheritance in `LinkTodoToObjective`
+- [x] Implement `UnlinkTodoFromObjective(todo, writeFile)` function
+- [x] Implement `DeleteParentObjective(parent, getChildrenFunc, writeFile)` function
+- [x] Write unit tests for link/unlink/delete operations
+- [x] Test LinkTodoToObjective tag inheritance (child doesn't have parent tags)
+- [x] Test LinkTodoToObjective prevents linking parent as child
+- [x] Test UnlinkTodoFromObjective removes only objective-id
+- [x] Test DeleteParentObjective unlinks all children and removes file
 
 **File**: `/home/billy/repos/cli-notes/scripts/objectives.go` (continued)
 
@@ -153,20 +153,20 @@ type File struct {
 **Goal**: Create state management for objectives views
 
 ### Phase 4.1: Objectives View State
-- [ ] Create new file `scripts/data/objectives_state.go`
-- [ ] Define `ObjectivesViewMode` enum (ObjectivesListView, SingleObjectiveView)
-- [ ] Define `SortOrder` enum (SortByDueDateThenPriority, SortByPriorityThenDueDate)
-- [ ] Define `FilterMode` enum (ShowAll, ShowIncompleteOnly, ShowCompleteOnly)
-- [ ] Define `ObjectivesViewState` struct with all necessary fields
-- [ ] Implement `NewObjectivesViewState()` - initializes list view
-- [ ] Implement `SelectNext()` and `SelectPrevious()` navigation methods
-- [ ] Implement `OpenSelectedObjective()` - transition to single view
-- [ ] Implement `BackToList()` - return to list view
-- [ ] Implement `Refresh()` - reload current view
-- [ ] Implement `applySortAndFilter()` - apply sort/filter to children
-- [ ] Implement `GetSelectedObjective()` - returns selected objective in list
-- [ ] Implement `GetSelectedChild()` - returns selected child in single view
-- [ ] Implement `GetCompletionStats(objectiveID)` - returns (complete, total) counts
+- [x] Create new file `scripts/data/objectives_state.go`
+- [x] Define `ObjectivesViewMode` enum (ObjectivesListView, SingleObjectiveView)
+- [x] Define `SortOrder` enum (SortByDueDateThenPriority, SortByPriorityThenDueDate)
+- [x] Define `FilterMode` enum (ShowAll, ShowIncompleteOnly, ShowCompleteOnly)
+- [x] Define `ObjectivesViewState` struct with all necessary fields
+- [x] Implement `NewObjectivesViewState()` - initializes list view
+- [x] Implement `SelectNext()` and `SelectPrevious()` navigation methods
+- [x] Implement `OpenSelectedObjective()` - transition to single view
+- [x] Implement `BackToList()` - return to list view
+- [x] Implement `Refresh()` - reload current view
+- [x] Implement `applySortAndFilter()` - apply sort/filter to children
+- [x] Implement `GetSelectedObjective()` - returns selected objective in list
+- [x] Implement `GetSelectedChild()` - returns selected child in single view
+- [x] Implement `GetCompletionStats(objectiveID)` - returns (complete, total) counts
 - [ ] Write unit tests in `scripts/data/objectives_state_test.go`
 - [ ] Test navigation methods (boundary conditions)
 - [ ] Test view transitions (list→single, single→list)
@@ -185,36 +185,36 @@ type File struct {
 **Goal**: Create UI rendering functions for objectives views
 
 ### Phase 5.1: Objectives List UI
-- [ ] Create new file `scripts/presentation/objectives_ui.go`
-- [ ] Implement `RenderObjectivesListView(state)` function
-- [ ] Format objectives with completion status (X/Y complete)
-- [ ] Add selection indicator (> for selected)
-- [ ] Add command help text at bottom
-- [ ] Implement `RenderSingleObjectiveView(state)` function
-- [ ] Display parent content at top
-- [ ] Add separator between parent and children
-- [ ] Implement `renderChildTodo()` helper function
-- [ ] Separate incomplete and complete sections
-- [ ] Apply filter mode to sections
-- [ ] Add command help text for single view
+- [x] Create new file `scripts/presentation/objectives_ui.go`
+- [x] Implement `RenderObjectivesListView(state)` function
+- [x] Format objectives with completion status (X/Y complete)
+- [x] Add selection indicator (> for selected)
+- [x] Add command help text at bottom
+- [x] Implement `RenderSingleObjectiveView(state)` function
+- [x] Display parent content at top
+- [x] Add separator between parent and children
+- [x] Implement `renderChildTodo()` helper function
+- [x] Separate incomplete and complete sections
+- [x] Apply filter mode to sections
+- [x] Add command help text for single view
 - [ ] Test rendering with various states (empty, single, multiple items)
 - [ ] Visual testing in terminal (80x24 minimum)
 
 **New File**: `/home/billy/repos/cli-notes/scripts/presentation/objectives_ui.go`
 
 ### Phase 5.2: Input Handling
-- [ ] Create new file `scripts/presentation/objectives_input.go`
-- [ ] Define `ObjectivesAction` enum with all possible actions
-- [ ] Define `ObjectivesInput` struct
-- [ ] Implement `ParseObjectivesInput(char, key)` function
-- [ ] Map j/k to navigation
-- [ ] Map o to open/enter
-- [ ] Map n to create new
-- [ ] Map l to link existing
-- [ ] Map d to delete (handle dd in main loop)
-- [ ] Map q to quit/back
-- [ ] Map e to edit parent
-- [ ] Map u to unlink
+- [x] Create new file `scripts/presentation/objectives_input.go`
+- [x] Define `ObjectivesAction` enum with all possible actions
+- [x] Define `ObjectivesInput` struct
+- [x] Implement `ParseObjectivesInput(char, key)` function
+- [x] Map j/k to navigation
+- [x] Map o to open/enter
+- [x] Map n to create new
+- [x] Map l to link existing
+- [x] Map d to delete (handle dd in main loop)
+- [x] Map q to quit/back
+- [x] Map e to edit parent
+- [x] Map u to unlink
 - [ ] Map s to sort
 - [ ] Map f to filter
 - [ ] Test input parsing with all commands
@@ -231,14 +231,14 @@ type File struct {
 **Goal**: Integrate objectives views into main command loop
 
 ### Phase 6.1: Add Global Commands
-- [ ] Modify `main.go` to add `ob` command case
-- [ ] Implement `ob` → call `runObjectivesView()`
-- [ ] Add `cpo` command case to `handleCommand` switch
-- [ ] Implement `cpo` → check if file selected
-- [ ] Add warning if file is already a child (show parent info)
-- [ ] Implement confirmation prompt for child-to-parent conversion
-- [ ] Call `ConvertTodoToParentObjective` on confirmation
-- [ ] Display success message with new objective ID
+- [x] Modify `main.go` to add `ob` command case
+- [x] Implement `ob` → call `runObjectivesView()`
+- [x] Add `cpo` command case to `handleCommand` switch
+- [x] Implement `cpo` → check if file selected
+- [x] Add warning if file is already a child (show parent info)
+- [x] Implement confirmation prompt for child-to-parent conversion
+- [x] Call `ConvertTodoToParentObjective` on confirmation
+- [x] Display success message with new objective ID
 - [ ] Test `cpo` on regular todo
 - [ ] Test `cpo` on existing child (with warning)
 - [ ] Test `cpo` with no file selected
@@ -246,22 +246,22 @@ type File struct {
 **File**: `/home/billy/repos/cli-notes/main.go`
 
 ### Phase 6.2: Objectives View Event Loop
-- [ ] Implement `runObjectivesView()` function in `main.go`
-- [ ] Initialize ObjectivesViewState
-- [ ] Implement main event loop (for infinite loop until quit)
-- [ ] Add rendering logic (render appropriate view based on state)
-- [ ] Implement 'dd' detection for delete (track last char)
-- [ ] Implement navigation handlers (j/k)
-- [ ] Implement open handler (o) - different behavior per view
-- [ ] Implement create new handler (n) - different per view
-- [ ] Implement quit handler (q) - different per view
-- [ ] Implement edit parent handler (e) - single view only
-- [ ] Implement unlink handler (u) - single view, child selected only
-- [ ] Implement sort handler (s) - toggle sort order
-- [ ] Implement filter handler (f) - cycle through filters
-- [ ] Implement delete objective with confirmation (dd)
-- [ ] Add `getLineInput()` helper function (close/reopen keyboard)
-- [ ] Add error message display mechanism (lastMessage)
+- [x] Implement `runObjectivesView()` function in `main.go`
+- [x] Initialize ObjectivesViewState
+- [x] Implement main event loop (for infinite loop until quit)
+- [x] Add rendering logic (render appropriate view based on state)
+- [x] Implement 'dd' detection for delete (track last char)
+- [x] Implement navigation handlers (j/k)
+- [x] Implement open handler (o) - different behavior per view
+- [x] Implement create new handler (n) - different per view
+- [x] Implement quit handler (q) - different per view
+- [x] Implement edit parent handler (e) - single view only
+- [x] Implement unlink handler (u) - single view, child selected only
+- [x] Implement sort handler (s) - toggle sort order
+- [x] Implement filter handler (f) - cycle through filters
+- [x] Implement delete objective with confirmation (dd)
+- [x] Add `getLineInput()` helper function (close/reopen keyboard)
+- [x] Add error message display mechanism (lastMessage)
 - [ ] Test keyboard state management (proper cleanup on exit)
 - [ ] Test all navigation flows
 - [ ] Test view transitions
