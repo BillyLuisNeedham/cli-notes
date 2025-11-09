@@ -540,7 +540,7 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 				fmt.Println("Converting to parent objective will:")
 				fmt.Println("  • Unlink from current objective")
 				fmt.Println("  • Create new objective ID")
-				fmt.Println("  • Become independent parent objective\n")
+				fmt.Println("  • Become independent parent objective")
 				fmt.Print("Continue? (y/n): ")
 
 				char, _, err := keyboard.GetKey()
@@ -952,6 +952,31 @@ func runObjectivesView() error {
 				}
 			}
 
+		case presentation.ObjLinkExisting:
+			// Get the parent objective (either from list or single view)
+			var parentObj *scripts.File
+			if state.ViewMode == data.ObjectivesListView {
+				parentObj = state.GetSelectedObjective()
+			} else {
+				parentObj = state.CurrentObjective
+			}
+
+			if parentObj != nil {
+				selectedTodo, err := presentation.SearchAndLinkTodo(*parentObj, closeKeyboard, reopenKeyboard)
+				if err != nil {
+					lastMessage = fmt.Sprintf("Error: %v", err)
+				} else if selectedTodo != nil {
+					// Link the selected todo
+					err := scripts.LinkTodoToObjective(*selectedTodo, *parentObj, data.WriteFile)
+					if err != nil {
+						lastMessage = fmt.Sprintf("Error linking: %v", err)
+					} else {
+						lastMessage = fmt.Sprintf("Linked \"%s\" to objective", selectedTodo.Title)
+						state.Refresh()
+					}
+				}
+			}
+
 		case presentation.ObjQuit:
 			if state.ViewMode == data.SingleObjectiveView {
 				state.BackToList()
@@ -991,6 +1016,142 @@ func runObjectivesView() error {
 		case presentation.ObjChangeFilter:
 			if state.ViewMode == data.SingleObjectiveView {
 				state.CycleFilterMode()
+			}
+
+		case presentation.ObjSetPriority1, presentation.ObjSetPriority2, presentation.ObjSetPriority3:
+			if state.ViewMode == data.SingleObjectiveView && !state.OnParent {
+				child := state.GetSelectedChild()
+				if child != nil {
+					var priority scripts.Priority
+					switch input.Action {
+					case presentation.ObjSetPriority1:
+						priority = scripts.P1
+					case presentation.ObjSetPriority2:
+						priority = scripts.P2
+					case presentation.ObjSetPriority3:
+						priority = scripts.P3
+					}
+
+					err := scripts.ChangePriority(priority, *child, data.WriteFile)
+					if err != nil {
+						lastMessage = fmt.Sprintf("Error changing priority: %v", err)
+					} else {
+						lastMessage = fmt.Sprintf("Priority changed to P%d", priority)
+						state.Refresh()
+					}
+				}
+			}
+
+		case presentation.ObjSetDueToday:
+			if state.ViewMode == data.SingleObjectiveView && !state.OnParent {
+				child := state.GetSelectedChild()
+				if child != nil {
+					err := scripts.SetDueDateToToday(*child, data.WriteFile)
+					if err != nil {
+						lastMessage = fmt.Sprintf("Error setting due date: %v", err)
+					} else {
+						lastMessage = "Due date set to today"
+						state.Refresh()
+					}
+				}
+			}
+
+		case presentation.ObjSetDueMonday:
+			if state.ViewMode == data.SingleObjectiveView && !state.OnParent {
+				child := state.GetSelectedChild()
+				if child != nil {
+					err := scripts.SetDueDateToNextDay(time.Monday, *child, data.WriteFile)
+					if err != nil {
+						lastMessage = fmt.Sprintf("Error setting due date: %v", err)
+					} else {
+						lastMessage = "Due date set to next Monday"
+						state.Refresh()
+					}
+				}
+			}
+
+		case presentation.ObjSetDueTuesday:
+			if state.ViewMode == data.SingleObjectiveView && !state.OnParent {
+				child := state.GetSelectedChild()
+				if child != nil {
+					err := scripts.SetDueDateToNextDay(time.Tuesday, *child, data.WriteFile)
+					if err != nil {
+						lastMessage = fmt.Sprintf("Error setting due date: %v", err)
+					} else {
+						lastMessage = "Due date set to next Tuesday"
+						state.Refresh()
+					}
+				}
+			}
+
+		case presentation.ObjSetDueWednesday:
+			if state.ViewMode == data.SingleObjectiveView && !state.OnParent {
+				child := state.GetSelectedChild()
+				if child != nil {
+					err := scripts.SetDueDateToNextDay(time.Wednesday, *child, data.WriteFile)
+					if err != nil {
+						lastMessage = fmt.Sprintf("Error setting due date: %v", err)
+					} else {
+						lastMessage = "Due date set to next Wednesday"
+						state.Refresh()
+					}
+				}
+			}
+
+		case presentation.ObjSetDueThursday:
+			if state.ViewMode == data.SingleObjectiveView && !state.OnParent {
+				child := state.GetSelectedChild()
+				if child != nil {
+					err := scripts.SetDueDateToNextDay(time.Thursday, *child, data.WriteFile)
+					if err != nil {
+						lastMessage = fmt.Sprintf("Error setting due date: %v", err)
+					} else {
+						lastMessage = "Due date set to next Thursday"
+						state.Refresh()
+					}
+				}
+			}
+
+		case presentation.ObjSetDueFriday:
+			if state.ViewMode == data.SingleObjectiveView && !state.OnParent {
+				child := state.GetSelectedChild()
+				if child != nil {
+					err := scripts.SetDueDateToNextDay(time.Friday, *child, data.WriteFile)
+					if err != nil {
+						lastMessage = fmt.Sprintf("Error setting due date: %v", err)
+					} else {
+						lastMessage = "Due date set to next Friday"
+						state.Refresh()
+					}
+				}
+			}
+
+		case presentation.ObjSetDueSaturday:
+			if state.ViewMode == data.SingleObjectiveView && !state.OnParent {
+				child := state.GetSelectedChild()
+				if child != nil {
+					err := scripts.SetDueDateToNextDay(time.Saturday, *child, data.WriteFile)
+					if err != nil {
+						lastMessage = fmt.Sprintf("Error setting due date: %v", err)
+					} else {
+						lastMessage = "Due date set to next Saturday"
+						state.Refresh()
+					}
+				}
+			}
+
+		case presentation.ObjSetDueSunday:
+			if state.ViewMode == data.SingleObjectiveView && !state.OnParent {
+				child := state.GetSelectedChild()
+				if child != nil {
+					err := scripts.SetDueDateToNextDay(time.Sunday, *child, data.WriteFile)
+					if err != nil {
+						lastMessage = fmt.Sprintf("Error setting due date: %v", err)
+					} else {
+						lastMessage = "Due date set to next Sunday"
+						state.Refresh()
+					}
+				}
 			}
 		}
 	}
