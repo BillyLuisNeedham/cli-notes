@@ -48,6 +48,59 @@ To run the program using the `go run` command, follow these steps:
 - `p2` - Get medium priority (P2) todos
 - `p3` - Get low priority (P3) todos
 
+### Objectives Management
+
+The objectives feature allows you to organize and track larger goals by linking multiple todos together. An objective consists of one parent note and zero or more child todos, providing a hierarchical view where you can see all related work in one place.
+
+**Core Commands:**
+
+- `ob` - Open objectives view (interactive interface for managing objectives)
+- `cpo` - Convert the currently selected todo to a parent objective
+
+**Objectives View Commands:**
+
+*In Objectives List View:*
+- `j/k` - Navigate up/down through objectives
+- `o` - Open selected objective to view details
+- `n` - Create new objective
+- `l` - Link existing todo to selected objective (opens search interface)
+- `dd` - Delete selected objective (children are unlinked, not deleted)
+- `q` - Quit objectives view
+
+*In Single Objective View:*
+- `j/k` - Navigate through parent and child todos
+- `o` - Open selected item in editor
+- `n` - Create new child todo (automatically linked to objective)
+- `l` - Link existing todo to this objective
+- `e` - Edit parent objective in editor
+- `u` - Unlink selected child todo
+- `s` - Toggle sort order (due date→priority or priority→due date)
+- `f` - Cycle filter mode (show all/incomplete only/complete only)
+- `q` - Back to objectives list
+
+*Todo Operations (when child is selected):*
+- `1`, `2`, `3` - Set priority (P1, P2, P3)
+- `t` - Set due date to today
+- `m`, `tu`, `w`, `th`, `f`, `sa`, `su` - Set due date to next occurrence of weekday
+
+**Key Features:**
+
+- **Tag Inheritance**: Child todos automatically inherit tags from their parent objective (excluding the "objective" tag)
+- **Completion Tracking**: Objectives display completion status (e.g., "3/5 complete")
+- **Independent Children**: Deleting a parent objective unlinks children but doesn't delete them
+- **Search & Link**: Use comma-separated queries to search and link existing todos
+- **Single Hierarchy**: Parent objectives cannot be children of other objectives
+
+**Example Workflow:**
+
+1. Create an objective: `ob` → `n` → Enter "Launch New Feature"
+2. Add existing todos: `l` → Enter search terms → Select todo
+3. Create new child: `n` → Enter todo title
+4. Track progress: View completion status in objectives list
+5. Manage children: Set priorities, due dates, and unlink as needed
+
+See `OBJECTIVES_FEATURE_SPEC.md` for complete documentation.
+
 ### Meeting Notes
 
 - `cm <title>` - Create a new meeting note with the specified title
