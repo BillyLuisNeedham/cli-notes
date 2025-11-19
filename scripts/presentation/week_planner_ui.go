@@ -182,8 +182,9 @@ func renderContent(state *data.WeekPlannerState, dims uiDimensions) []string {
 	// - Panel titles: 2 (title + spacer)
 	// - Bottom controls: 10 (spacer + Controls: + 8 control lines)
 	// - Bottom border: 1
-	// Total overhead = 19 lines
-	maxLines := dims.terminalHeight - 19
+	// - Message space: 3 (newline + message + newline from main.go)
+	// Total overhead = 22 lines
+	maxLines := dims.terminalHeight - 22
 	if maxLines < 15 {
 		maxLines = 15 // Ensure minimum space for content
 	}
@@ -421,8 +422,10 @@ func RenderExpandedEarlierView(state *data.WeekPlannerState, termWidth, termHeig
 		changesIndicator = "No changes"
 	}
 
-	// Center the title, right-align the changes
-	titlePadding := (termWidth - len(title) - len(changesIndicator) - 4) / 2
+	// Center the title, right-align the changes (use rune count)
+	titleLen := len([]rune(title))
+	changesLen := len([]rune(changesIndicator))
+	titlePadding := (termWidth - titleLen - changesLen - 4) / 2
 	if titlePadding < 1 {
 		titlePadding = 1
 	}
@@ -431,13 +434,14 @@ func RenderExpandedEarlierView(state *data.WeekPlannerState, termWidth, termHeig
 		strings.Repeat(" ", titlePadding),
 		title,
 		strings.Repeat(" ", titlePadding),
-		strings.Repeat(" ", termWidth-len(title)-len(changesIndicator)-4-2*titlePadding),
+		strings.Repeat(" ", termWidth-titleLen-changesLen-4-2*titlePadding),
 		changesIndicator,
 	))
 
-	// Render controls bar
+	// Render controls bar (use rune count)
 	controls := "j/k:Sel │ MTWRFAS:MoveTo │ Enter:Open │ ESC/e:Exit │ ^S:Save │ u:Undo │ q:Quit"
-	padding := termWidth - len(controls) - 4
+	controlsLen := len([]rune(controls))
+	padding := termWidth - controlsLen - 4
 	if padding < 0 {
 		padding = 0
 	}
@@ -479,8 +483,9 @@ func RenderExpandedEarlierView(state *data.WeekPlannerState, termWidth, termHeig
 				maxTitleLen = 20
 			}
 			title := todo.Title
-			if len(title) > maxTitleLen {
-				title = title[:maxTitleLen-3] + "..."
+			titleRunes := []rune(title)
+			if len(titleRunes) > maxTitleLen {
+				title = string(titleRunes[:maxTitleLen-3]) + "..."
 			}
 
 			line = fmt.Sprintf("%s[P%d] Due: %s │ %s", selector, todo.Priority, dueDate, title)
@@ -488,12 +493,14 @@ func RenderExpandedEarlierView(state *data.WeekPlannerState, termWidth, termHeig
 			line = ""
 		}
 
-		// Pad to full width
-		linePadding := termWidth - len(line) - 4
+		// Pad to full width (use rune count)
+		lineLen := len([]rune(line))
+		linePadding := termWidth - lineLen - 4
 		if linePadding < 0 {
 			linePadding = 0
-			if len(line) > termWidth-4 {
-				line = line[:termWidth-4]
+			if lineLen > termWidth-4 {
+				lineRunes := []rune(line)
+				line = string(lineRunes[:termWidth-4])
 			}
 		}
 
@@ -513,7 +520,8 @@ func RenderExpandedEarlierView(state *data.WeekPlannerState, termWidth, termHeig
 		scrollInfo = "No Earlier todos"
 	}
 
-	scrollPadding := termWidth - len(scrollInfo) - 4
+	scrollLen := len([]rune(scrollInfo))
+	scrollPadding := termWidth - scrollLen - 4
 	output.WriteString(fmt.Sprintf("│ %s%s │\n", scrollInfo, strings.Repeat(" ", scrollPadding)))
 
 	// Render bottom border
