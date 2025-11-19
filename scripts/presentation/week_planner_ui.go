@@ -438,6 +438,13 @@ func RenderExpandedEarlierView(state *data.WeekPlannerState, termWidth, termHeig
 		changesIndicator,
 	))
 
+	// Render day tabs
+	dims := uiDimensions{
+		terminalWidth:  termWidth,
+		terminalHeight: termHeight,
+	}
+	output.WriteString(renderDayTabs(state, dims))
+
 	// Render controls bar (use rune count)
 	controls := "j/k:Sel │ MTWRFAS:MoveTo │ Enter:Open │ ESC/e:Exit │ ^S:Save │ u:Undo │ q:Quit"
 	controlsLen := len([]rune(controls))
@@ -451,9 +458,10 @@ func RenderExpandedEarlierView(state *data.WeekPlannerState, termWidth, termHeig
 	output.WriteString("├" + strings.Repeat("─", termWidth-2) + "┤\n")
 
 	// Calculate content area
-	headerLines := 4 // Top border + header + controls + separator
-	footerLines := 2 // Scroll indicator + bottom border
-	contentHeight := termHeight - headerLines - footerLines
+	headerLines := 5  // Top border + header + day tabs + controls + separator
+	footerLines := 2  // Scroll indicator + bottom border
+	messageSpace := 3 // Space for message from main.go (newline + message + newline)
+	contentHeight := termHeight - headerLines - footerLines - messageSpace
 
 	// Get Earlier todos
 	earlierTodos := state.Plan.TodosByDay[data.Earlier]
