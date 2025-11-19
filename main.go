@@ -691,6 +691,25 @@ func runWeekPlanner() error {
 			continue
 		}
 
+		// Handle bulk move earlier
+		if input.Action == presentation.BulkMoveEarlier {
+			// Only works in normal view
+			if state.ViewMode != data.NormalView {
+				lastMessage = "Bulk move only available in normal view"
+				continue
+			}
+
+			// Execute bulk move
+			movedCount, err := state.BulkMoveEarlierTodosToCurrentDay()
+			if err != nil {
+				lastMessage = fmt.Sprintf("Error: %v", err)
+			} else {
+				dayName := data.WeekDayNames[state.SelectedDay]
+				lastMessage = fmt.Sprintf("Moved %d todos to %s", movedCount, dayName)
+			}
+			continue
+		}
+
 		// Handle reset with confirmation (special case - needs confirmation)
 		if input.Action == presentation.Reset {
 			if promptResetConfirmation(state) {
