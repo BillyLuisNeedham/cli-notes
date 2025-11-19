@@ -130,7 +130,7 @@ func renderDayTabs(state *data.WeekPlannerState, dims uiDimensions) string {
 	}
 
 	// Pad to full width
-	currentLen := tabs.Len() - 2 // -2 for initial "│ "
+	currentLen := tabs.Len() - 2                   // -2 for initial "│ "
 	padding := dims.terminalWidth - currentLen - 4 // -4 for initial "│ " and ending " │"
 	tabs.WriteString(strings.Repeat(" ", padding))
 	tabs.WriteString(" │\n")
@@ -172,8 +172,35 @@ func renderContent(state *data.WeekPlannerState, dims uiDimensions) []string {
 	// Get todos for selected day
 	todos := state.Plan.TodosByDay[state.SelectedDay]
 
-	// Render todos on left, overview on right
-	maxLines := 15 // Maximum number of content lines
+	// Calculate max lines based on terminal height more conservatively
+	// Fixed overhead:
+	// - Top border: 1
+	// - Header: 1
+	// - Day tabs: 1
+	// - Controls bar: 1
+	// - Split border: 1
+	// - Panel titles: 2 (title + spacer)
+	// - Bottom controls: 10 (spacer + Controls: + 8 control lines)
+	// - Bottom border: 1
+	// - Message space: 3 (newline + message + newline from main.go)
+	// Total overhead = 22 lines
+	maxLines := dims.terminalHeight - 22
+	if maxLines < 15 {
+		maxLines = 15 // Ensure minimum space for content
+	}
+
+	// Get uncompleted tasks for selected todo
+	var uncompletedTasks []string
+	selectedTodo := state.GetSelectedTodo()
+	if selectedTodo != nil {
+		var err error
+		// Create a slice with just the selected file
+		files := []scripts.File{*selectedTodo}
+		uncompletedTasks, err = scripts.GetUncompletedTasksInFiles(files)
+		if err != nil {
+			uncompletedTasks = []string{fmt.Sprintf("Error: %v", err)}
+		}
+	}
 
 	for i := 0; i < maxLines; i++ {
 		var leftContent string
@@ -184,11 +211,12 @@ func renderContent(state *data.WeekPlannerState, dims uiDimensions) []string {
 			todo := todos[i]
 			isSelected := i == state.SelectedTodo
 
-			// Truncate title if too long
+			// Truncate title if too long (use rune count for proper length)
 			maxTitleLen := dims.leftPanelWidth - 10 // Account for priority and selector
 			title := todo.Title
-			if len(title) > maxTitleLen {
-				title = title[:maxTitleLen-3] + "..."
+			titleRunes := []rune(title)
+			if len(titleRunes) > maxTitleLen {
+				title = string(titleRunes[:maxTitleLen-3]) + "..."
 			}
 
 			selector := "  "
@@ -210,8 +238,9 @@ func renderContent(state *data.WeekPlannerState, dims uiDimensions) []string {
 
 				maxChangeLen := dims.leftPanelWidth - 4
 				changeText := fmt.Sprintf("Moved %s→%s: %s", fromDay, toDay, change.Todo.Title)
-				if len(changeText) > maxChangeLen {
-					changeText = changeText[:maxChangeLen-3] + "..."
+				changeRunes := []rune(changeText)
+				if len(changeRunes) > maxChangeLen {
+					changeText = string(changeRunes[:maxChangeLen-3]) + "..."
 				}
 				leftContent = fmt.Sprintf("  %s", changeText)
 			} else {
@@ -221,7 +250,7 @@ func renderContent(state *data.WeekPlannerState, dims uiDimensions) []string {
 			leftContent = ""
 		}
 
-		// Right panel: week overview (Earlier + 7 days + NextMonday)
+		// Right panel: week overview + note summary
 		if i < 10 { // Earlier + 7 days + 1 for next monday + 1 for blank
 			if i == 0 {
 				rightContent = renderOverviewLine(state, data.Earlier)
@@ -244,16 +273,41 @@ func renderContent(state *data.WeekPlannerState, dims uiDimensions) []string {
 			} else if i == 9 {
 				rightContent = renderOverviewLine(state, data.NextMonday)
 			}
-		} else if i == 11 {
-			rightContent = "  Legend:"
-		} else if i == 12 {
-			rightContent = "  ▓ Priority 1 (urgent)"
-		} else if i == 13 {
-			rightContent = "  █ Priority 2 (normal)"
-		} else if i == 14 {
-			rightContent = "  ░ Priority 3 (low)"
 		} else {
-			rightContent = ""
+			// Show note summary if available
+			summaryStartIdx := 11
+			if i == summaryStartIdx {
+				if len(uncompletedTasks) > 0 {
+					rightContent = "  NOTE SUMMARY:"
+				} else if selectedTodo != nil {
+					// Optional: Show something when no tasks found?
+					// rightContent = "  (No uncompleted tasks)"
+					rightContent = ""
+				} else {
+					rightContent = ""
+				}
+			} else if i > summaryStartIdx {
+				taskIdx := i - (summaryStartIdx + 1)
+				if taskIdx < len(uncompletedTasks) {
+					task := uncompletedTasks[taskIdx]
+					// Clean up task string (remove filename prefix if present)
+					parts := strings.SplitN(task, ": ", 2)
+					if len(parts) > 1 {
+						task = parts[1]
+					}
+					// Truncate if needed (use rune count)
+					task = strings.TrimSpace(task)
+					taskRunes := []rune(task)
+					if len(taskRunes) > dims.rightPanelWidth-4 {
+						task = string(taskRunes[:dims.rightPanelWidth-7]) + "..."
+					}
+					rightContent = fmt.Sprintf("  %s", task)
+				} else {
+					rightContent = ""
+				}
+			} else {
+				rightContent = ""
+			}
 		}
 
 		lines = append(lines, renderSplitLine(leftContent, rightContent, dims))
@@ -316,18 +370,26 @@ func renderOverviewLine(state *data.WeekPlannerState, day data.WeekDay) string {
 
 // renderSplitLine renders a line split between left and right panels
 func renderSplitLine(leftContent, rightContent string, dims uiDimensions) string {
+	// Use rune count for proper length calculation with multi-byte characters
+	leftLen := len([]rune(leftContent))
+	rightLen := len([]rune(rightContent))
+
 	// Pad left content to left panel width
-	leftPadding := dims.leftPanelWidth - len(leftContent)
+	leftPadding := dims.leftPanelWidth - leftLen
 	if leftPadding < 0 {
 		leftPadding = 0
-		leftContent = leftContent[:dims.leftPanelWidth]
+		// Truncate using runes
+		leftRunes := []rune(leftContent)
+		leftContent = string(leftRunes[:dims.leftPanelWidth])
 	}
 
 	// Pad right content to right panel width
-	rightPadding := dims.rightPanelWidth - len(rightContent)
+	rightPadding := dims.rightPanelWidth - rightLen
 	if rightPadding < 0 {
 		rightPadding = 0
-		rightContent = rightContent[:dims.rightPanelWidth]
+		// Truncate using runes
+		rightRunes := []rune(rightContent)
+		rightContent = string(rightRunes[:dims.rightPanelWidth])
 	}
 
 	return fmt.Sprintf("│%s%s│%s%s│\n",
@@ -360,8 +422,10 @@ func RenderExpandedEarlierView(state *data.WeekPlannerState, termWidth, termHeig
 		changesIndicator = "No changes"
 	}
 
-	// Center the title, right-align the changes
-	titlePadding := (termWidth - len(title) - len(changesIndicator) - 4) / 2
+	// Center the title, right-align the changes (use rune count)
+	titleLen := len([]rune(title))
+	changesLen := len([]rune(changesIndicator))
+	titlePadding := (termWidth - titleLen - changesLen - 4) / 2
 	if titlePadding < 1 {
 		titlePadding = 1
 	}
@@ -370,13 +434,21 @@ func RenderExpandedEarlierView(state *data.WeekPlannerState, termWidth, termHeig
 		strings.Repeat(" ", titlePadding),
 		title,
 		strings.Repeat(" ", titlePadding),
-		strings.Repeat(" ", termWidth-len(title)-len(changesIndicator)-4-2*titlePadding),
+		strings.Repeat(" ", termWidth-titleLen-changesLen-4-2*titlePadding),
 		changesIndicator,
 	))
 
-	// Render controls bar
+	// Render day tabs
+	dims := uiDimensions{
+		terminalWidth:  termWidth,
+		terminalHeight: termHeight,
+	}
+	output.WriteString(renderDayTabs(state, dims))
+
+	// Render controls bar (use rune count)
 	controls := "j/k:Sel │ MTWRFAS:MoveTo │ Enter:Open │ ESC/e:Exit │ ^S:Save │ u:Undo │ q:Quit"
-	padding := termWidth - len(controls) - 4
+	controlsLen := len([]rune(controls))
+	padding := termWidth - controlsLen - 4
 	if padding < 0 {
 		padding = 0
 	}
@@ -386,9 +458,10 @@ func RenderExpandedEarlierView(state *data.WeekPlannerState, termWidth, termHeig
 	output.WriteString("├" + strings.Repeat("─", termWidth-2) + "┤\n")
 
 	// Calculate content area
-	headerLines := 4  // Top border + header + controls + separator
+	headerLines := 5  // Top border + header + day tabs + controls + separator
 	footerLines := 2  // Scroll indicator + bottom border
-	contentHeight := termHeight - headerLines - footerLines
+	messageSpace := 3 // Space for message from main.go (newline + message + newline)
+	contentHeight := termHeight - headerLines - footerLines - messageSpace
 
 	// Get Earlier todos
 	earlierTodos := state.Plan.TodosByDay[data.Earlier]
@@ -418,8 +491,9 @@ func RenderExpandedEarlierView(state *data.WeekPlannerState, termWidth, termHeig
 				maxTitleLen = 20
 			}
 			title := todo.Title
-			if len(title) > maxTitleLen {
-				title = title[:maxTitleLen-3] + "..."
+			titleRunes := []rune(title)
+			if len(titleRunes) > maxTitleLen {
+				title = string(titleRunes[:maxTitleLen-3]) + "..."
 			}
 
 			line = fmt.Sprintf("%s[P%d] Due: %s │ %s", selector, todo.Priority, dueDate, title)
@@ -427,12 +501,14 @@ func RenderExpandedEarlierView(state *data.WeekPlannerState, termWidth, termHeig
 			line = ""
 		}
 
-		// Pad to full width
-		linePadding := termWidth - len(line) - 4
+		// Pad to full width (use rune count)
+		lineLen := len([]rune(line))
+		linePadding := termWidth - lineLen - 4
 		if linePadding < 0 {
 			linePadding = 0
-			if len(line) > termWidth-4 {
-				line = line[:termWidth-4]
+			if lineLen > termWidth-4 {
+				lineRunes := []rune(line)
+				line = string(lineRunes[:termWidth-4])
 			}
 		}
 
@@ -452,7 +528,8 @@ func RenderExpandedEarlierView(state *data.WeekPlannerState, termWidth, termHeig
 		scrollInfo = "No Earlier todos"
 	}
 
-	scrollPadding := termWidth - len(scrollInfo) - 4
+	scrollLen := len([]rune(scrollInfo))
+	scrollPadding := termWidth - scrollLen - 4
 	output.WriteString(fmt.Sprintf("│ %s%s │\n", scrollInfo, strings.Repeat(" ", scrollPadding)))
 
 	// Render bottom border

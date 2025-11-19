@@ -246,6 +246,9 @@ func HandleWeekPlannerInput(state *data.WeekPlannerState, input WeekPlannerInput
 		if state.ViewMode == data.NormalView {
 			state.EnterExpandedEarlierView()
 			return false, "Expanded Earlier view", nil
+		} else if state.ViewMode == data.ExpandedEarlierView {
+			state.ExitExpandedEarlierView()
+			return false, "Returned to normal view", nil
 		}
 		return false, "", nil
 
