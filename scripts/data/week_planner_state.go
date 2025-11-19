@@ -317,3 +317,38 @@ func (wps *WeekPlannerState) MoveEarlierTodoToMonday() error {
 
 	return wps.moveSelectedTodo(Monday)
 }
+
+// BulkMoveEarlierTodosToCurrentDay moves all todos from earlier days to the selected day
+// Returns the number of todos moved, or an error
+func (wps *WeekPlannerState) BulkMoveEarlierTodosToCurrentDay() (int, error) {
+	targetDay := wps.SelectedDay
+
+	// Validation
+	if targetDay == Earlier {
+		return 0, fmt.Errorf("cannot bulk move to Earlier")
+	}
+
+	movedCount := 0
+
+	// Iterate through all days before the target
+	for day := Earlier; day < targetDay; day++ {
+		// Get snapshot of todos (to avoid modification during iteration)
+		todos := make([]scripts.File, len(wps.Plan.TodosByDay[day]))
+		copy(todos, wps.Plan.TodosByDay[day])
+
+		// Move all todos from this day
+		for _, todo := range todos {
+			wps.Plan.MoveTodo(todo, day, targetDay)
+			movedCount++
+		}
+	}
+
+	if movedCount == 0 {
+		return 0, fmt.Errorf("no earlier todos to move")
+	}
+
+	// Reset selected todo to 0 (moved todos added to end of target day)
+	wps.SelectedTodo = 0
+
+	return movedCount, nil
+}

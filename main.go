@@ -691,6 +691,37 @@ func runWeekPlanner() error {
 			continue
 		}
 
+		// Handle bulk move earlier (special case - needs confirmation)
+		if input.Action == presentation.BulkMoveEarlier {
+			// Only works in normal view
+			if state.ViewMode != data.NormalView {
+				lastMessage = "Bulk move only available in normal view"
+				continue
+			}
+
+			// Get confirmation
+			confirmed, todoCount := promptBulkMoveConfirmation(state)
+
+			if !confirmed {
+				if todoCount == 0 {
+					lastMessage = "No earlier todos to move"
+				} else {
+					lastMessage = "Cancelled"
+				}
+				continue
+			}
+
+			// Execute bulk move
+			movedCount, err := state.BulkMoveEarlierTodosToCurrentDay()
+			if err != nil {
+				lastMessage = fmt.Sprintf("Error: %v", err)
+			} else {
+				dayName := data.WeekDayNames[state.SelectedDay]
+				lastMessage = fmt.Sprintf("Moved %d todos to %s", movedCount, dayName)
+			}
+			continue
+		}
+
 		// Handle reset with confirmation (special case - needs confirmation)
 		if input.Action == presentation.Reset {
 			if promptResetConfirmation(state) {
@@ -818,6 +849,47 @@ func promptResetConfirmation(state *data.WeekPlannerState) bool {
 		case 'n', 'N':
 			fmt.Println("n")
 			return false // Cancel reset
+
+		default:
+			// Invalid input, keep prompting
+			continue
+		}
+	}
+}
+
+// promptBulkMoveConfirmation prompts the user to confirm bulk move action
+// Returns true if user confirms, false if cancelled, and the count of todos to move
+func promptBulkMoveConfirmation(state *data.WeekPlannerState) (bool, int) {
+	// Count todos to be moved
+	todoCount := 0
+	targetDay := state.SelectedDay
+
+	for day := data.Earlier; day < targetDay; day++ {
+		todoCount += len(state.Plan.TodosByDay[day])
+	}
+
+	if todoCount == 0 {
+		return false, 0
+	}
+
+	dayName := data.WeekDayNames[targetDay]
+	fmt.Printf("\nMove %d todos from earlier days to %s? (y/n): ", todoCount, dayName)
+
+	for {
+		char, _, err := keyboard.GetKey()
+		if err != nil {
+			fmt.Printf("Error reading input: %v\n", err)
+			return false, 0
+		}
+
+		switch char {
+		case 'y', 'Y':
+			fmt.Println("y")
+			return true, todoCount
+
+		case 'n', 'N':
+			fmt.Println("n")
+			return false, 0
 
 		default:
 			// Invalid input, keep prompting

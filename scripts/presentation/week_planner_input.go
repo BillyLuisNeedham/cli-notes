@@ -31,6 +31,7 @@ const (
 	NextWeek
 	ToggleExpandedEarlier
 	ExitExpandedView
+	BulkMoveEarlier
 )
 
 // WeekPlannerInput represents a parsed input from the keyboard
@@ -82,6 +83,8 @@ func ParseWeekPlannerInput(char rune, key keyboard.Key) WeekPlannerInput {
 		return WeekPlannerInput{Action: MoveToNextMonday}
 	case 'e':
 		return WeekPlannerInput{Action: ToggleExpandedEarlier}
+	case 'b':
+		return WeekPlannerInput{Action: BulkMoveEarlier}
 
 	// Day shortcuts (lowercase = switch view)
 	case 'm':
