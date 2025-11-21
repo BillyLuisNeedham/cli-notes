@@ -303,24 +303,28 @@ func TestToCompletedCommand(t *testing.T) {
 
 func TestCommandHandler_SingleKeyPriorityCommands(t *testing.T) {
 	tests := []struct {
-		name         string
-		char         rune
-		expectedName string
+		name          string
+		char          rune
+		expectedName  string
+		expectedQuery string
 	}{
 		{
-			name:         "Press '1' with no command text becomes p1",
-			char:         '1',
-			expectedName: "p1",
+			name:          "Press '1' with no command text becomes 'p 1'",
+			char:          '1',
+			expectedName:  "p",
+			expectedQuery: "1",
 		},
 		{
-			name:         "Press '2' with no command text becomes p2",
-			char:         '2',
-			expectedName: "p2",
+			name:          "Press '2' with no command text becomes 'p 2'",
+			char:          '2',
+			expectedName:  "p",
+			expectedQuery: "2",
 		},
 		{
-			name:         "Press '3' with no command text becomes p3",
-			char:         '3',
-			expectedName: "p3",
+			name:          "Press '3' with no command text becomes 'p 3'",
+			char:          '3',
+			expectedName:  "p",
+			expectedQuery: "3",
 		},
 	}
 
@@ -349,8 +353,8 @@ func TestCommandHandler_SingleKeyPriorityCommands(t *testing.T) {
 				t.Errorf("Expected selected file preserved, got: %s", completed.SelectedFile.Name)
 			}
 
-			if len(completed.Queries) != 0 {
-				t.Errorf("Expected empty queries, got: %v", completed.Queries)
+			if len(completed.Queries) != 1 || completed.Queries[0] != tt.expectedQuery {
+				t.Errorf("Expected queries [%s], got: %v", tt.expectedQuery, completed.Queries)
 			}
 		})
 	}
