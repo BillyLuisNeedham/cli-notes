@@ -185,6 +185,29 @@ func (wps *WeekPlannerState) Reset() error {
 	return err
 }
 
+// RefreshOpenedTodo reloads a single todo file from disk while preserving
+// all unsaved changes in the weekly planner. This is used after opening
+// a note in an external editor to pick up any edits without losing moves.
+func (wps *WeekPlannerState) RefreshOpenedTodo(fileName string) error {
+	err := wps.Plan.RefreshTodo(fileName)
+	if err != nil {
+		return err
+	}
+
+	// Adjust selection if the refreshed todo is no longer on the current day
+	// (e.g., if it was deleted from disk)
+	todos := wps.Plan.TodosByDay[wps.SelectedDay]
+	if wps.SelectedTodo >= len(todos) {
+		if len(todos) > 0 {
+			wps.SelectedTodo = len(todos) - 1
+		} else {
+			wps.SelectedTodo = 0
+		}
+	}
+
+	return nil
+}
+
 // Save writes all changes to disk
 func (wps *WeekPlannerState) Save() error {
 	return wps.Plan.SaveChanges()

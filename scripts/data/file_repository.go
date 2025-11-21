@@ -121,6 +121,109 @@ func QueryFiles(query string) ([]scripts.File, error) {
 	return queryAllFiles(query)
 }
 
+// LoadFileByName loads a single file by its filename
+func LoadFileByName(fileName string) (scripts.File, error) {
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return scripts.File{}, fmt.Errorf("error getting current directory: %w", err)
+	}
+
+	notesPath := filepath.Join(currentDir, DirectoryPath)
+	filePath := filepath.Join(notesPath, fileName)
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return scripts.File{}, fmt.Errorf("error opening file: %w", err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	// Initialize file struct
+	result := scripts.File{
+		Name: fileName,
+	}
+
+	// State tracking
+	inMetadata := false
+	var content strings.Builder
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// Check for metadata section
+		if line == "---" {
+			if !inMetadata {
+				inMetadata = true
+				continue
+			} else {
+				inMetadata = false
+				continue
+			}
+		}
+
+		// Parse metadata
+		if inMetadata {
+			parts := strings.SplitN(line, ":", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+
+			switch key {
+			case "title":
+				result.Title = value
+			case "tags":
+				// Remove brackets and split by comma
+				value = strings.Trim(value, "[]")
+				if value != "" {
+					tags := strings.Split(value, ",")
+					for i, tag := range tags {
+						tags[i] = strings.TrimSpace(tag)
+					}
+					result.Tags = tags
+				}
+			case "date-created":
+				result.CreatedAt, _ = time.Parse(dateFormat, value)
+			case "date-due":
+				parsedTime, err := time.Parse(dateFormat, value)
+				if err != nil {
+					// Set to a far future date if parsing fails
+					result.DueAt = time.Date(9999, 12, 31, 0, 0, 0, 0, time.UTC)
+				} else {
+					result.DueAt = parsedTime
+				}
+			case "done":
+				result.Done = value == "true"
+			case "priority":
+				priority, err := strconv.Atoi(value)
+				if err != nil || priority < 1 || priority > 3 {
+					// Default to P2 if parsing fails or value is out of range
+					result.Priority = scripts.P2
+				} else {
+					result.Priority = scripts.Priority(priority)
+				}
+			case "objective-role":
+				result.ObjectiveRole = value
+			case "objective-id":
+				result.ObjectiveID = value
+			}
+		} else {
+			// Append to content
+			content.WriteString(line)
+			content.WriteString("\n")
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return scripts.File{}, fmt.Errorf("error reading file: %w", err)
+	}
+
+	result.Content = content.String()
+	return result, nil
+}
+
 func QueryTodosWithDateCriteria(dateCheck func(dueDate string, dueDateParsed time.Time) bool) ([]scripts.File, error) {
 	currentDir, err := os.Getwd()
 	if err != nil {

@@ -109,6 +109,39 @@ func CommandHandler(
 		return ResetCommand{}, nil
 
 	default:
+		// Handle j/k navigation when no command text is entered
+		if currentCommand.Text == "" {
+			if char == 'k' {
+				// k navigates up (to next file)
+				file := selectNextFile()
+				tasks, err := getTasksInFile(file)
+				if err != nil {
+					return nil, err
+				}
+				return FileSelectedWIPCommand{
+					WIPCommand: WIPCommand{
+						Text:         "",
+						SelectedFile: file,
+					},
+					Tasks: tasks,
+				}, nil
+			} else if char == 'j' {
+				// j navigates down (to previous file)
+				file := selectPrevFile()
+				tasks, err := getTasksInFile(file)
+				if err != nil {
+					return nil, err
+				}
+				return FileSelectedWIPCommand{
+					WIPCommand: WIPCommand{
+						Text:         "",
+						SelectedFile: file,
+					},
+					Tasks: tasks,
+				}, nil
+			}
+		}
+
 		return WIPCommand{
 			Text:         currentCommand.Text + string(char),
 			SelectedFile: currentCommand.SelectedFile,
