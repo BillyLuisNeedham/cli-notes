@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const DirectoryPath = "/notes"
+const DirectoryPath = "notes"
 const dateFormat = "2006-01-02"
 
 type metaData struct {
