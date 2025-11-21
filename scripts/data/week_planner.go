@@ -259,6 +259,76 @@ func (wp *WeekPlan) Reset() error {
 	return nil
 }
 
+// RefreshTodo reloads a single todo file from disk and updates it in the plan
+// This preserves all unsaved changes (Changes, UndoStack, RedoStack) while
+// picking up any edits made to the specific file in an external editor
+func (wp *WeekPlan) RefreshTodo(fileName string) error {
+	// Load the file from disk
+	file, err := LoadFileByName(fileName)
+	if err != nil {
+		// File may have been deleted - remove it from the plan
+		wp.removeFileFromAllDays(fileName)
+		return nil
+	}
+
+	// Find where this file currently exists in the plan
+	currentDay := WeekDay(-1)
+	for day, todos := range wp.TodosByDay {
+		for _, todo := range todos {
+			if todo.Name == fileName {
+				currentDay = day
+				break
+			}
+		}
+		if currentDay >= 0 {
+			break
+		}
+	}
+
+	// Determine where the file should be based on its due date
+	targetDay := wp.GetWeekDayForDate(file.DueAt)
+
+	// If the file is not in the plan and should be (due date within our range)
+	if currentDay < 0 && targetDay >= 0 {
+		// Add it to the appropriate day
+		wp.TodosByDay[targetDay] = append(wp.TodosByDay[targetDay], file)
+		sortTodosByPriority(wp.TodosByDay[targetDay])
+		return nil
+	}
+
+	// If the file is in the plan, update it in place
+	if currentDay >= 0 {
+		// Update the file data while keeping it in its current day
+		// (preserving any unsaved moves the user made)
+		for i := range wp.TodosByDay[currentDay] {
+			if wp.TodosByDay[currentDay][i].Name == fileName {
+				// Keep the current DueAt (which may have been changed by unsaved moves)
+				// but update all other fields from disk
+				currentDueAt := wp.TodosByDay[currentDay][i].DueAt
+				wp.TodosByDay[currentDay][i] = file
+				wp.TodosByDay[currentDay][i].DueAt = currentDueAt
+				break
+			}
+		}
+		sortTodosByPriority(wp.TodosByDay[currentDay])
+	}
+
+	return nil
+}
+
+// removeFileFromAllDays removes a file by name from all days in the plan
+func (wp *WeekPlan) removeFileFromAllDays(fileName string) {
+	for day := range wp.TodosByDay {
+		todos := wp.TodosByDay[day]
+		for i, todo := range todos {
+			if todo.Name == fileName {
+				wp.TodosByDay[day] = append(todos[:i], todos[i+1:]...)
+				return
+			}
+		}
+	}
+}
+
 // SaveChanges writes all modified todos back to disk
 func (wp *WeekPlan) SaveChanges() error {
 	// Collect all todos in the current week (these may have updated due dates)

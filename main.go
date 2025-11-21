@@ -736,12 +736,13 @@ func runWeekPlanner() error {
 			// Open the note in editor
 			openNoteInEditor(selectedTodo.Name)
 
-			// Reload the week plan from disk to pick up any changes made in the editor
-			err := state.Reset()
+			// Refresh only the opened note from disk to pick up any edits
+			// This preserves all unsaved moves in the weekly planner
+			err := state.RefreshOpenedTodo(selectedTodo.Name)
 			if err != nil {
-				lastMessage = fmt.Sprintf("Error reloading week plan: %v", err)
+				lastMessage = fmt.Sprintf("Error refreshing note: %v", err)
 			} else {
-				lastMessage = "Week plan reloaded"
+				lastMessage = "Note refreshed"
 			}
 			continue
 		}
