@@ -57,3 +57,37 @@ func TestHandleWeekPlannerInput_ToggleExpandedEarlier(t *testing.T) {
 		t.Errorf("Expected message 'Returned to normal view', got '%s'", message)
 	}
 }
+
+func TestParseWeekPlannerInput_PriorityKeys(t *testing.T) {
+	tests := []struct {
+		name           string
+		char           rune
+		expectedAction WeekPlannerAction
+	}{
+		{
+			name:           "Key '1' should set priority 1",
+			char:           '1',
+			expectedAction: SetPriority1,
+		},
+		{
+			name:           "Key '2' should set priority 2",
+			char:           '2',
+			expectedAction: SetPriority2,
+		},
+		{
+			name:           "Key '3' should set priority 3",
+			char:           '3',
+			expectedAction: SetPriority3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := ParseWeekPlannerInput(tt.char, 0)
+
+			if input.Action != tt.expectedAction {
+				t.Errorf("Expected action %v, got %v", tt.expectedAction, input.Action)
+			}
+		})
+	}
+}

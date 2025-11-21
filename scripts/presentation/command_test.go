@@ -294,9 +294,101 @@ func TestToCompletedCommand(t *testing.T) {
 			}
 			
 			if result.SelectedFile.Name != tt.expected.SelectedFile.Name {
-				t.Errorf("Expected selected file %s, got %s", 
+				t.Errorf("Expected selected file %s, got %s",
 					tt.expected.SelectedFile.Name, result.SelectedFile.Name)
 			}
 		})
 	}
-} 
+}
+
+func TestCommandHandler_SingleKeyPriorityCommands(t *testing.T) {
+	tests := []struct {
+		name         string
+		char         rune
+		expectedName string
+	}{
+		{
+			name:         "Press '1' with no command text becomes p1",
+			char:         '1',
+			expectedName: "p1",
+		},
+		{
+			name:         "Press '2' with no command text becomes p2",
+			char:         '2',
+			expectedName: "p2",
+		},
+		{
+			name:         "Press '3' with no command text becomes p3",
+			char:         '3',
+			expectedName: "p3",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			currentCommand := WIPCommand{
+				Text:         "",
+				SelectedFile: scripts.File{Name: "test.md"},
+			}
+
+			result, err := CommandHandler(tt.char, 0, currentCommand, nil, nil, nil, nil)
+			if err != nil {
+				t.Errorf("Expected no error, got: %v", err)
+			}
+
+			completed, ok := result.(CompletedCommand)
+			if !ok {
+				t.Errorf("Expected CompletedCommand, got: %T", result)
+			}
+
+			if completed.Name != tt.expectedName {
+				t.Errorf("Expected command name %s, got %s", tt.expectedName, completed.Name)
+			}
+
+			if completed.SelectedFile.Name != "test.md" {
+				t.Errorf("Expected selected file preserved, got: %s", completed.SelectedFile.Name)
+			}
+
+			if len(completed.Queries) != 0 {
+				t.Errorf("Expected empty queries, got: %v", completed.Queries)
+			}
+		})
+	}
+}
+
+func TestCommandHandler_NumbersInCommandText(t *testing.T) {
+	// Verify numbers are still added to command text when user is typing
+	currentCommand := WIPCommand{
+		Text:         "gt",
+		SelectedFile: scripts.File{},
+	}
+
+	result, err := CommandHandler('1', 0, currentCommand, nil, nil, nil, nil)
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+
+	wip, ok := result.(WIPCommand)
+	if !ok {
+		t.Errorf("Expected WIPCommand when adding to existing text, got: %T", result)
+	}
+
+	if wip.Text != "gt1" {
+		t.Errorf("Expected text 'gt1', got '%s'", wip.Text)
+	}
+
+	// Test with '2' and '3' as well
+	result, err = CommandHandler('2', 0, currentCommand, nil, nil, nil, nil)
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+
+	wip, ok = result.(WIPCommand)
+	if !ok {
+		t.Errorf("Expected WIPCommand when adding to existing text, got: %T", result)
+	}
+
+	if wip.Text != "gt2" {
+		t.Errorf("Expected text 'gt2', got '%s'", wip.Text)
+	}
+}
