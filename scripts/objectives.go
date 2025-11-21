@@ -108,7 +108,7 @@ func CreateChildTodo(title string, parentObjective File, onFileCreated OnFileCre
 		Title:       title,
 		Tags:        childTags,
 		CreatedAt:   now,
-		DueAt:       time.Time{},
+		DueAt:       now,
 		Done:        false,
 		Content:     content,
 		Priority:    P2,
