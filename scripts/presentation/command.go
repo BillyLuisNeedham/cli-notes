@@ -139,6 +139,15 @@ func CommandHandler(
 					},
 					Tasks: tasks,
 				}, nil
+			} else if char == '1' || char == '2' || char == '3' {
+				// Handle single-key priority commands (1/2/3)
+				// When user presses 1/2/3 with no command text, set priority (like "p 1")
+				// This matches the behavior in objectives view
+				return CompletedCommand{
+					Name:         "p",
+					Queries:      []string{string(char)},
+					SelectedFile: currentCommand.SelectedFile,
+				}, nil
 			}
 		}
 

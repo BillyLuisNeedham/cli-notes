@@ -375,3 +375,44 @@ func (wps *WeekPlannerState) BulkMoveEarlierTodosToCurrentDay() (int, error) {
 
 	return movedCount, nil
 }
+
+// ChangeTodoPriority changes the priority of a todo in the weekly plan
+// The change is tracked so it will be saved when Save() is called
+func (wps *WeekPlannerState) ChangeTodoPriority(todo *scripts.File, newPriority scripts.Priority) error {
+	if todo == nil {
+		return fmt.Errorf("no todo provided")
+	}
+
+	// Validate priority
+	if newPriority < scripts.P1 || newPriority > scripts.P3 {
+		return fmt.Errorf("invalid priority: must be P1, P2, or P3")
+	}
+
+	// Find and update the todo in the plan
+	// We need to update it in place so the state reflects the change immediately
+	for day := Earlier; day <= NextMonday; day++ {
+		for i := range wps.Plan.TodosByDay[day] {
+			if wps.Plan.TodosByDay[day][i].Name == todo.Name {
+				wps.Plan.TodosByDay[day][i].Priority = newPriority
+
+				// Update the reference the caller has as well
+				todo.Priority = newPriority
+
+				// Mark as a change that needs to be saved
+				// We create a PlanChange to track that this todo was modified
+				// The actual save will write all todos in TodosByDay to disk
+				change := PlanChange{
+					Todo:      wps.Plan.TodosByDay[day][i],
+					FromDay:   day,
+					ToDay:     day, // Same day, just priority changed
+					Timestamp: time.Now(),
+				}
+				wps.Plan.Changes = append(wps.Plan.Changes, change)
+
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("todo not found in week plan")
+}

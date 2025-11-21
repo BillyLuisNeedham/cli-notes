@@ -1,6 +1,7 @@
 package presentation
 
 import (
+	"cli-notes/scripts"
 	"cli-notes/scripts/data"
 	"fmt"
 
@@ -32,6 +33,9 @@ const (
 	ToggleExpandedEarlier
 	ExitExpandedView
 	BulkMoveEarlier
+	SetPriority1
+	SetPriority2
+	SetPriority3
 )
 
 // WeekPlannerInput represents a parsed input from the keyboard
@@ -101,6 +105,14 @@ func ParseWeekPlannerInput(char rune, key keyboard.Key) WeekPlannerInput {
 		return WeekPlannerInput{Action: SwitchDay, Day: data.Saturday}
 	case 's':
 		return WeekPlannerInput{Action: SwitchDay, Day: data.Sunday}
+
+	// Priority shortcuts (1/2/3)
+	case '1':
+		return WeekPlannerInput{Action: SetPriority1}
+	case '2':
+		return WeekPlannerInput{Action: SetPriority2}
+	case '3':
+		return WeekPlannerInput{Action: SetPriority3}
 	}
 
 	// Handle two-character day shortcuts
@@ -258,6 +270,29 @@ func HandleWeekPlannerInput(state *data.WeekPlannerState, input WeekPlannerInput
 			return false, "Returned to normal view", nil
 		}
 		return false, "", nil
+
+	case SetPriority1, SetPriority2, SetPriority3:
+		selectedTodo := state.GetSelectedTodo()
+		if selectedTodo == nil {
+			return false, "No todo selected", nil
+		}
+
+		var priority scripts.Priority
+		switch input.Action {
+		case SetPriority1:
+			priority = scripts.P1
+		case SetPriority2:
+			priority = scripts.P2
+		case SetPriority3:
+			priority = scripts.P3
+		}
+
+		err := state.ChangeTodoPriority(selectedTodo, priority)
+		if err != nil {
+			return false, fmt.Sprintf("Error changing priority: %v", err), nil
+		}
+
+		return false, fmt.Sprintf("Priority changed to P%d", priority), nil
 
 	case NoAction:
 		return false, "", nil

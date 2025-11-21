@@ -118,7 +118,8 @@ func RenderSingleObjectiveView(state *data.ObjectivesViewState) string {
 
 	output.WriteString("\n")
 	output.WriteString("j/k=navigate, o=open, n=new child, l=link existing,\n")
-	output.WriteString("e=edit parent, u=unlink, s=sort, f=filter, q=back\n")
+	output.WriteString("e=edit parent, u=unlink, s=sort, f=filter,\n")
+	output.WriteString("1/2/3=priority, t=due today, m/tu/w/th/f/sa/su=due day, q=back\n")
 
 	return output.String()
 }
