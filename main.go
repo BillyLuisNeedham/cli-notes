@@ -17,6 +17,9 @@ import (
 var keyboardOpen bool
 
 func closeKeyboard() {
+	if os.Getenv("CLI_NOTES_TEST_MODE") == "true" {
+		return
+	}
 	if keyboardOpen {
 		keyboard.Close()
 		keyboardOpen = false
@@ -24,6 +27,9 @@ func closeKeyboard() {
 }
 
 func reopenKeyboard() error {
+	if os.Getenv("CLI_NOTES_TEST_MODE") == "true" {
+		return nil
+	}
 	if !keyboardOpen {
 		err := keyboard.Open()
 		if err != nil {
@@ -52,6 +58,11 @@ func main() {
 }
 
 func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
+	if os.Getenv("CLI_NOTES_TEST_MODE") == "true" {
+		runTestMode(fileStore, onClose)
+		return
+	}
+
 	err := reopenKeyboard()
 	if err != nil {
 		panic(err)
@@ -791,7 +802,7 @@ func promptSaveChanges(state *data.WeekPlannerState) bool {
 				fmt.Printf("Error saving changes: %v\n", err)
 				fmt.Println("Press any key to continue...")
 				_, _, _ = keyboard.GetKey() // Ignore error, just wait for key
-				return true // Return to planner to try again
+				return true                 // Return to planner to try again
 			}
 			fmt.Println("Changes saved successfully!")
 			return false // Exit
