@@ -197,35 +197,55 @@ func (ovs *ObjectivesViewState) Refresh() error {
 
 // applySortAndFilter applies current sort and filter settings to children
 func (ovs *ObjectivesViewState) applySortAndFilter() {
-	// Apply filter first
-	filteredChildren := ovs.Children
+	// Separate into incomplete and complete first
+	incomplete := make([]scripts.File, 0)
+	complete := make([]scripts.File, 0)
+
+	for _, child := range ovs.Children {
+		if child.Done {
+			complete = append(complete, child)
+		} else {
+			incomplete = append(incomplete, child)
+		}
+	}
+
+	// Apply filter
+	var filtered []scripts.File
 	if ovs.FilterMode == ShowIncompleteOnly {
-		filtered := make([]scripts.File, 0)
-		for _, child := range ovs.Children {
-			if !child.Done {
-				filtered = append(filtered, child)
-			}
-		}
-		filteredChildren = filtered
+		filtered = incomplete
 	} else if ovs.FilterMode == ShowCompleteOnly {
-		filtered := make([]scripts.File, 0)
-		for _, child := range ovs.Children {
-			if child.Done {
-				filtered = append(filtered, child)
-			}
-		}
-		filteredChildren = filtered
-	}
-
-	// Apply sort
-	if ovs.SortOrder == SortByDueDateThenPriority {
-		scripts.SortTodosByDueDate(filteredChildren)
+		filtered = complete
 	} else {
-		// Priority then due date
-		scripts.SortTodosByPriorityAndDueDate(filteredChildren)
+		// ShowAll: sort each group separately, then concatenate
+		// Sort incomplete
+		if ovs.SortOrder == SortByDueDateThenPriority {
+			scripts.SortTodosByDueDate(incomplete)
+		} else {
+			scripts.SortTodosByPriorityAndDueDate(incomplete)
+		}
+
+		// Sort complete
+		if ovs.SortOrder == SortByDueDateThenPriority {
+			scripts.SortTodosByDueDate(complete)
+		} else {
+			scripts.SortTodosByPriorityAndDueDate(complete)
+		}
+
+		// Concatenate: incomplete first, then complete
+		// This ensures the array order matches the visual display order
+		filtered = append(incomplete, complete...)
+		ovs.Children = filtered
+		return
 	}
 
-	ovs.Children = filteredChildren
+	// For filtered modes (ShowIncompleteOnly or ShowCompleteOnly), sort the filtered list
+	if ovs.SortOrder == SortByDueDateThenPriority {
+		scripts.SortTodosByDueDate(filtered)
+	} else {
+		scripts.SortTodosByPriorityAndDueDate(filtered)
+	}
+
+	ovs.Children = filtered
 }
 
 // ToggleSortOrder switches between sort orders

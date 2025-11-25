@@ -134,6 +134,48 @@ See `OBJECTIVES_FEATURE_SPEC.md` for complete documentation.
 - `sa` - Set the due date of the selected todo to next Saturday
 - `su` - Set the due date of the selected todo to next Sunday
 
+### Weekly Planner
+
+The weekly planner provides an interactive interface for organizing todos across a week view.
+
+**Entry Command:**
+- `wp` or `week` - Open the weekly planner view
+
+**Week Planner Commands:**
+
+*Navigation:*
+- `j/k` or `↑/↓` - Navigate up/down through todos in selected day
+- `h/l` or `←/→` - Move selected todo to previous/next day
+- `m`, `t`, `w`, `r`, `f`, `a`, `s` - Switch view to Monday/Tuesday/Wednesday/Thursday/Friday/Saturday/Sunday
+- `Tab` - Move to next day
+- `[` - Navigate to previous week
+- `]` - Navigate to next week
+
+*Todo Operations:*
+- `n` - Create new todo on the currently selected day (opens in editor after creation)
+- `N` - Move selected todo to Next Monday bucket
+- `M`, `T`, `W`, `R`, `F`, `A`, `S` - Move selected todo to specific day (Monday/Tuesday/Wednesday/Thursday/Friday/Saturday/Sunday)
+- `1`, `2`, `3` - Set priority (P1, P2, P3)
+- `o` or `Enter` - Open selected todo in editor
+
+*Earlier Todos:*
+- `e` - Toggle expanded view for Earlier (overdue) todos
+- `b` - Bulk move all Earlier todos to currently selected day
+
+*Change Management:*
+- `u` - Undo last move
+- `Ctrl+S` - Save all changes to disk
+- `x` - Reset and discard all unsaved changes
+- `q` - Quit (prompts to save if there are unsaved changes)
+
+**Key Features:**
+- Visual week overview with bar chart showing todo distribution
+- Priority-based sorting (P1 > P2 > P3)
+- Undo/redo support for todo movements
+- Note summary preview in right panel
+- Automatic due date updates when moving todos between days
+- Create new todos with automatic due date assignment
+
 ### Navigation
 
 - `↑` (Up Arrow) - Navigate to previous file in search results and display its tasks

@@ -18,6 +18,11 @@ func CreateTodo(title string, onFileCreated OnFileCreated) (File, error) {
 	return createFile(title, []string{"todo"}, "", now, false, onFileCreated)
 }
 
+// CreateTodoWithDueDate creates a todo with a specified due date
+func CreateTodoWithDueDate(title string, dueDate time.Time, onFileCreated OnFileCreated) (File, error) {
+	return createFile(title, []string{"todo"}, "", dueDate, false, onFileCreated)
+}
+
 func CreateMeeting(title string, onFileCreated OnFileCreated) (File, error) {
 	now := time.Now()
 	return createFile(title, []string{"meeting"}, "", now, true, onFileCreated)

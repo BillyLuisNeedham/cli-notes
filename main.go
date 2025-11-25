@@ -758,6 +758,79 @@ func runWeekPlanner() error {
 			continue
 		}
 
+		// Handle create todo (special case - needs title prompt and editor opening)
+		if input.Action == presentation.CreateTodo {
+			// Validate day (don't allow Earlier)
+			if state.SelectedDay == data.Earlier {
+				lastMessage = "Cannot create todos for earlier dates"
+				continue
+			}
+
+			// Prompt for title
+			dayName := data.WeekDayNames[state.SelectedDay]
+			dueDate := state.Plan.GetDateForWeekDay(state.SelectedDay)
+			title, err := promptForTodoTitle(dayName, dueDate)
+
+			if err != nil {
+				lastMessage = fmt.Sprintf("Error: %v", err)
+				continue
+			}
+
+			if title == "" {
+				lastMessage = "Creation cancelled"
+				continue
+			}
+
+			// Create the todo with custom due date
+			file, err := scripts.CreateTodoWithDueDate(title, dueDate, data.WriteFile)
+			if err != nil {
+				lastMessage = fmt.Sprintf("Error creating todo: %v", err)
+				continue
+			}
+
+			// Open the note in editor
+			openNoteInEditor(file.Name)
+
+			// Add to plan (in case it wasn't reloaded)
+			todos := state.Plan.TodosByDay[state.SelectedDay]
+			alreadyExists := false
+			for _, todo := range todos {
+				if todo.Name == file.Name {
+					alreadyExists = true
+					break
+				}
+			}
+
+			if !alreadyExists {
+				state.Plan.TodosByDay[state.SelectedDay] = append(
+					state.Plan.TodosByDay[state.SelectedDay],
+					file,
+				)
+
+				// Sort by priority
+				data.SortTodosByPriority(state.Plan.TodosByDay[state.SelectedDay])
+			}
+
+			// Refresh the note from disk to pick up any edits
+			err = state.RefreshOpenedTodo(file.Name)
+			if err != nil {
+				lastMessage = fmt.Sprintf("Error refreshing note: %v", err)
+				continue
+			}
+
+			// Find and select the new todo
+			todos = state.Plan.TodosByDay[state.SelectedDay]
+			for i, todo := range todos {
+				if todo.Name == file.Name {
+					state.SelectedTodo = i
+					break
+				}
+			}
+
+			lastMessage = fmt.Sprintf("Created: %s", title)
+			continue
+		}
+
 		shouldExit, message, err := presentation.HandleWeekPlannerInput(state, input)
 		if err != nil {
 			return err
@@ -853,6 +926,53 @@ func promptResetConfirmation(state *data.WeekPlannerState) bool {
 		default:
 			// Invalid input, keep prompting
 			continue
+		}
+	}
+}
+
+// promptForTodoTitle prompts the user for a todo title
+// Returns the title string, or empty string if cancelled
+func promptForTodoTitle(dayName string, date time.Time) (string, error) {
+	dateStr := date.Format("Jan 02")
+	fmt.Printf("\nCreate todo on %s (%s): ", dayName, dateStr)
+
+	var title strings.Builder
+
+	for {
+		char, key, err := keyboard.GetKey()
+		if err != nil {
+			return "", fmt.Errorf("error reading input: %w", err)
+		}
+
+		switch key {
+		case keyboard.KeyEnter:
+			fmt.Println()
+			if title.Len() == 0 {
+				return "", nil // Empty title = cancel
+			}
+			return title.String(), nil
+
+		case keyboard.KeyEsc:
+			fmt.Println("\nCancelled")
+			return "", nil
+
+		case keyboard.KeyBackspace, keyboard.KeyBackspace2:
+			if title.Len() > 0 {
+				titleStr := title.String()
+				title.Reset()
+				title.WriteString(titleStr[:len(titleStr)-1])
+				fmt.Print("\b \b")
+			}
+
+		case keyboard.KeySpace:
+			title.WriteRune(' ')
+			fmt.Print(" ")
+
+		default:
+			if char != 0 && char >= 32 && char <= 126 { // Printable ASCII
+				title.WriteRune(char)
+				fmt.Printf("%c", char)
+			}
 		}
 	}
 }
@@ -1193,6 +1313,16 @@ func getLineInput() (string, error) {
 	defer reopenKeyboard()
 
 	var input string
-	fmt.Scanln(&input)
+	_, err := fmt.Scanln(&input)
+	if err != nil {
+		return "", err
+	}
+
+	// Validate non-empty input
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return "", fmt.Errorf("input cannot be empty")
+	}
+
 	return input, nil
 }

@@ -151,7 +151,7 @@ func LoadWeekTodos(startDate time.Time) (*WeekPlan, error) {
 
 	// Sort all days by priority (P1, P2, P3)
 	for day := range plan.TodosByDay {
-		sortTodosByPriority(plan.TodosByDay[day])
+		SortTodosByPriority(plan.TodosByDay[day])
 	}
 
 	return plan, nil
@@ -271,6 +271,14 @@ func (wp *WeekPlan) RefreshTodo(fileName string) error {
 		return nil
 	}
 
+	// If the todo has been marked as complete, remove it from the plan
+	// This maintains the invariant that only incomplete todos appear in the weekly planner
+	// (consistent with LoadWeekTodos which uses QueryFilesByDone(false))
+	if file.Done {
+		wp.removeFileFromAllDays(fileName)
+		return nil
+	}
+
 	// Find where this file currently exists in the plan
 	currentDay := WeekDay(-1)
 	for day, todos := range wp.TodosByDay {
@@ -292,7 +300,7 @@ func (wp *WeekPlan) RefreshTodo(fileName string) error {
 	if currentDay < 0 && targetDay >= 0 {
 		// Add it to the appropriate day
 		wp.TodosByDay[targetDay] = append(wp.TodosByDay[targetDay], file)
-		sortTodosByPriority(wp.TodosByDay[targetDay])
+		SortTodosByPriority(wp.TodosByDay[targetDay])
 		return nil
 	}
 
@@ -310,7 +318,7 @@ func (wp *WeekPlan) RefreshTodo(fileName string) error {
 				break
 			}
 		}
-		sortTodosByPriority(wp.TodosByDay[currentDay])
+		SortTodosByPriority(wp.TodosByDay[currentDay])
 	}
 
 	return nil
@@ -376,8 +384,8 @@ func (wp *WeekPlan) removeTodoFromDay(todo scripts.File, day WeekDay) {
 	}
 }
 
-// sortTodosByPriority sorts a slice of todos by priority (P1 first, then P2, then P3)
-func sortTodosByPriority(todos []scripts.File) {
+// SortTodosByPriority sorts a slice of todos by priority (P1 first, then P2, then P3)
+func SortTodosByPriority(todos []scripts.File) {
 	// Sort by priority: P1 (1) < P2 (2) < P3 (3)
 	// Lower number = higher priority, so ascending order
 	for i := 0; i < len(todos); i++ {

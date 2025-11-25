@@ -36,6 +36,7 @@ const (
 	SetPriority1
 	SetPriority2
 	SetPriority3
+	CreateTodo
 )
 
 // WeekPlannerInput represents a parsed input from the keyboard
@@ -84,6 +85,8 @@ func ParseWeekPlannerInput(char rune, key keyboard.Key) WeekPlannerInput {
 	case 'q':
 		return WeekPlannerInput{Action: Quit}
 	case 'n':
+		return WeekPlannerInput{Action: CreateTodo}
+	case 'N':
 		return WeekPlannerInput{Action: MoveToNextMonday}
 	case 'e':
 		return WeekPlannerInput{Action: ToggleExpandedEarlier}
