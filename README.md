@@ -146,7 +146,7 @@ The weekly planner provides an interactive interface for organizing todos across
 *Navigation:*
 - `j/k` or `↑/↓` - Navigate up/down through todos in selected day
 - `h/l` or `←/→` - Move selected todo to previous/next day
-- `m`, `t`, `w`, `r`, `f`, `a`, `s` - Switch view to Monday/Tuesday/Wednesday/Thursday/Friday/Saturday/Sunday
+- `M`, `T`, `W`, `R`, `F`, `A`, `S` - Switch view to Monday/Tuesday/Wednesday/Thursday/Friday/Saturday/Sunday
 - `Tab` - Move to next day
 - `[` - Navigate to previous week
 - `]` - Navigate to next week
@@ -154,7 +154,7 @@ The weekly planner provides an interactive interface for organizing todos across
 *Todo Operations:*
 - `n` - Create new todo on the currently selected day (opens in editor after creation)
 - `N` - Move selected todo to Next Monday bucket
-- `M`, `T`, `W`, `R`, `F`, `A`, `S` - Move selected todo to specific day (Monday/Tuesday/Wednesday/Thursday/Friday/Saturday/Sunday)
+- `m`, `t`, `w`, `r`, `f`, `a`, `s` - Move selected todo to specific day (Monday/Tuesday/Wednesday/Thursday/Friday/Saturday/Sunday)
 - `1`, `2`, `3` - Set priority (P1, P2, P3)
 - `o` or `Enter` - Open selected todo in editor
 

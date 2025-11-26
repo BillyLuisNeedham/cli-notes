@@ -674,12 +674,12 @@ func runWeekPlanner() error {
 			return fmt.Errorf("error reading keyboard input: %w", err)
 		}
 
-		// Check for capital letter move-to-day commands
-		if presentation.IsMoveToDayKey(char) {
-			targetDay, ok := presentation.ParseMoveToDay(char)
+		// Check for capital letter switch-day commands
+		if presentation.IsSwitchDayKey(char) {
+			targetDay, ok := presentation.ParseSwitchToDay(char)
 			if ok {
 				input := presentation.WeekPlannerInput{
-					Action: presentation.MoveTodoToDay,
+					Action: presentation.SwitchDay,
 					Day:    targetDay,
 				}
 				shouldExit, message, err := presentation.HandleWeekPlannerInput(state, input)
@@ -695,7 +695,7 @@ func runWeekPlanner() error {
 			}
 		}
 
-		// Parse all other input (lowercase commands, special keys, etc.)
+		// Parse all other input (including lowercase move-to-day commands, special keys, etc.)
 		input := presentation.ParseWeekPlannerInput(char, key)
 
 		if input.Action == presentation.NoAction {

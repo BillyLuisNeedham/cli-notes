@@ -93,21 +93,21 @@ func ParseWeekPlannerInput(char rune, key keyboard.Key) WeekPlannerInput {
 	case 'b':
 		return WeekPlannerInput{Action: BulkMoveEarlier}
 
-	// Day shortcuts (lowercase = switch view)
+	// Day shortcuts (lowercase = move todo to day)
 	case 'm':
-		return WeekPlannerInput{Action: SwitchDay, Day: data.Monday}
+		return WeekPlannerInput{Action: MoveTodoToDay, Day: data.Monday}
 	case 't':
-		return WeekPlannerInput{Action: SwitchDay, Day: data.Tuesday}
+		return WeekPlannerInput{Action: MoveTodoToDay, Day: data.Tuesday}
 	case 'w':
-		return WeekPlannerInput{Action: SwitchDay, Day: data.Wednesday}
+		return WeekPlannerInput{Action: MoveTodoToDay, Day: data.Wednesday}
 	case 'r':
-		return WeekPlannerInput{Action: SwitchDay, Day: data.Thursday}
+		return WeekPlannerInput{Action: MoveTodoToDay, Day: data.Thursday}
 	case 'f':
-		return WeekPlannerInput{Action: SwitchDay, Day: data.Friday}
+		return WeekPlannerInput{Action: MoveTodoToDay, Day: data.Friday}
 	case 'a':
-		return WeekPlannerInput{Action: SwitchDay, Day: data.Saturday}
+		return WeekPlannerInput{Action: MoveTodoToDay, Day: data.Saturday}
 	case 's':
-		return WeekPlannerInput{Action: SwitchDay, Day: data.Sunday}
+		return WeekPlannerInput{Action: MoveTodoToDay, Day: data.Sunday}
 
 	// Priority shortcuts (1/2/3)
 	case '1':
@@ -328,9 +328,9 @@ func ParseMultiCharCommand(command string) (data.WeekDay, bool) {
 	}
 }
 
-// ParseMoveToDay parses a single uppercase character into a WeekDay for move operations
+// ParseSwitchToDay parses a single uppercase character into a WeekDay for switching view
 // Returns the target day and true if valid, or -1 and false if invalid
-func ParseMoveToDay(char rune) (data.WeekDay, bool) {
+func ParseSwitchToDay(char rune) (data.WeekDay, bool) {
 	switch char {
 	case 'M':
 		return data.Monday, true
@@ -351,8 +351,8 @@ func ParseMoveToDay(char rune) (data.WeekDay, bool) {
 	}
 }
 
-// IsMoveToDayKey checks if the character is a valid move-to-day command
-func IsMoveToDayKey(char rune) bool {
+// IsSwitchDayKey checks if the character is a valid switch-day command
+func IsSwitchDayKey(char rune) bool {
 	return char == 'M' || char == 'T' || char == 'W' ||
 		char == 'R' || char == 'F' || char == 'A' || char == 'S'
 }
