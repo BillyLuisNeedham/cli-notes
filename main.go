@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"cli-notes/input"
 	"cli-notes/scripts"
 	"cli-notes/scripts/data"
 	"cli-notes/scripts/presentation"
@@ -136,7 +138,7 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 				fmt.Println("")
 			}
 
-			handleCommand(completedCommand, onClose, fileStore)
+			handleCommand(completedCommand, onClose, fileStore, nil)
 			fmt.Print("> ")
 			command = presentation.WIPCommand{}
 
@@ -151,7 +153,7 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 
 }
 
-func handleCommand(command presentation.CompletedCommand, onClose func(), fileStore *data.SearchedFilesStore) {
+func handleCommand(command presentation.CompletedCommand, onClose func(), fileStore *data.SearchedFilesStore, testModeReader *bufio.Reader) {
 
 	switch command.Name {
 	case "gt":
@@ -523,7 +525,13 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 		openNoteInEditor(newFile.Name)
 
 	case "wp", "week":
-		err := runWeekPlanner()
+		var reader input.InputReader
+		if testModeReader != nil {
+			reader = input.NewStdinReader(testModeReader)
+		} else {
+			reader = &input.KeyboardReader{}
+		}
+		err := runWeekPlanner(reader)
 		if err != nil {
 			fmt.Printf("Error running week planner: %v\n", err)
 			return
@@ -625,7 +633,7 @@ func isValidDate(date string) bool {
 	return err == nil
 }
 
-func runWeekPlanner() error {
+func runWeekPlanner(reader input.InputReader) error {
 	// Ensure terminal is cleaned up on all exit paths
 	defer func() {
 		// Clear screen and reset cursor
@@ -669,7 +677,7 @@ func runWeekPlanner() error {
 		}
 
 		// Get keyboard input
-		char, key, err := keyboard.GetKey()
+		char, key, err := reader.GetKey()
 		if err != nil {
 			return fmt.Errorf("error reading keyboard input: %w", err)
 		}
@@ -723,7 +731,7 @@ func runWeekPlanner() error {
 
 		// Handle reset with confirmation (special case - needs confirmation)
 		if input.Action == presentation.Reset {
-			if promptResetConfirmation(state) {
+			if promptResetConfirmation(state, reader) {
 				err := state.Reset()
 				if err != nil {
 					lastMessage = fmt.Sprintf("Error resetting: %v", err)
@@ -769,7 +777,7 @@ func runWeekPlanner() error {
 			// Prompt for title
 			dayName := data.WeekDayNames[state.SelectedDay]
 			dueDate := state.Plan.GetDateForWeekDay(state.SelectedDay)
-			title, err := promptForTodoTitle(dayName, dueDate)
+			title, err := promptForTodoTitle(dayName, dueDate, reader)
 
 			if err != nil {
 				lastMessage = fmt.Sprintf("Error: %v", err)
@@ -839,7 +847,7 @@ func runWeekPlanner() error {
 		// Handle quit with save prompt
 		if shouldExit {
 			if state.Plan.HasChanges() {
-				if !promptSaveChanges(state) {
+				if !promptSaveChanges(state, reader) {
 					break
 				}
 				// User cancelled, continue the loop
@@ -857,11 +865,11 @@ func runWeekPlanner() error {
 
 // promptSaveChanges prompts the user to save changes before exiting
 // Returns false if user wants to exit, true if user cancels exit
-func promptSaveChanges(state *data.WeekPlannerState) bool {
+func promptSaveChanges(state *data.WeekPlannerState, reader input.InputReader) bool {
 	fmt.Printf("\nYou have %d unsaved changes. Save before exiting? (y/n/c): ", len(state.Plan.Changes))
 
 	for {
-		char, _, err := keyboard.GetKey()
+		char, _, err := reader.GetKey()
 		if err != nil {
 			fmt.Printf("Error reading input: %v\n", err)
 			return false
@@ -874,8 +882,8 @@ func promptSaveChanges(state *data.WeekPlannerState) bool {
 			if err != nil {
 				fmt.Printf("Error saving changes: %v\n", err)
 				fmt.Println("Press any key to continue...")
-				_, _, _ = keyboard.GetKey() // Ignore error, just wait for key
-				return true                 // Return to planner to try again
+				_, _, _ = reader.GetKey() // Ignore error, just wait for key
+				return true               // Return to planner to try again
 			}
 			fmt.Println("Changes saved successfully!")
 			return false // Exit
@@ -900,7 +908,7 @@ func promptSaveChanges(state *data.WeekPlannerState) bool {
 
 // promptResetConfirmation prompts the user to confirm reset action
 // Returns true if user confirms reset, false if cancelled
-func promptResetConfirmation(state *data.WeekPlannerState) bool {
+func promptResetConfirmation(state *data.WeekPlannerState, reader input.InputReader) bool {
 	if state.Plan.HasChanges() {
 		fmt.Printf("\nYou have %d unsaved changes. Reset and discard all changes? (y/n): ", len(state.Plan.Changes))
 	} else {
@@ -908,7 +916,7 @@ func promptResetConfirmation(state *data.WeekPlannerState) bool {
 	}
 
 	for {
-		char, _, err := keyboard.GetKey()
+		char, _, err := reader.GetKey()
 		if err != nil {
 			fmt.Printf("Error reading input: %v\n", err)
 			return false
@@ -932,14 +940,14 @@ func promptResetConfirmation(state *data.WeekPlannerState) bool {
 
 // promptForTodoTitle prompts the user for a todo title
 // Returns the title string, or empty string if cancelled
-func promptForTodoTitle(dayName string, date time.Time) (string, error) {
+func promptForTodoTitle(dayName string, date time.Time, reader input.InputReader) (string, error) {
 	dateStr := date.Format("Jan 02")
 	fmt.Printf("\nCreate todo on %s (%s): ", dayName, dateStr)
 
 	var title strings.Builder
 
 	for {
-		char, key, err := keyboard.GetKey()
+		char, key, err := reader.GetKey()
 		if err != nil {
 			return "", fmt.Errorf("error reading input: %w", err)
 		}

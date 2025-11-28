@@ -22,6 +22,17 @@ type Frontmatter struct {
 	ObjectiveRole string   `yaml:"objective-role,omitempty"`
 }
 
+// getNow returns the current time, or a mocked time if TEST_FIXED_DATE is set
+func getNow() time.Time {
+	if fixedDate := os.Getenv("TEST_FIXED_DATE"); fixedDate != "" {
+		t, err := time.Parse("2006-01-02", fixedDate)
+		if err == nil {
+			return t
+		}
+	}
+	return time.Now()
+}
+
 // CreateTestFile creates a file with the given name and content in the harness notes directory
 func (h *TestHarness) CreateTestFile(filename string, content string) {
 	path := filepath.Join(h.NotesDir, filename)
@@ -34,7 +45,7 @@ func (h *TestHarness) CreateTestFile(filename string, content string) {
 func (h *TestHarness) CreateTodo(filename, title string, tags []string, due string, done bool, priority int) {
 	fm := Frontmatter{
 		Title:       title,
-		DateCreated: time.Now().Format("2006-01-02"),
+		DateCreated: getNow().Format("2006-01-02"),
 		Tags:        tags,
 		DateDue:     due,
 		Done:        done,
@@ -116,10 +127,64 @@ func (h *TestHarness) AssertFrontmatterValue(filename string, check func(Frontma
 
 // Helper to get today's date string
 func Today() string {
-	return time.Now().Format("2006-01-02")
+	return getNow().Format("2006-01-02")
 }
 
 // Helper to get a future date string
 func FutureDate(days int) string {
-	return time.Now().AddDate(0, 0, days).Format("2006-01-02")
+	return getNow().AddDate(0, 0, days).Format("2006-01-02")
+}
+
+// Helper to get the date of a specific day this week (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+func DayThisWeek(targetWeekday time.Weekday) string {
+	now := getNow()
+	currentWeekday := now.Weekday()
+	daysUntilTarget := int(targetWeekday - currentWeekday)
+	return now.AddDate(0, 0, daysUntilTarget).Format("2006-01-02")
+}
+
+// Helper to get Monday this week
+func MondayThisWeek() string {
+	return DayThisWeek(time.Monday)
+}
+
+// Helper to get Tuesday this week
+func TuesdayThisWeek() string {
+	return DayThisWeek(time.Tuesday)
+}
+
+// Helper to get Wednesday this week
+func WednesdayThisWeek() string {
+	return DayThisWeek(time.Wednesday)
+}
+
+// Helper to get Thursday this week
+func ThursdayThisWeek() string {
+	return DayThisWeek(time.Thursday)
+}
+
+// Helper to get Friday this week
+func FridayThisWeek() string {
+	return DayThisWeek(time.Friday)
+}
+
+// Helper to get Saturday this week
+func SaturdayThisWeek() string {
+	return DayThisWeek(time.Saturday)
+}
+
+// Helper to get Sunday this week
+func SundayThisWeek() string {
+	return DayThisWeek(time.Sunday)
+}
+
+// Helper to get next Monday (from today)
+func NextMonday() string {
+	now := getNow()
+	daysUntilMonday := (7 - int(now.Weekday()) + int(time.Monday)) % 7
+	if daysUntilMonday == 0 {
+		// If today is Monday, next Monday is 7 days away
+		daysUntilMonday = 7
+	}
+	return now.AddDate(0, 0, daysUntilMonday).Format("2006-01-02")
 }

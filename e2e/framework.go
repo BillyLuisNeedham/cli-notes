@@ -77,6 +77,9 @@ func NewTestHarness(t *testing.T) *TestHarness {
 	env := os.Environ()
 	env = append(env, "CLI_NOTES_TEST_MODE=true")
 	env = append(env, "EDITOR=echo")
+	// Set fixed date to Friday, 2025-11-28
+	// This makes tests deterministic regardless of actual current day
+	env = append(env, "TEST_FIXED_DATE=2025-11-28")
 	// Filter out any existing CLI_NOTES_* env vars if needed, or just append
 
 	h := &TestHarness{
