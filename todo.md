@@ -1,2 +1,0 @@
-- [x] get all e2e tests to run 
-- [ ] ensure the github workflow runs the e2e tests 
