@@ -119,7 +119,7 @@ func runTestMode(fileStore *data.SearchedFilesStore, onClose func()) {
 				fmt.Println("")
 			}
 
-			handleCommand(completedCommand, onClose, fileStore)
+			handleCommand(completedCommand, onClose, fileStore, reader)
 			fmt.Print("> ")
 			command = presentation.WIPCommand{}
 

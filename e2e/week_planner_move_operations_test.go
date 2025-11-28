@@ -4,13 +4,7 @@ import (
 	"testing"
 )
 
-// NOTE: These tests currently skip because the week planner uses the keyboard library
-// for interactive input, which doesn't work in the test environment where stdin is piped.
-// To enable these tests, the week planner needs to be modified to accept stdin input
-// when CLI_NOTES_TEST_MODE=true instead of using the keyboard library.
-
 func TestWeekPlanner_MoveToSpecificDay(t *testing.T) {
-	t.Skip("Requires week planner to support stdin input in test mode")
 	t.Run("MoveToMonday", func(t *testing.T) {
 		h := NewTestHarness(t)
 
@@ -45,8 +39,8 @@ func TestWeekPlanner_MoveToSpecificDay(t *testing.T) {
 		h.CreateTodo(filename, "Move to Wednesday", []string{}, MondayThisWeek(), false, 1)
 
 		// Move to Wednesday
-		// Flow: wp -> w (move to Wednesday) -> Ctrl+S -> q
-		input := "wp\nw\x13q"
+		// Flow: wp -> M (switch to Monday) -> w (move to Wednesday) -> Ctrl+S -> q
+		input := "wp\nMw\x13q"
 
 		_, _, err := h.RunCommand(input)
 		if err != nil {
@@ -87,7 +81,6 @@ func TestWeekPlanner_MoveToSpecificDay(t *testing.T) {
 }
 
 func TestWeekPlanner_MoveWithArrows(t *testing.T) {
-	t.Skip("Requires week planner to support stdin input in test mode")
 	t.Run("MoveToNextDay", func(t *testing.T) {
 		h := NewTestHarness(t)
 
@@ -138,7 +131,6 @@ func TestWeekPlanner_MoveWithArrows(t *testing.T) {
 }
 
 func TestWeekPlanner_MoveToNextMonday(t *testing.T) {
-	t.Skip("Requires week planner to support stdin input in test mode")
 	h := NewTestHarness(t)
 
 	// Create a todo due today
@@ -163,7 +155,6 @@ func TestWeekPlanner_MoveToNextMonday(t *testing.T) {
 }
 
 func TestWeekPlanner_UndoMove(t *testing.T) {
-	t.Skip("Requires week planner to support stdin input in test mode")
 	h := NewTestHarness(t)
 
 	// Create a todo due Monday
@@ -188,14 +179,13 @@ func TestWeekPlanner_UndoMove(t *testing.T) {
 }
 
 func TestWeekPlanner_SaveMoves(t *testing.T) {
-	t.Skip("Requires week planner to support stdin input in test mode")
 	h := NewTestHarness(t)
 
-	// Create two todos
+	// Create two todos on Monday (with different priorities)
 	file1 := "save-test-1.md"
 	file2 := "save-test-2.md"
 	h.CreateTodo(file1, "Save Test 1", []string{}, MondayThisWeek(), false, 1)
-	h.CreateTodo(file2, "Save Test 2", []string{}, TuesdayThisWeek(), false, 1)
+	h.CreateTodo(file2, "Save Test 2", []string{}, MondayThisWeek(), false, 2)
 
 	// Move both todos and save
 	// Flow: wp -> M (Monday view) -> w (move to Wed) -> j (next todo) -> f (move to Fri) -> Ctrl+S -> q
@@ -222,7 +212,6 @@ func TestWeekPlanner_SaveMoves(t *testing.T) {
 }
 
 func TestWeekPlanner_ResetMoves(t *testing.T) {
-	t.Skip("Requires week planner to support stdin input in test mode")
 	h := NewTestHarness(t)
 
 	// Create a todo due Monday
