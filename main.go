@@ -544,6 +544,18 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 			return
 		}
 
+	case "tt":
+		filterPerson := ""
+		if len(command.Queries) > 0 {
+			filterPerson = command.Queries[0]
+		}
+
+		err := runTalkToView(filterPerson)
+		if err != nil {
+			fmt.Printf("Error running talk-to view: %v\n", err)
+			return
+		}
+
 	case "cpo":
 		if command.SelectedFile.Name == "" {
 			fmt.Println("No file selected")
@@ -1314,6 +1326,75 @@ func runObjectivesView() error {
 			}
 		}
 	}
+}
+
+func runTalkToView(filterPerson string) error {
+	// Get terminal dimensions
+	termWidth, termHeight, _ := term.GetSize(int(os.Stdout.Fd()))
+	if termWidth == 0 {
+		termWidth, termHeight = 100, 30 // Default dimensions
+	}
+
+	// Initialize state
+	state, err := data.NewTalkToViewState(filterPerson)
+	if err != nil {
+		return fmt.Errorf("error initializing talk-to view: %w", err)
+	}
+
+	// Check if any todos were found
+	if len(state.AllPeople) == 0 {
+		if filterPerson != "" {
+			fmt.Printf("No to-talk-%s items found\n", filterPerson)
+		} else {
+			fmt.Println("No to-talk items found")
+		}
+		return nil
+	}
+
+	lastMessage := ""
+
+	for {
+		// Render current view
+		display := presentation.RenderTalkToView(state, termWidth, termHeight)
+		fmt.Print(display)
+
+		if lastMessage != "" {
+			fmt.Printf("\n%s\n", lastMessage)
+			lastMessage = ""
+		}
+
+		// Get input
+		char, key, err := keyboard.GetKey()
+		if err != nil {
+			return fmt.Errorf("error reading input: %w", err)
+		}
+
+		// Parse and handle input
+		input := presentation.ParseTalkToInput(char, key, state.ViewMode)
+		shouldExit, message, err := presentation.HandleTalkToInput(state, input)
+		if err != nil {
+			return fmt.Errorf("error handling input: %w", err)
+		}
+
+		// Handle special messages
+		if strings.HasPrefix(message, "OPEN_NOTE:") {
+			fileName := strings.TrimPrefix(message, "OPEN_NOTE:")
+			fmt.Print("\033[2J\033[H") // Clear screen
+			openNoteInEditor(fileName)
+			lastMessage = "Note closed"
+		} else {
+			lastMessage = message
+		}
+
+		if shouldExit {
+			break
+		}
+	}
+
+	// Clear screen on exit
+	fmt.Print("\033[2J\033[H")
+
+	return nil
 }
 
 func getLineInput() (string, error) {
