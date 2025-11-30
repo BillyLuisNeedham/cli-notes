@@ -1370,7 +1370,7 @@ func runTalkToView(filterPerson string) error {
 		}
 
 		// Parse and handle input
-		input := presentation.ParseTalkToInput(char, key, state.ViewMode)
+		input := presentation.ParseTalkToInput(char, key, state.ViewMode, state.SearchMode)
 		shouldExit, message, err := presentation.HandleTalkToInput(state, input)
 		if err != nil {
 			return fmt.Errorf("error handling input: %w", err)

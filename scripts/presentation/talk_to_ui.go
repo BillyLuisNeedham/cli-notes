@@ -286,10 +286,7 @@ func RenderNoteSearchModal(state *data.TalkToViewState, termWidth, termHeight in
 		modalWidth = 70
 	}
 
-	modalHeight := termHeight - 13 // Reduced to account for message area
-	if modalHeight < 10 {
-		modalHeight = 10
-	}
+	modalHeight := 16
 
 	// Calculate modal position (centered)
 	modalLeft := (termWidth - modalWidth) / 2
@@ -301,49 +298,68 @@ func RenderNoteSearchModal(state *data.TalkToViewState, termWidth, termHeight in
 	}
 
 	// Modal header
-	modeIndicator := "[INSERT MODE]"
-	if state.SearchMode == data.NormalMode {
-		modeIndicator = "[NORMAL MODE]"
-	}
-
 	builder.WriteString("│" + strings.Repeat(" ", modalLeft-1))
 	builder.WriteString("┌─ FIND NOTE " + strings.Repeat("─", modalWidth-15) + "┐")
 	builder.WriteString(strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
 
-	// Search query line with cursor
-	queryLine := fmt.Sprintf("Search: %s_", state.SearchQuery)
-	paddingLeft := (modalWidth - 2 - runeCount(queryLine) - runeCount(modeIndicator) - 1) / 2
-	if paddingLeft < 0 {
-		paddingLeft = 0
+	// Mode indicator line (right-aligned)
+	modeIndicator := "[INSERT MODE]"
+	if state.SearchMode == data.NormalMode {
+		modeIndicator = "[NORMAL MODE]"
 	}
-
+	modeSpaces := strings.Repeat(" ", modalWidth-2-runeCount(modeIndicator))
 	builder.WriteString("│" + strings.Repeat(" ", modalLeft-1) + "│ ")
-	builder.WriteString(queryLine)
-	builder.WriteString(strings.Repeat(" ", paddingLeft))
+	builder.WriteString(modeSpaces)
 	builder.WriteString(modeIndicator)
-
-	remaining := modalWidth - 2 - runeCount(queryLine) - paddingLeft - runeCount(modeIndicator)
-	if remaining > 0 {
-		builder.WriteString(strings.Repeat(" ", remaining))
-	}
 	builder.WriteString(" │")
 	builder.WriteString(strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
 
-	// Empty line
-	builder.WriteString("│" + strings.Repeat(" ", modalLeft-1) + "│ " +
-		strings.Repeat(" ", modalWidth-2) + " │" +
-		strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
+	// Query line (left-aligned with cursor)
+	queryLine := fmt.Sprintf(" Search: %s_", state.SearchQuery)
+	queryPadding := strings.Repeat(" ", max(0, modalWidth-2-runeCount(queryLine)))
+	builder.WriteString("│" + strings.Repeat(" ", modalLeft-1) + "│")
+	builder.WriteString(queryLine)
+	builder.WriteString(queryPadding)
+	builder.WriteString("│")
+	builder.WriteString(strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
 
-	// Results list
-	resultsHeight := modalHeight - 6
-	visibleResults := state.SearchResults
-	if len(visibleResults) > resultsHeight {
-		visibleResults = visibleResults[:resultsHeight]
+	// Separator line
+	builder.WriteString("│" + strings.Repeat(" ", modalLeft-1))
+	builder.WriteString("├" + strings.Repeat("─", modalWidth-2) + "┤")
+	builder.WriteString(strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
+
+	// Results list with scroll window
+	resultsHeight := modalHeight - 6 // Header + mode + query + separator + footer + border
+	startIdx := 0
+	endIdx := len(state.SearchResults)
+
+	if len(state.SearchResults) > resultsHeight {
+		// Center selection in viewport, or anchor to top/bottom
+		startIdx = max(0, state.SearchIndex-resultsHeight/2)
+		if startIdx+resultsHeight > len(state.SearchResults) {
+			startIdx = max(0, len(state.SearchResults)-resultsHeight)
+		}
+		endIdx = min(len(state.SearchResults), startIdx+resultsHeight)
 	}
 
+	visibleResults := state.SearchResults[startIdx:endIdx]
+	visibleIndex := state.SearchIndex - startIdx
+
+	// Show "more above" indicator
+	if startIdx > 0 {
+		indicator := "  ↑ (more above)"
+		padding := strings.Repeat(" ", modalWidth-2-runeCount(indicator))
+		builder.WriteString("│" + strings.Repeat(" ", modalLeft-1) + "│ ")
+		builder.WriteString(indicator)
+		builder.WriteString(padding)
+		builder.WriteString(" │")
+		builder.WriteString(strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
+	}
+
+	// Render visible results
 	for i, result := range visibleResults {
 		cursor := "  "
-		if i == state.SearchIndex {
+		if i == visibleIndex {
 			cursor = "> "
 		}
 
@@ -359,8 +375,26 @@ func RenderNoteSearchModal(state *data.TalkToViewState, termWidth, termHeight in
 		builder.WriteString(strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
 	}
 
+	// Show "more below" indicator
+	if endIdx < len(state.SearchResults) {
+		indicator := "  ↓ (more below)"
+		padding := strings.Repeat(" ", modalWidth-2-runeCount(indicator))
+		builder.WriteString("│" + strings.Repeat(" ", modalLeft-1) + "│ ")
+		builder.WriteString(indicator)
+		builder.WriteString(padding)
+		builder.WriteString(" │")
+		builder.WriteString(strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
+	}
+
 	// Fill remaining result space
-	for i := len(visibleResults); i < resultsHeight; i++ {
+	usedLines := len(visibleResults)
+	if startIdx > 0 {
+		usedLines++
+	}
+	if endIdx < len(state.SearchResults) {
+		usedLines++
+	}
+	for i := usedLines; i < resultsHeight; i++ {
 		builder.WriteString("│" + strings.Repeat(" ", modalLeft-1) + "│ " +
 			strings.Repeat(" ", modalWidth-2) + " │" +
 			strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
@@ -381,9 +415,10 @@ func RenderNoteSearchModal(state *data.TalkToViewState, termWidth, termHeight in
 	builder.WriteString("└" + strings.Repeat("─", modalWidth-2) + "┘")
 	builder.WriteString(strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
 
-	// Fill background after modal (leave 3 lines at bottom for message/input)
+	// Fill background after modal (leave room at bottom for footer + message)
 	currentLine := modalTop + modalHeight
-	for i := currentLine; i < termHeight-6; i++ {
+	fillEnd := termHeight - 20 // EXTREME: Leave lots of room to see header
+	for i := currentLine; i < fillEnd; i++ {
 		builder.WriteString("│" + strings.Repeat(" ", termWidth-2) + "│\n")
 	}
 

@@ -46,7 +46,7 @@ type TalkToInput struct {
 }
 
 // ParseTalkToInput parses keyboard input based on the current view mode
-func ParseTalkToInput(char rune, key keyboard.Key, viewMode data.TalkToViewMode) TalkToInput {
+func ParseTalkToInput(char rune, key keyboard.Key, viewMode data.TalkToViewMode, searchMode data.SearchMode) TalkToInput {
 	switch viewMode {
 	case data.PersonSelectionView:
 		return parsePersonSelectionInput(char, key)
@@ -55,7 +55,7 @@ func ParseTalkToInput(char rune, key keyboard.Key, viewMode data.TalkToViewMode)
 	case data.NoteSelectionView:
 		return parseNoteSelectionInput(char, key)
 	case data.NoteSearchModalView:
-		return parseSearchModalInput(char, key)
+		return parseSearchModalInput(char, key, searchMode)
 	case data.ConfirmationView:
 		return parseConfirmationInput(char, key)
 	case data.SuccessView:
@@ -143,7 +143,7 @@ func parseNoteSelectionInput(char rune, key keyboard.Key) TalkToInput {
 }
 
 // parseSearchModalInput handles input in search modal
-func parseSearchModalInput(char rune, key keyboard.Key) TalkToInput {
+func parseSearchModalInput(char rune, key keyboard.Key, searchMode data.SearchMode) TalkToInput {
 	// Handle special keys first
 	switch key {
 	case keyboard.KeyEsc:
@@ -158,7 +158,15 @@ func parseSearchModalInput(char rune, key keyboard.Key) TalkToInput {
 		return TalkToInput{Action: TTSearchNavigatePrev}
 	}
 
-	// Handle character input
+	// In INSERT mode, all printable characters are typed into the search query
+	if searchMode == data.InsertMode {
+		if char >= 32 && char <= 126 {
+			return TalkToInput{Action: TTSearchType, Char: char}
+		}
+		return TalkToInput{Action: TTNoAction}
+	}
+
+	// In NORMAL mode, handle vim-style keys
 	switch char {
 	case 'i':
 		return TalkToInput{Action: TTSearchEnterInsert}
@@ -168,11 +176,6 @@ func parseSearchModalInput(char rune, key keyboard.Key) TalkToInput {
 		return TalkToInput{Action: TTSearchNavigatePrev}
 	case 'q':
 		return TalkToInput{Action: TTSearchCancel}
-	default:
-		// Printable characters for typing
-		if char >= 32 && char <= 126 {
-			return TalkToInput{Action: TTSearchType, Char: char}
-		}
 	}
 
 	return TalkToInput{Action: TTNoAction}
