@@ -544,6 +544,18 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 			return
 		}
 
+	case "tt":
+		filterPerson := ""
+		if len(command.Queries) > 0 {
+			filterPerson = command.Queries[0]
+		}
+
+		err := runTalkToView(filterPerson)
+		if err != nil {
+			fmt.Printf("Error running talk-to view: %v\n", err)
+			return
+		}
+
 	case "cpo":
 		if command.SelectedFile.Name == "" {
 			fmt.Println("No file selected")
@@ -1314,6 +1326,102 @@ func runObjectivesView() error {
 			}
 		}
 	}
+}
+
+func runTalkToView(filterPerson string) error {
+	// Get terminal dimensions
+	termWidth, termHeight, _ := term.GetSize(int(os.Stdout.Fd()))
+	if termWidth == 0 {
+		termWidth, termHeight = 100, 30 // Default dimensions
+	}
+
+	// Initialize state
+	state, err := data.NewTalkToViewState(filterPerson)
+	if err != nil {
+		return fmt.Errorf("error initializing talk-to view: %w", err)
+	}
+
+	// Check if any todos were found
+	if len(state.AllPeople) == 0 {
+		if filterPerson != "" {
+			fmt.Printf("No to-talk-%s items found\n", filterPerson)
+		} else {
+			fmt.Println("No to-talk items found")
+		}
+		return nil
+	}
+
+	lastMessage := ""
+
+	for {
+		// Render current view
+		display := presentation.RenderTalkToView(state, termWidth, termHeight)
+		fmt.Print(display)
+
+		if lastMessage != "" {
+			fmt.Printf("\n%s\n", lastMessage)
+			lastMessage = ""
+		}
+
+		// Get input
+		char, key, err := keyboard.GetKey()
+		if err != nil {
+			return fmt.Errorf("error reading input: %w", err)
+		}
+
+		// Parse and handle input
+		input := presentation.ParseTalkToInput(char, key, state.ViewMode, state.SearchMode)
+		shouldExit, message, err := presentation.HandleTalkToInput(state, input)
+		if err != nil {
+			return fmt.Errorf("error handling input: %w", err)
+		}
+
+		// Handle special messages
+		if strings.HasPrefix(message, "OPEN_NOTE:") {
+			fileName := strings.TrimPrefix(message, "OPEN_NOTE:")
+			fmt.Print("\033[2J\033[H") // Clear screen
+			openNoteInEditor(fileName)
+			lastMessage = "Note closed"
+		} else if strings.HasPrefix(message, "CREATE_NEW_NOTE:") {
+			// Prompt for note title
+			fmt.Print("\nCreate new note\nTitle: ")
+			title, err := getLineInput()
+			if err != nil {
+				lastMessage = fmt.Sprintf("Error: %v", err)
+				continue
+			}
+
+			// Validate non-empty input
+			if strings.TrimSpace(title) == "" {
+				lastMessage = "Error: Note title cannot be empty"
+				continue
+			}
+
+			// Create the new note file
+			newFile, err := scripts.CreateTodo(title, data.WriteFile)
+			if err != nil {
+				lastMessage = fmt.Sprintf("Error creating note: %v", err)
+				continue
+			}
+
+			// Update state to include the new note and transition to confirmation
+			state.TargetNoteName = newFile.Name
+			state.IsNewNote = true
+			state.ViewMode = data.ConfirmationView
+			lastMessage = fmt.Sprintf("Created note: %s", newFile.Name)
+		} else {
+			lastMessage = message
+		}
+
+		if shouldExit {
+			break
+		}
+	}
+
+	// Clear screen on exit
+	fmt.Print("\033[2J\033[H")
+
+	return nil
 }
 
 func getLineInput() (string, error) {
