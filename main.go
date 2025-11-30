@@ -1382,6 +1382,33 @@ func runTalkToView(filterPerson string) error {
 			fmt.Print("\033[2J\033[H") // Clear screen
 			openNoteInEditor(fileName)
 			lastMessage = "Note closed"
+		} else if strings.HasPrefix(message, "CREATE_NEW_NOTE:") {
+			// Prompt for note title
+			fmt.Print("\nCreate new note\nTitle: ")
+			title, err := getLineInput()
+			if err != nil {
+				lastMessage = fmt.Sprintf("Error: %v", err)
+				continue
+			}
+
+			// Validate non-empty input
+			if strings.TrimSpace(title) == "" {
+				lastMessage = "Error: Note title cannot be empty"
+				continue
+			}
+
+			// Create the new note file
+			newFile, err := scripts.CreateTodo(title, data.WriteFile)
+			if err != nil {
+				lastMessage = fmt.Sprintf("Error creating note: %v", err)
+				continue
+			}
+
+			// Update state to include the new note and transition to confirmation
+			state.TargetNoteName = newFile.Name
+			state.IsNewNote = true
+			state.ViewMode = data.ConfirmationView
+			lastMessage = fmt.Sprintf("Created note: %s", newFile.Name)
 		} else {
 			lastMessage = message
 		}

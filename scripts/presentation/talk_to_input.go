@@ -436,7 +436,5 @@ func handleFindNote(state *data.TalkToViewState) (bool, string, error) {
 
 // handleCreateNewNote prompts for new note creation
 func handleCreateNewNote(state *data.TalkToViewState) (bool, string, error) {
-	// This will be implemented with a title input prompt
-	// For now, transition to confirmation with a placeholder
-	return false, "Create new note - title prompt to be added", nil
+	return false, "CREATE_NEW_NOTE:", nil
 }
