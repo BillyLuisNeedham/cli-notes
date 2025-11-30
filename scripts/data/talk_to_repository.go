@@ -92,13 +92,34 @@ func modifyTodoLine(file scripts.File, lineNumber int, oldPattern, newPattern st
 	// Convert to 0-indexed
 	lineIndex := lineNumber - 1
 
-	// Replace pattern in the line
+	// Get the line content
 	oldLine := lines[lineIndex]
+
+	// VERIFY 1: Check that the old pattern exists BEFORE attempting replacement
+	if !strings.Contains(oldLine, oldPattern) {
+		return fmt.Errorf(
+			"pattern %q not found in line %d of %s\nLine content: %q",
+			oldPattern, lineNumber, file.Name, oldLine,
+		)
+	}
+
+	// Perform the replacement
 	newLine := strings.Replace(oldLine, oldPattern, newPattern, 1)
 
+	// VERIFY 2: Ensure the replacement actually changed something
 	if oldLine == newLine {
-		// Pattern not found - might already be modified
-		return nil
+		return fmt.Errorf(
+			"replacement failed in line %d of %s\nLine: %q",
+			lineNumber, file.Name, oldLine,
+		)
+	}
+
+	// VERIFY 3: Ensure the new pattern is now present
+	if !strings.Contains(newLine, newPattern) {
+		return fmt.Errorf(
+			"verification failed: new pattern %q not found after replacement in line %d of %s",
+			newPattern, lineNumber, file.Name,
+		)
 	}
 
 	lines[lineIndex] = newLine
