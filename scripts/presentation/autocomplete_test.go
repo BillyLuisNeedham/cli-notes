@@ -91,6 +91,19 @@ func TestAutocompleteState_GetCurrentCompletion(t *testing.T) {
 			t.Errorf("Expected 'xyz', got '%s'", result)
 		}
 	})
+
+	t.Run("Case insensitive common prefix", func(t *testing.T) {
+		mixedCaseObjectives := []scripts.File{
+			{Title: "Annual-review", Name: "annual-review.md"},
+			{Title: "annual-planning", Name: "annual-planning.md"},
+		}
+		state := NewAutocompleteState("AN", mixedCaseObjectives)
+		result := state.GetCurrentCompletion()
+		// Should return "Annual-" (preserving case from first candidate)
+		if result != "Annual-" {
+			t.Errorf("Expected 'Annual-', got '%s'", result)
+		}
+	})
 }
 
 func TestAutocompleteState_CycleNext(t *testing.T) {
@@ -186,6 +199,14 @@ func TestLongestCommonPrefix(t *testing.T) {
 			name:       "Empty list",
 			candidates: []scripts.File{},
 			expected:   "",
+		},
+		{
+			name: "Case insensitive common prefix",
+			candidates: []scripts.File{
+				{Title: "Annual-review"},
+				{Title: "annual-planning"},
+			},
+			expected: "Annual-",
 		},
 	}
 

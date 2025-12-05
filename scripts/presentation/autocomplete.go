@@ -75,20 +75,24 @@ func longestCommonPrefix(candidates []scripts.File) string {
 	return prefix
 }
 
-// commonPrefix finds the common prefix between two strings
+// commonPrefix finds the common prefix between two strings (case-insensitive)
 func commonPrefix(a, b string) string {
-	minLen := len(a)
-	if len(b) < minLen {
-		minLen = len(b)
+	// Convert to lowercase for case-insensitive comparison
+	aLower := strings.ToLower(a)
+	bLower := strings.ToLower(b)
+
+	minLen := len(aLower)
+	if len(bLower) < minLen {
+		minLen = len(bLower)
 	}
 
 	for i := 0; i < minLen; i++ {
-		if a[i] != b[i] {
-			return a[:i]
+		if aLower[i] != bLower[i] {
+			return a[:i] // Return original case from 'a'
 		}
 	}
 
-	return a[:minLen]
+	return a[:minLen] // Return original case from 'a'
 }
 
 // FilterObjectivesByPrefix filters objectives by title prefix (case-insensitive)
