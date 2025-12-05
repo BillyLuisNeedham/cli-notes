@@ -576,8 +576,8 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 						command.SelectedFile.Title, existingParent.Title)
 					fmt.Print("Re-link to \"" + targetObjective.Title + "\"? (y/n): ")
 
-					char, _, err := keyboard.GetKey()
-					if err != nil || (char != 'y' && char != 'Y') {
+					char, key, err := keyboard.GetKey()
+					if err != nil || (char != 'y' && char != 'Y' && key != keyboard.KeyEnter) {
 						fmt.Println("\nCancelled.")
 						return
 					}
@@ -646,8 +646,8 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 				fmt.Println("  • Become independent parent objective")
 				fmt.Print("Continue? (y/n): ")
 
-				char, _, err := keyboard.GetKey()
-				if err != nil || (char != 'y' && char != 'Y') {
+				char, key, err := keyboard.GetKey()
+				if err != nil || (char != 'y' && char != 'Y' && key != keyboard.KeyEnter) {
 					fmt.Println("\nCancelled.")
 					return
 				}
