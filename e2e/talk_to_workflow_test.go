@@ -18,8 +18,8 @@ func TestTalkTo_CompleteWorkflowWithPersonFilter(t *testing.T) {
 	h.CreateTodoWithTalkToTag("todo2.md", "Discuss API design", "alice", []string{}, Today(), 2)
 	h.CreateTodoWithTalkToTag("todo3.md", "Plan sprint", "alice", []string{}, Today(), 1)
 
-	// Input: tt alice -> Enter (select person) -> space space (select 2 todos) -> Enter -> c (create new note) -> meeting-alice\n -> Enter (confirm) -> q (quit)
-	input := "tt alice\n\nspace\njspace\n\nc\nmeeting-alice\n\nq"
+	// Input: tt alice -> Enter (select person) -> space j space (select 2 todos) -> Enter -> n (create new note) -> meeting-alice\n -> Enter (confirm) -> q (quit)
+	input := "tt alice\n\n j \n\nnmeeting-alice\n\nq"
 
 	stdout, stderr, err := h.RunCommand(input)
 	if err != nil {
@@ -61,8 +61,8 @@ func TestTalkTo_CompleteWorkflowWithoutFilter(t *testing.T) {
 	existingNote := "meeting-notes.md"
 	h.CreateTodo(existingNote, "Meeting Notes", []string{}, Today(), false, 1)
 
-	// Input: tt -> j (navigate to bob) -> Enter (select bob) -> space (select todo) -> Enter -> f (find existing) -> i (INSERT mode) -> "meeting" (search) -> Esc (NORMAL) -> Enter (select) -> Enter (confirm) -> q
-	input := "tt\nj\n\nspace\n\nf\ni\nmeeting\n\x1b\n\n\nq"
+	// Input: tt -> j (navigate to bob) -> Enter (select bob) -> Enter (proceed with auto-selected) -> f (find) -> "meeting-notes" (search) -> Esc -> Enter (select) -> Enter (confirm) -> q
+	input := "tt\nj\n\nfmeeting-notes\x1b\n\n\nq"
 
 	stdout, stderr, err := h.RunCommand(input)
 	if err != nil {
@@ -93,7 +93,7 @@ func TestTalkTo_CreateNewNoteWorkflow(t *testing.T) {
 	h.CreateTodoWithTalkToTag("standup3.md", "Update tests", "team", []string{}, Today(), 1)
 
 	// Input: tt -> Enter (select first person) -> a (select all) -> Enter -> c (create new) -> "standup-notes" -> Enter -> q
-	input := "tt\n\na\n\nc\nstandup-notes\n\nq"
+	input := "tt\n\na\n\nnstandup-notes\n\nq"
 
 	stdout, stderr, err := h.RunCommand(input)
 	if err != nil {
@@ -131,7 +131,7 @@ func TestTalkTo_SourceTodosMarkedCompleteWithCheckbox(t *testing.T) {
 	h.CreateTodoWithTalkToTag("task3.md", "Third task", "alice", []string{}, Today(), 1)
 
 	// Complete workflow: select all and create note
-	input := "tt alice\n\na\n\nc\ntask-results\n\nq"
+	input := "tt alice\n\na\n\nntask-results\n\nq"
 
 	_, _, err := h.RunCommand(input)
 	if err != nil {
@@ -158,7 +158,7 @@ func TestTalkTo_TagsRemovedOnInsert(t *testing.T) {
 	h.CreateTodoWithContent("multi-tag.md", "Multi Tag Task", todoContent, Today(), 1)
 
 	// Complete workflow
-	input := "tt alice\n\nspace\n\nc\nresults\n\nq"
+	input := "tt alice\n\n \n\nnresults\n\nq"
 
 	_, _, err := h.RunCommand(input)
 	if err != nil {
@@ -198,7 +198,8 @@ Some existing content here.
 	h.CreateTodoWithTalkToTag("new-task.md", "New task to insert", "alice", []string{}, Today(), 1)
 
 	// Complete workflow: find existing note
-	input := "tt alice\n\nspace\n\nf\ni\nexisting\n\x1b\n\n\nq"
+	// tt alice -> Enter (proceed with auto-selected) -> f (find) -> "existing" (search) -> Esc -> Enter (select) -> Enter (confirm) -> Enter (execute) -> q
+	input := "tt alice\n\nfexisting\x1b\n\n\nq"
 
 	_, _, err := h.RunCommand(input)
 	if err != nil {
@@ -242,7 +243,7 @@ func TestTalkTo_PreserveTodoFormatting(t *testing.T) {
 	h.CreateTodoWithContent("special.md", "Special Formatting", specialContent, Today(), 1)
 
 	// Complete workflow
-	input := "tt alice\n\nspace\n\nc\nformatted\n\nq"
+	input := "tt alice\n\n \n\nnformatted\n\nq"
 
 	_, _, err := h.RunCommand(input)
 	if err != nil {
@@ -265,8 +266,8 @@ func TestTalkTo_MultipleSourceFiles(t *testing.T) {
 	h.CreateTodoWithTalkToTag("project-b.md", "Task from project B", "alice", []string{}, Today(), 2)
 	h.CreateTodoWithTalkToTag("project-c.md", "Task from project C", "alice", []string{}, Today(), 1)
 
-	// Complete workflow: select all
-	input := "tt alice\n\na\n\nc\nmulti-project\n\nq"
+	// Complete workflow: select all -> create new note
+	input := "tt alice\n\na\n\nnmulti-project\n\nq"
 
 	_, _, err := h.RunCommand(input)
 	if err != nil {
@@ -304,7 +305,7 @@ func TestTalkTo_UndoImmediatelyAfterMove(t *testing.T) {
 	h.CreateTodoWithContent("undo-test.md", "Undo Test", todoContent, Today(), 1)
 
 	// Complete workflow and press 'u' to undo on success screen
-	input := "tt alice\n\nspace\n\nc\nundo-target\n\nu"
+	input := "tt alice\n\n \n\nnundo-target\n\nu"
 
 	_, _, err := h.RunCommand(input)
 	if err != nil {
@@ -341,7 +342,7 @@ func TestTalkTo_UndoAffectsCorrectFiles(t *testing.T) {
 	h.CreateTodoWithTalkToTag("undo-src3.md", "Task from file 3", "alice", []string{}, Today(), 1)
 
 	// Complete workflow with all todos selected, then undo
-	input := "tt alice\n\na\n\nc\nundo-multi\n\nu"
+	input := "tt alice\n\na\n\nnundo-multi\n\nu"
 
 	_, _, err := h.RunCommand(input)
 	if err != nil {
@@ -367,8 +368,8 @@ func TestTalkTo_MultipleMoves(t *testing.T) {
 	// Setup: Create todos for first move
 	h.CreateTodoWithTalkToTag("move1.md", "First move task", "alice", []string{}, Today(), 1)
 
-	// First move: complete workflow and return
-	input1 := "tt alice\n\nspace\n\nc\nfirst-move\n\nr"
+	// First move: complete workflow and return: tt alice -> Enter -> space (toggle) -> Enter -> n (create) -> first-move -> Enter -> r (return)
+	input1 := "tt alice\n\n \n\nnfirst-move\n\nr"
 
 	_, _, err := h.RunCommand(input1)
 	if err != nil {
@@ -383,7 +384,7 @@ func TestTalkTo_MultipleMoves(t *testing.T) {
 	h.CreateTodoWithTalkToTag("move2.md", "Second move task", "bob", []string{}, Today(), 1)
 
 	// Second move: complete workflow
-	input2 := "tt bob\n\nspace\n\nc\nsecond-move\n\nq"
+	input2 := "tt bob\n\n \n\nnsecond-move\n\nq"
 
 	_, _, err = h.RunCommand(input2)
 	if err != nil {

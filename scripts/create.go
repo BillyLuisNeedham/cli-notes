@@ -2,9 +2,16 @@ package scripts
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 )
+
+// fileExists checks if a file exists in the notes directory
+func fileExists(name string) bool {
+	_, err := os.Stat("notes/" + name)
+	return err == nil
+}
 
 type MetaData struct {
 	Key   string
@@ -171,7 +178,13 @@ func extractContentWithoutFrontmatter(content string) string {
 func createFile(title string, tags []string, content string, dueAt time.Time, done bool, onFileCreated OnFileCreated) (File, error) {
 	now := time.Now()
 	date := now.Format("2006-01-02")
-	name := fmt.Sprintf("%v-%v.md", title, date)
+	baseName := fmt.Sprintf("%v-%v", title, date)
+	name := baseName + ".md"
+
+	// Check if file already exists and find unique name
+	for i := 1; fileExists(name); i++ {
+		name = fmt.Sprintf("%s-%d.md", baseName, i)
+	}
 
 	if content == "" {
 		content = fmt.Sprintf("# %v", title)
