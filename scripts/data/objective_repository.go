@@ -129,3 +129,20 @@ func GetCompletionStats(objectiveID string) (int, int, error) {
 
 	return complete, len(children), nil
 }
+
+// QueryNonFinishedObjectives returns all parent objectives that are not done
+func QueryNonFinishedObjectives() ([]scripts.File, error) {
+	allObjectives, err := QueryAllObjectives()
+	if err != nil {
+		return nil, err
+	}
+
+	nonFinished := make([]scripts.File, 0)
+	for _, obj := range allObjectives {
+		if !obj.Done {
+			nonFinished = append(nonFinished, obj)
+		}
+	}
+
+	return nonFinished, nil
+}

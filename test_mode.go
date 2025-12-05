@@ -70,6 +70,7 @@ func runTestMode(fileStore *data.SearchedFilesStore, onClose func()) {
 				return scripts.GetUncompletedTasksInFiles(files)
 			},
 			func() { fmt.Print("\b \b") },
+			data.QueryNonFinishedObjectives,
 		)
 
 		if err != nil {
@@ -91,6 +92,11 @@ func runTestMode(fileStore *data.SearchedFilesStore, onClose func()) {
 		case presentation.SpacedWIPCommand:
 			command = nextCommand.WIPCommand
 			fmt.Print(" ")
+
+		case presentation.TabPressedWIPCommand:
+			command = nextCommand.WIPCommand
+			// Clear line and rewrite with autocompleted text
+			fmt.Print("\r\033[K> " + command.Text)
 
 		case presentation.FileSelectedWIPCommand:
 			command = nextCommand.WIPCommand

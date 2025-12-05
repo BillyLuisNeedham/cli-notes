@@ -151,12 +151,29 @@ func InsertTodosIntoNote(targetFileName string, todos []TodoWithMeta) (int, erro
 
 	lines := strings.Split(string(content), "\n")
 
-	// Find insertion point: after "# Title" line
+	// Find insertion point: after frontmatter (if present) or after "# Title" line
 	insertionPoint := 0
-	for i, line := range lines {
-		if strings.HasPrefix(strings.TrimSpace(line), "#") {
-			insertionPoint = i + 1
-			break
+
+	// Check if file starts with frontmatter (---)
+	if len(lines) > 0 && strings.TrimSpace(lines[0]) == "---" {
+		// Find closing frontmatter delimiter
+		for i := 1; i < len(lines); i++ {
+			if strings.TrimSpace(lines[i]) == "---" {
+				insertionPoint = i + 1
+				break
+			}
+		}
+		// Skip any empty lines after frontmatter
+		for insertionPoint < len(lines) && strings.TrimSpace(lines[insertionPoint]) == "" {
+			insertionPoint++
+		}
+	} else {
+		// No frontmatter - find "# Title" line
+		for i, line := range lines {
+			if strings.HasPrefix(strings.TrimSpace(line), "# ") {
+				insertionPoint = i + 1
+				break
+			}
 		}
 	}
 

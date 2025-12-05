@@ -91,6 +91,7 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 				return scripts.GetUncompletedTasksInFiles(files)
 			},
 			func() { fmt.Print("\b \b") },
+			data.QueryNonFinishedObjectives,
 		)
 
 		if err != nil {
@@ -112,6 +113,11 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 		case presentation.SpacedWIPCommand:
 			command = nextCommand.WIPCommand
 			fmt.Print(" ")
+
+		case presentation.TabPressedWIPCommand:
+			command = nextCommand.WIPCommand
+			// Clear line and rewrite with autocompleted text
+			fmt.Print("\r\033[K> " + command.Text)
 
 		case presentation.FileSelectedWIPCommand:
 			command = nextCommand.WIPCommand
@@ -538,10 +544,69 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 		}
 
 	case "ob":
-		err := runObjectivesView()
-		if err != nil {
-			fmt.Printf("Error running objectives view: %v\n", err)
-			return
+		// If there's a selected file and queries, link the note to an objective
+		if command.SelectedFile.Name != "" && len(command.Queries) > 0 && command.Queries[0] != "" {
+			objectiveTitle := command.Queries[0]
+
+			// Find the objective by title
+			objectives, err := data.QueryNonFinishedObjectives()
+			if err != nil {
+				fmt.Printf("Error querying objectives: %v\n", err)
+				return
+			}
+
+			var targetObjective *scripts.File
+			for _, obj := range objectives {
+				if strings.EqualFold(obj.Title, objectiveTitle) {
+					targetObjective = &obj
+					break
+				}
+			}
+
+			if targetObjective == nil {
+				fmt.Printf("Objective not found: %s\n", objectiveTitle)
+				return
+			}
+
+			// Check if already linked to an objective
+			if command.SelectedFile.ObjectiveID != "" {
+				existingParent, err := data.GetObjectiveByID(command.SelectedFile.ObjectiveID)
+				if err == nil && existingParent != nil {
+					fmt.Printf("WARNING: \"%s\" is currently linked to objective \"%s\"\n",
+						command.SelectedFile.Title, existingParent.Title)
+					fmt.Print("Re-link to \"" + targetObjective.Title + "\"? (y/n): ")
+
+					char, _, err := keyboard.GetKey()
+					if err != nil || (char != 'y' && char != 'Y') {
+						fmt.Println("\nCancelled.")
+						return
+					}
+					fmt.Println()
+				}
+			}
+
+			// Link the note to the objective
+			err = scripts.LinkTodoToObjective(command.SelectedFile, *targetObjective, data.WriteFile)
+			if err != nil {
+				fmt.Printf("Error linking to objective: %v\n", err)
+				return
+			}
+
+			fmt.Printf("Linked \"%s\" to objective \"%s\"\n", command.SelectedFile.Title, targetObjective.Title)
+		} else {
+			// No selected file or queries - open objectives view
+			var reader input.InputReader
+			if testModeReader != nil {
+				reader = input.NewStdinReader(testModeReader)
+			} else {
+				reader = &input.KeyboardReader{}
+			}
+
+			err := runObjectivesView(reader)
+			if err != nil {
+				fmt.Printf("Error running objectives view: %v\n", err)
+				return
+			}
 		}
 
 	case "tt":
@@ -550,7 +615,14 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 			filterPerson = command.Queries[0]
 		}
 
-		err := runTalkToView(filterPerson)
+		var reader input.InputReader
+		if testModeReader != nil {
+			reader = input.NewStdinReader(testModeReader)
+		} else {
+			reader = &input.KeyboardReader{}
+		}
+
+		err := runTalkToView(filterPerson, reader)
 		if err != nil {
 			fmt.Printf("Error running talk-to view: %v\n", err)
 			return
@@ -997,7 +1069,7 @@ func promptForTodoTitle(dayName string, date time.Time, reader input.InputReader
 	}
 }
 
-func runObjectivesView() error {
+func runObjectivesView(reader input.InputReader) error {
 	// Initialize state
 	state, err := data.NewObjectivesViewState()
 	if err != nil {
@@ -1023,7 +1095,7 @@ func runObjectivesView() error {
 		}
 
 		// Get input
-		char, key, err := keyboard.GetKey()
+		char, key, err := reader.GetKey()
 		if err != nil {
 			return fmt.Errorf("error reading input: %w", err)
 		}
@@ -1041,7 +1113,7 @@ func runObjectivesView() error {
 					}
 					fmt.Print("(y/n): ")
 
-					confirmChar, _, _ := keyboard.GetKey()
+					confirmChar, _, _ := reader.GetKey()
 					if confirmChar == 'y' || confirmChar == 'Y' {
 						err := scripts.DeleteParentObjective(*obj, data.QueryChildrenByObjectiveID, data.WriteFile)
 						if err != nil {
@@ -1092,7 +1164,7 @@ func runObjectivesView() error {
 			if state.ViewMode == data.ObjectivesListView {
 				// Create new objective
 				fmt.Print("\nCreate new objective\nTitle: ")
-				title, err := getLineInput()
+				title, err := getLineInput(reader)
 				if err != nil {
 					lastMessage = fmt.Sprintf("Error: %v", err)
 					continue
@@ -1108,7 +1180,7 @@ func runObjectivesView() error {
 			} else {
 				// Create new child todo
 				fmt.Print("\nCreate new child todo\nTitle: ")
-				title, err := getLineInput()
+				title, err := getLineInput(reader)
 				if err != nil {
 					lastMessage = fmt.Sprintf("Error: %v", err)
 					continue
@@ -1166,7 +1238,7 @@ func runObjectivesView() error {
 				child := state.GetSelectedChild()
 				if child != nil {
 					fmt.Printf("\nUnlink \"%s\" from this objective? (y/n): ", child.Title)
-					confirmChar, _, _ := keyboard.GetKey()
+					confirmChar, _, _ := reader.GetKey()
 					if confirmChar == 'y' || confirmChar == 'Y' {
 						err := scripts.UnlinkTodoFromObjective(*child, data.WriteFile)
 						if err != nil {
@@ -1328,7 +1400,7 @@ func runObjectivesView() error {
 	}
 }
 
-func runTalkToView(filterPerson string) error {
+func runTalkToView(filterPerson string, reader input.InputReader) error {
 	// Get terminal dimensions
 	termWidth, termHeight, _ := term.GetSize(int(os.Stdout.Fd()))
 	if termWidth == 0 {
@@ -1364,7 +1436,7 @@ func runTalkToView(filterPerson string) error {
 		}
 
 		// Get input
-		char, key, err := keyboard.GetKey()
+		char, key, err := reader.GetKey()
 		if err != nil {
 			return fmt.Errorf("error reading input: %w", err)
 		}
@@ -1385,7 +1457,7 @@ func runTalkToView(filterPerson string) error {
 		} else if strings.HasPrefix(message, "CREATE_NEW_NOTE:") {
 			// Prompt for note title
 			fmt.Print("\nCreate new note\nTitle: ")
-			title, err := getLineInput()
+			title, err := getLineInput(reader)
 			if err != nil {
 				lastMessage = fmt.Sprintf("Error: %v", err)
 				continue
@@ -1424,21 +1496,45 @@ func runTalkToView(filterPerson string) error {
 	return nil
 }
 
-func getLineInput() (string, error) {
-	closeKeyboard()
-	defer reopenKeyboard()
+func getLineInput(reader input.InputReader) (string, error) {
+	var inputStr strings.Builder
 
-	var input string
-	_, err := fmt.Scanln(&input)
-	if err != nil {
-		return "", err
+	for {
+		char, key, err := reader.GetKey()
+		if err != nil {
+			return "", fmt.Errorf("error reading input: %w", err)
+		}
+
+		switch key {
+		case keyboard.KeyEnter:
+			fmt.Println()
+			result := strings.TrimSpace(inputStr.String())
+			if result == "" {
+				return "", fmt.Errorf("input cannot be empty")
+			}
+			return result, nil
+
+		case keyboard.KeyEsc:
+			fmt.Println("\nCancelled")
+			return "", fmt.Errorf("input cancelled")
+
+		case keyboard.KeyBackspace, keyboard.KeyBackspace2:
+			if inputStr.Len() > 0 {
+				str := inputStr.String()
+				inputStr.Reset()
+				inputStr.WriteString(str[:len(str)-1])
+				fmt.Print("\b \b")
+			}
+
+		case keyboard.KeySpace:
+			inputStr.WriteRune(' ')
+			fmt.Print(" ")
+
+		default:
+			if char != 0 && char >= 32 && char <= 126 { // Printable ASCII
+				inputStr.WriteRune(char)
+				fmt.Printf("%c", char)
+			}
+		}
 	}
-
-	// Validate non-empty input
-	input = strings.TrimSpace(input)
-	if input == "" {
-		return "", fmt.Errorf("input cannot be empty")
-	}
-
-	return input, nil
 }

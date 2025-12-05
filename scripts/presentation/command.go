@@ -18,8 +18,9 @@ type CompletedCommand struct {
 }
 
 type WIPCommand struct {
-	Text         string
-	SelectedFile scripts.File
+	Text              string
+	SelectedFile      scripts.File
+	AutocompleteState *AutocompleteState // nil if not in autocomplete mode
 }
 
 type ResetCommand struct{}
@@ -37,6 +38,10 @@ type FileSelectedWIPCommand struct {
 	Tasks []string
 }
 
+type TabPressedWIPCommand struct {
+	WIPCommand
+}
+
 func (WIPCommand) command()       {}
 func (CompletedCommand) command() {}
 func (ResetCommand) command()     {}
@@ -49,6 +54,7 @@ func CommandHandler(
 	selectPrevFile func() scripts.File,
 	getTasksInFile func(scripts.File) ([]string, error),
 	onBackSpace func(),
+	getObjectives func() ([]scripts.File, error),
 ) (Command, error) {
 	switch key {
 	case keyboard.KeyArrowUp:
@@ -79,6 +85,54 @@ func CommandHandler(
 			Tasks: tasks,
 		}, nil
 
+	case keyboard.KeyTab:
+		// Handle Tab for autocomplete in "ob <text>" commands
+		if currentCommand.SelectedFile.Name != "" && strings.HasPrefix(currentCommand.Text, "ob ") {
+			// Extract the input after "ob "
+			input := strings.TrimPrefix(currentCommand.Text, "ob ")
+
+			// If we're already in autocomplete mode, cycle to next candidate
+			if currentCommand.AutocompleteState != nil {
+				currentCommand.AutocompleteState.CycleNext()
+				completion := currentCommand.AutocompleteState.GetCurrentCompletion()
+
+				return TabPressedWIPCommand{
+					WIPCommand: WIPCommand{
+						Text:              "ob " + completion,
+						SelectedFile:      currentCommand.SelectedFile,
+						AutocompleteState: currentCommand.AutocompleteState,
+					},
+				}, nil
+			}
+
+			// First Tab press - initialize autocomplete
+			objectives, err := getObjectives()
+			if err != nil {
+				return nil, err
+			}
+
+			candidates := FilterObjectivesByPrefix(objectives, input)
+			if len(candidates) == 0 {
+				// No matches, return unchanged
+				return currentCommand, nil
+			}
+
+			state := NewAutocompleteState(input, candidates)
+			state.CycleNext() // Move to first candidate
+			completion := state.GetCurrentCompletion()
+
+			return TabPressedWIPCommand{
+				WIPCommand: WIPCommand{
+					Text:              "ob " + completion,
+					SelectedFile:      currentCommand.SelectedFile,
+					AutocompleteState: &state,
+				},
+			}, nil
+		}
+
+		// Tab not applicable, return unchanged
+		return currentCommand, nil
+
 	case keyboard.KeyEnter:
 		completed := ToCompletedCommand(currentCommand)
 		return completed, nil
@@ -89,8 +143,9 @@ func CommandHandler(
 			text = text[:len(text)-1]
 			return BackSpacedWIPCommand{
 				WIPCommand: WIPCommand{
-					Text:         text,
-					SelectedFile: currentCommand.SelectedFile,
+					Text:              text,
+					SelectedFile:      currentCommand.SelectedFile,
+					AutocompleteState: nil, // Reset autocomplete on backspace
 				},
 			}, nil
 		} else {
@@ -100,8 +155,9 @@ func CommandHandler(
 	case keyboard.KeySpace:
 		return SpacedWIPCommand{
 			WIPCommand: WIPCommand{
-				Text:         currentCommand.Text + " ",
-				SelectedFile: currentCommand.SelectedFile,
+				Text:              currentCommand.Text + " ",
+				SelectedFile:      currentCommand.SelectedFile,
+				AutocompleteState: nil, // Reset autocomplete on space
 			},
 		}, nil
 
@@ -152,8 +208,9 @@ func CommandHandler(
 		}
 
 		return WIPCommand{
-			Text:         currentCommand.Text + string(char),
-			SelectedFile: currentCommand.SelectedFile,
+			Text:              currentCommand.Text + string(char),
+			SelectedFile:      currentCommand.SelectedFile,
+			AutocompleteState: nil, // Reset autocomplete when typing
 		}, nil
 	}
 }
