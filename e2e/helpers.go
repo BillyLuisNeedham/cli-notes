@@ -188,3 +188,95 @@ func NextMonday() string {
 	}
 	return now.AddDate(0, 0, daysUntilMonday).Format("2006-01-02")
 }
+
+// CreateTodoWithTalkToTag creates a todo with to-talk-X tag in the content
+func (h *TestHarness) CreateTodoWithTalkToTag(filename, title string, person string, tags []string, dueDate string, priority int) {
+	content := fmt.Sprintf("- [ ] %s to-talk-%s", title, person)
+	h.CreateTodoWithContent(filename, title, content, dueDate, priority)
+}
+
+// CreateTodoWithContent creates a todo with custom content (useful for subtasks and custom formatting)
+func (h *TestHarness) CreateTodoWithContent(filename, title, content string, dueDate string, priority int) {
+	fm := Frontmatter{
+		Title:       title,
+		DateCreated: getNow().Format("2006-01-02"),
+		Tags:        []string{},
+		DateDue:     dueDate,
+		Done:        false,
+		Priority:    priority,
+	}
+	h.createFileWithFrontmatter(filename, fm, content)
+}
+
+// ReadFileContent reads the full content of a file (including frontmatter)
+func (h *TestHarness) ReadFileContent(filename string) string {
+	path := filepath.Join(h.NotesDir, filename)
+	content, err := os.ReadFile(path)
+	if err != nil {
+		h.t.Fatalf("Failed to read file %s: %v", filename, err)
+	}
+	return string(content)
+}
+
+// VerifyTodoMarkedComplete verifies a specific line contains a completed todo [x]
+func (h *TestHarness) VerifyTodoMarkedComplete(filename string, lineNumber int) {
+	content := h.ReadFileContent(filename)
+	lines := strings.Split(content, "\n")
+
+	if lineNumber < 1 || lineNumber > len(lines) {
+		h.t.Errorf("Line number %d out of range for file %s (has %d lines)", lineNumber, filename, len(lines))
+		return
+	}
+
+	line := lines[lineNumber-1] // Convert to 0-indexed
+	if !strings.Contains(line, "- [x]") {
+		h.t.Errorf("Expected line %d in %s to be marked complete [x], got: %s", lineNumber, filename, line)
+	}
+}
+
+// VerifyTodoInFile checks if a todo exists in file content (case-insensitive substring match)
+func (h *TestHarness) VerifyTodoInFile(filename, expectedTodo string) {
+	content := h.ReadFileContent(filename)
+	if !strings.Contains(strings.ToLower(content), strings.ToLower(expectedTodo)) {
+		h.t.Errorf("Expected to find %q in file %s, but it was not found.\nFile content:\n%s", expectedTodo, filename, content)
+	}
+}
+
+// VerifyTodoNotInFile checks that a todo does NOT exist in file content
+func (h *TestHarness) VerifyTodoNotInFile(filename, unexpectedTodo string) {
+	content := h.ReadFileContent(filename)
+	if strings.Contains(strings.ToLower(content), strings.ToLower(unexpectedTodo)) {
+		h.t.Errorf("Expected NOT to find %q in file %s, but it was found.\nFile content:\n%s", unexpectedTodo, filename, content)
+	}
+}
+
+// CountTodosInFile counts the number of todo items (both complete and incomplete) in a file
+func (h *TestHarness) CountTodosInFile(filename string) int {
+	content := h.ReadFileContent(filename)
+	lines := strings.Split(content, "\n")
+
+	count := 0
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "- [ ]") || strings.HasPrefix(trimmed, "- [x]") {
+			count++
+		}
+	}
+	return count
+}
+
+// VerifyFileContains checks if file contains a specific string
+func (h *TestHarness) VerifyFileContains(filename, expectedContent string) {
+	content := h.ReadFileContent(filename)
+	if !strings.Contains(content, expectedContent) {
+		h.t.Errorf("Expected file %s to contain %q, but it was not found.\nFile content:\n%s", filename, expectedContent, content)
+	}
+}
+
+// VerifyFileNotContains checks that file does NOT contain a specific string
+func (h *TestHarness) VerifyFileNotContains(filename, unexpectedContent string) {
+	content := h.ReadFileContent(filename)
+	if strings.Contains(content, unexpectedContent) {
+		h.t.Errorf("Expected file %s NOT to contain %q, but it was found.\nFile content:\n%s", filename, unexpectedContent, content)
+	}
+}

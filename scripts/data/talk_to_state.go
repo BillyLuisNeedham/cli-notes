@@ -177,8 +177,6 @@ func (s *TalkToViewState) SelectPrevious() {
 
 // adjustScrollOffset keeps the selected todo visible in the viewport
 func (s *TalkToViewState) adjustScrollOffset() {
-	// This will be implemented when we add scrolling in the UI layer
-	// For now, just ensure offset is valid
 	if s.TodoScrollOffset > s.TodoIndex {
 		s.TodoScrollOffset = s.TodoIndex
 	}

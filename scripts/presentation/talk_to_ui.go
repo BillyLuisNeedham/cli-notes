@@ -30,32 +30,26 @@ func RenderTalkToView(state *data.TalkToViewState, termWidth, termHeight int) st
 func RenderPersonSelection(state *data.TalkToViewState, termWidth, termHeight int) string {
 	var builder strings.Builder
 
-	// Clear screen
 	builder.WriteString("\033[2J\033[H")
 
-	// Header
 	builder.WriteString("┌" + strings.Repeat("─", termWidth-2) + "┐\n")
 	builder.WriteString("│ TALK TO - Select Person" + strings.Repeat(" ", termWidth-27) + "│\n")
 	builder.WriteString("├" + strings.Repeat("─", termWidth-2) + "┤\n")
 
-	// Calculate viewable area (leave 3 lines at bottom for message/input)
 	contentHeight := termHeight - 9 // Header (3 lines) + footer (2 lines) + border (1 line) + message area (3 lines)
 	visibleStart := 0
 	visibleEnd := len(state.AllPeople)
 
-	// Add scroll indicators if needed
 	showScrollUp := false
 	showScrollDown := false
 
 	if len(state.AllPeople) > contentHeight {
-		// Calculate scroll window
 		visibleStart = state.PersonIndex - contentHeight/2
 		if visibleStart < 0 {
 			visibleStart = 0
 		}
 		visibleEnd = visibleStart + contentHeight
 
-		// Adjust for scroll indicators
 		if visibleStart > 0 {
 			showScrollUp = true
 			visibleStart++
@@ -74,22 +68,18 @@ func RenderPersonSelection(state *data.TalkToViewState, termWidth, termHeight in
 		}
 	}
 
-	// Scroll up indicator
 	if showScrollUp {
 		builder.WriteString("│   ↑ (more above)" + strings.Repeat(" ", termWidth-20) + "│\n")
 	}
 
-	// Render people list
 	for i := visibleStart; i < visibleEnd; i++ {
 		person := state.AllPeople[i]
 
-		// Selection indicator
 		indicator := "  "
 		if i == state.PersonIndex {
 			indicator = "> "
 		}
 
-		// Format line
 		itemText := fmt.Sprintf("%s (", person.Name)
 		if person.Count == 1 {
 			itemText += "1 item)"
@@ -107,12 +97,10 @@ func RenderPersonSelection(state *data.TalkToViewState, termWidth, termHeight in
 		builder.WriteString(line)
 	}
 
-	// Scroll down indicator
 	if showScrollDown {
 		builder.WriteString("│   ↓ (more below)" + strings.Repeat(" ", termWidth-20) + "│\n")
 	}
 
-	// Fill remaining space
 	currentLines := visibleEnd - visibleStart
 	if showScrollUp {
 		currentLines++
@@ -125,7 +113,6 @@ func RenderPersonSelection(state *data.TalkToViewState, termWidth, termHeight in
 		builder.WriteString("│" + strings.Repeat(" ", termWidth-2) + "│\n")
 	}
 
-	// Footer
 	builder.WriteString("├" + strings.Repeat("─", termWidth-2) + "┤\n")
 	builder.WriteString("│ j/k=navigate • Enter=select • q=quit" + strings.Repeat(" ", termWidth-41) + "│\n")
 	builder.WriteString("└" + strings.Repeat("─", termWidth-2) + "┘\n")
@@ -137,10 +124,8 @@ func RenderPersonSelection(state *data.TalkToViewState, termWidth, termHeight in
 func RenderTodoSelection(state *data.TalkToViewState, termWidth, termHeight int) string {
 	var builder strings.Builder
 
-	// Clear screen
 	builder.WriteString("\033[2J\033[H")
 
-	// Header with person name and counts
 	totalCount := len(state.AvailableTodos)
 	selectedCount := state.GetSelectedCount()
 
@@ -150,7 +135,6 @@ func RenderTodoSelection(state *data.TalkToViewState, termWidth, termHeight int)
 
 	builder.WriteString("┌" + strings.Repeat("─", termWidth-2) + "┐\n")
 
-	// Center or left-align header
 	padding := termWidth - 2 - runeCount(headerText)
 	if padding < 0 {
 		headerText = truncateString(headerText, termWidth-4)
@@ -159,33 +143,27 @@ func RenderTodoSelection(state *data.TalkToViewState, termWidth, termHeight int)
 	builder.WriteString("│ " + headerText + strings.Repeat(" ", padding-1) + "│\n")
 	builder.WriteString("├" + strings.Repeat("─", termWidth-2) + "┤\n")
 
-	// Render todos (leave 3 lines at bottom for message/input)
 	contentHeight := termHeight - 9
 
 	for i := 0; i < len(state.AvailableTodos) && i < contentHeight; i++ {
 		todo := state.AvailableTodos[i]
 
-		// Selection cursor
 		cursor := "  "
 		if i == state.TodoIndex {
 			cursor = "> "
 		}
 
-		// Checkbox
 		checkbox := "[ ] "
 		if i < len(state.SelectedTodos) && state.SelectedTodos[i] {
 			checkbox = "[x] "
 		}
 
-		// Clean todo line (remove "- [ ] " prefix)
 		todoText := todo.TodoLine
 		todoText = strings.TrimPrefix(todoText, "- [ ] ")
 		todoText = strings.TrimSpace(todoText)
 
-		// Build line
 		line := fmt.Sprintf("│ %s%s%s", cursor, checkbox, todoText)
 
-		// Truncate or pad to terminal width
 		lineLen := runeCount(line)
 		if lineLen > termWidth-1 {
 			line = truncateString(line, termWidth-4) + "│\n"
@@ -195,7 +173,6 @@ func RenderTodoSelection(state *data.TalkToViewState, termWidth, termHeight int)
 
 		builder.WriteString(line)
 
-		// Add source file on next line
 		sourceText := fmt.Sprintf("(from: %s)", todo.SourceFile)
 		sourceLine := "│     " + sourceText
 		sourceLen := runeCount(sourceLine)
@@ -207,7 +184,6 @@ func RenderTodoSelection(state *data.TalkToViewState, termWidth, termHeight int)
 		builder.WriteString(sourceLine)
 	}
 
-	// Fill remaining space
 	usedLines := len(state.AvailableTodos) * 2 // Each todo uses 2 lines
 	if usedLines > contentHeight {
 		usedLines = contentHeight
@@ -217,7 +193,6 @@ func RenderTodoSelection(state *data.TalkToViewState, termWidth, termHeight int)
 		builder.WriteString("│" + strings.Repeat(" ", termWidth-2) + "│\n")
 	}
 
-	// Footer
 	builder.WriteString("├" + strings.Repeat("─", termWidth-2) + "┤\n")
 	builder.WriteString("│ j/k=nav • space=toggle • a=all • n=none • Enter=continue • q=back" +
 		strings.Repeat(" ", termWidth-71) + "│\n")
@@ -230,14 +205,12 @@ func RenderTodoSelection(state *data.TalkToViewState, termWidth, termHeight int)
 func RenderNoteSelection(state *data.TalkToViewState, termWidth, termHeight int) string {
 	var builder strings.Builder
 
-	// Clear screen
 	builder.WriteString("\033[2J\033[H")
 
 	builder.WriteString("┌" + strings.Repeat("─", termWidth-2) + "┐\n")
 	builder.WriteString("│ SELECT TARGET NOTE" + strings.Repeat(" ", termWidth-22) + "│\n")
 	builder.WriteString("├" + strings.Repeat("─", termWidth-2) + "┤\n")
 
-	// Centered content (leave 3 lines at bottom for message/input)
 	selectedCount := state.GetSelectedCount()
 	message := fmt.Sprintf("%d items ready to move", selectedCount)
 
@@ -256,7 +229,6 @@ func RenderNoteSelection(state *data.TalkToViewState, termWidth, termHeight int)
 		builder.WriteString("│" + strings.Repeat(" ", termWidth-2) + "│\n")
 	}
 
-	// Footer
 	builder.WriteString("├" + strings.Repeat("─", termWidth-2) + "┤\n")
 	builder.WriteString("│ f=find existing note • n=create new note • q=back" +
 		strings.Repeat(" ", termWidth-55) + "│\n")
@@ -269,15 +241,12 @@ func RenderNoteSelection(state *data.TalkToViewState, termWidth, termHeight int)
 func RenderNoteSearchModal(state *data.TalkToViewState, termWidth, termHeight int) string {
 	var builder strings.Builder
 
-	// Clear screen
 	builder.WriteString("\033[2J\033[H")
 
-	// Background view (note selection)
 	builder.WriteString("┌" + strings.Repeat("─", termWidth-2) + "┐\n")
 	builder.WriteString("│ SELECT TARGET NOTE" + strings.Repeat(" ", termWidth-22) + "│\n")
 	builder.WriteString("├" + strings.Repeat("─", termWidth-2) + "┤\n")
 
-	// Modal dimensions (leave 3 lines at bottom for message/input)
 	modalWidth := termWidth - 10
 	if modalWidth < 40 {
 		modalWidth = 40
@@ -288,21 +257,17 @@ func RenderNoteSearchModal(state *data.TalkToViewState, termWidth, termHeight in
 
 	modalHeight := 16
 
-	// Calculate modal position (centered)
 	modalLeft := (termWidth - modalWidth) / 2
 	modalTop := (termHeight - modalHeight) / 2
 
-	// Fill background before modal
 	for i := 3; i < modalTop; i++ {
 		builder.WriteString("│" + strings.Repeat(" ", termWidth-2) + "│\n")
 	}
 
-	// Modal header
 	builder.WriteString("│" + strings.Repeat(" ", modalLeft-1))
 	builder.WriteString("┌─ FIND NOTE " + strings.Repeat("─", modalWidth-15) + "┐")
 	builder.WriteString(strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
 
-	// Mode indicator line (right-aligned)
 	modeIndicator := "[INSERT MODE]"
 	if state.SearchMode == data.NormalMode {
 		modeIndicator = "[NORMAL MODE]"
@@ -314,7 +279,6 @@ func RenderNoteSearchModal(state *data.TalkToViewState, termWidth, termHeight in
 	builder.WriteString(" │")
 	builder.WriteString(strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
 
-	// Query line (left-aligned with cursor)
 	queryLine := fmt.Sprintf(" Search: %s_", state.SearchQuery)
 	queryPadding := strings.Repeat(" ", max(0, modalWidth-2-runeCount(queryLine)))
 	builder.WriteString("│" + strings.Repeat(" ", modalLeft-1) + "│")
@@ -323,12 +287,10 @@ func RenderNoteSearchModal(state *data.TalkToViewState, termWidth, termHeight in
 	builder.WriteString("│")
 	builder.WriteString(strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
 
-	// Separator line
 	builder.WriteString("│" + strings.Repeat(" ", modalLeft-1))
 	builder.WriteString("├" + strings.Repeat("─", modalWidth-2) + "┤")
 	builder.WriteString(strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
 
-	// Results list with scroll window
 	resultsHeight := modalHeight - 6 // Header + mode + query + separator + footer + border
 	startIdx := 0
 	endIdx := len(state.SearchResults)
@@ -345,7 +307,6 @@ func RenderNoteSearchModal(state *data.TalkToViewState, termWidth, termHeight in
 	visibleResults := state.SearchResults[startIdx:endIdx]
 	visibleIndex := state.SearchIndex - startIdx
 
-	// Show "more above" indicator
 	if startIdx > 0 {
 		indicator := "  ↑ (more above)"
 		padding := strings.Repeat(" ", modalWidth-2-runeCount(indicator))
@@ -356,7 +317,6 @@ func RenderNoteSearchModal(state *data.TalkToViewState, termWidth, termHeight in
 		builder.WriteString(strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
 	}
 
-	// Render visible results
 	for i, result := range visibleResults {
 		cursor := "  "
 		if i == visibleIndex {
@@ -375,7 +335,6 @@ func RenderNoteSearchModal(state *data.TalkToViewState, termWidth, termHeight in
 		builder.WriteString(strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
 	}
 
-	// Show "more below" indicator
 	if endIdx < len(state.SearchResults) {
 		indicator := "  ↓ (more below)"
 		padding := strings.Repeat(" ", modalWidth-2-runeCount(indicator))
@@ -386,7 +345,6 @@ func RenderNoteSearchModal(state *data.TalkToViewState, termWidth, termHeight in
 		builder.WriteString(strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
 	}
 
-	// Fill remaining result space
 	usedLines := len(visibleResults)
 	if startIdx > 0 {
 		usedLines++
@@ -400,7 +358,6 @@ func RenderNoteSearchModal(state *data.TalkToViewState, termWidth, termHeight in
 			strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
 	}
 
-	// Modal footer
 	builder.WriteString("│" + strings.Repeat(" ", modalLeft-1) + "│ ")
 	footerText := "Esc=toggle mode • i=insert • j/k=nav • Enter=select • q=cancel"
 	if runeCount(footerText) > modalWidth-4 {
@@ -415,14 +372,12 @@ func RenderNoteSearchModal(state *data.TalkToViewState, termWidth, termHeight in
 	builder.WriteString("└" + strings.Repeat("─", modalWidth-2) + "┘")
 	builder.WriteString(strings.Repeat(" ", termWidth-modalLeft-modalWidth-1) + "│\n")
 
-	// Fill background after modal (leave room at bottom for footer + message)
 	currentLine := modalTop + modalHeight
 	fillEnd := termHeight - 20 // EXTREME: Leave lots of room to see header
 	for i := currentLine; i < fillEnd; i++ {
 		builder.WriteString("│" + strings.Repeat(" ", termWidth-2) + "│\n")
 	}
 
-	// Footer
 	builder.WriteString("├" + strings.Repeat("─", termWidth-2) + "┤\n")
 	builder.WriteString("│ [Finding note...]" + strings.Repeat(" ", termWidth-22) + "│\n")
 	builder.WriteString("└" + strings.Repeat("─", termWidth-2) + "┘\n")
@@ -434,7 +389,6 @@ func RenderNoteSearchModal(state *data.TalkToViewState, termWidth, termHeight in
 func RenderConfirmation(state *data.TalkToViewState, termWidth, termHeight int) string {
 	var builder strings.Builder
 
-	// Clear screen
 	builder.WriteString("\033[2J\033[H")
 
 	builder.WriteString("┌" + strings.Repeat("─", termWidth-2) + "┐\n")
@@ -448,7 +402,6 @@ func RenderConfirmation(state *data.TalkToViewState, termWidth, termHeight int) 
 	builder.WriteString("│ " + summaryLine + strings.Repeat(" ", termWidth-3-runeCount(summaryLine)) + "│\n")
 	builder.WriteString("│" + strings.Repeat(" ", termWidth-2) + "│\n")
 
-	// List todos (leave 3 lines at bottom for message/input)
 	maxItems := termHeight - 18 // Leave room for header, footer, explanation, and message area
 	for i, todo := range selectedTodos {
 		if i >= maxItems {
@@ -457,7 +410,6 @@ func RenderConfirmation(state *data.TalkToViewState, termWidth, termHeight int) 
 			break
 		}
 
-		// Clean todo text
 		todoText := strings.TrimPrefix(todo.TodoLine, "- [ ] ")
 		todoText = strings.TrimSpace(todoText)
 		if runeCount(todoText) > termWidth-12 {
@@ -471,7 +423,6 @@ func RenderConfirmation(state *data.TalkToViewState, termWidth, termHeight int) 
 		}
 		builder.WriteString(line + strings.Repeat(" ", padding) + "│\n")
 
-		// Source file
 		sourceText := fmt.Sprintf("(from: %s)", todo.SourceFile)
 		sourceLine := "│     " + sourceText
 		sourcePadding := termWidth - runeCount(sourceLine) - 1
@@ -483,7 +434,6 @@ func RenderConfirmation(state *data.TalkToViewState, termWidth, termHeight int) 
 
 	builder.WriteString("│" + strings.Repeat(" ", termWidth-2) + "│\n")
 
-	// Explanation
 	builder.WriteString("│ These items will be:" + strings.Repeat(" ", termWidth-23) + "│\n")
 	builder.WriteString("│   • Added to top of " + state.TargetNoteName +
 		strings.Repeat(" ", termWidth-25-runeCount(state.TargetNoteName)) + "│\n")
@@ -494,7 +444,6 @@ func RenderConfirmation(state *data.TalkToViewState, termWidth, termHeight int) 
 
 	builder.WriteString("│ Continue?" + strings.Repeat(" ", termWidth-13) + "│\n")
 
-	// Fill remaining space (leave 3 lines at bottom for message/input)
 	currentLines := 12 + (len(selectedTodos) * 2)
 	if len(selectedTodos) > maxItems {
 		currentLines = 12 + (maxItems * 2) + 1
@@ -503,7 +452,6 @@ func RenderConfirmation(state *data.TalkToViewState, termWidth, termHeight int) 
 		builder.WriteString("│" + strings.Repeat(" ", termWidth-2) + "│\n")
 	}
 
-	// Footer
 	builder.WriteString("├" + strings.Repeat("─", termWidth-2) + "┤\n")
 	builder.WriteString("│ y/Enter=execute • c=cancel, back to selection • q=quit to main" +
 		strings.Repeat(" ", termWidth-69) + "│\n")
@@ -516,7 +464,6 @@ func RenderConfirmation(state *data.TalkToViewState, termWidth, termHeight int) 
 func RenderSuccess(state *data.TalkToViewState, termWidth, termHeight int) string {
 	var builder strings.Builder
 
-	// Clear screen
 	builder.WriteString("\033[2J\033[H")
 
 	builder.WriteString("┌" + strings.Repeat("─", termWidth-2) + "┐\n")
@@ -525,21 +472,17 @@ func RenderSuccess(state *data.TalkToViewState, termWidth, termHeight int) strin
 	builder.WriteString("│" + strings.Repeat(" ", termWidth-2) + "│\n")
 	builder.WriteString("│" + strings.Repeat(" ", termWidth-2) + "│\n")
 
-	// Success message
 	selectedTodos := state.GetSelectedTodos()
 	successMsg := fmt.Sprintf("   ✓ Successfully moved %d items to %s", len(selectedTodos), state.TargetNoteName)
 	builder.WriteString("│" + successMsg + strings.Repeat(" ", termWidth-2-runeCount(successMsg)) + "│\n")
 	builder.WriteString("│" + strings.Repeat(" ", termWidth-2) + "│\n")
 	builder.WriteString("│" + strings.Repeat(" ", termWidth-2) + "│\n")
 
-	// Modified files
 	builder.WriteString("│   Modified files:" + strings.Repeat(" ", termWidth-21) + "│\n")
 
-	// Target note
 	targetMsg := fmt.Sprintf("     • %s (%d items added)", state.TargetNoteName, len(selectedTodos))
 	builder.WriteString("│" + targetMsg + strings.Repeat(" ", termWidth-2-runeCount(targetMsg)) + "│\n")
 
-	// Source files (grouped)
 	sourceFiles := make(map[string]int)
 	for _, todo := range selectedTodos {
 		sourceFiles[todo.SourceFile]++
@@ -554,13 +497,11 @@ func RenderSuccess(state *data.TalkToViewState, termWidth, termHeight int) strin
 		builder.WriteString("│" + sourceMsg + strings.Repeat(" ", termWidth-2-runeCount(sourceMsg)) + "│\n")
 	}
 
-	// Fill remaining space (leave 3 lines at bottom for message/input)
 	currentLines := 9 + len(sourceFiles) + 1
 	for i := currentLines; i < termHeight-6; i++ {
 		builder.WriteString("│" + strings.Repeat(" ", termWidth-2) + "│\n")
 	}
 
-	// Footer
 	builder.WriteString("├" + strings.Repeat("─", termWidth-2) + "┤\n")
 	builder.WriteString("│ Enter=open note • u=undo • r=return to person selection • q=quit" +
 		strings.Repeat(" ", termWidth-71) + "│\n")

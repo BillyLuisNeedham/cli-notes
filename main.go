@@ -91,6 +91,7 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 				return scripts.GetUncompletedTasksInFiles(files)
 			},
 			func() { fmt.Print("\b \b") },
+			data.QueryNonFinishedObjectives,
 		)
 
 		if err != nil {
@@ -112,6 +113,11 @@ func setupCommandScanner(fileStore *data.SearchedFilesStore, onClose func()) {
 		case presentation.SpacedWIPCommand:
 			command = nextCommand.WIPCommand
 			fmt.Print(" ")
+
+		case presentation.TabPressedWIPCommand:
+			command = nextCommand.WIPCommand
+			// Clear line and rewrite with autocompleted text
+			fmt.Print("\r\033[K> " + command.Text)
 
 		case presentation.FileSelectedWIPCommand:
 			command = nextCommand.WIPCommand
@@ -538,10 +544,62 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 		}
 
 	case "ob":
-		err := runObjectivesView()
-		if err != nil {
-			fmt.Printf("Error running objectives view: %v\n", err)
-			return
+		// If there's a selected file and queries, link the note to an objective
+		if command.SelectedFile.Name != "" && len(command.Queries) > 0 && command.Queries[0] != "" {
+			objectiveTitle := command.Queries[0]
+
+			// Find the objective by title
+			objectives, err := data.QueryNonFinishedObjectives()
+			if err != nil {
+				fmt.Printf("Error querying objectives: %v\n", err)
+				return
+			}
+
+			var targetObjective *scripts.File
+			for _, obj := range objectives {
+				if strings.EqualFold(obj.Title, objectiveTitle) {
+					targetObjective = &obj
+					break
+				}
+			}
+
+			if targetObjective == nil {
+				fmt.Printf("Objective not found: %s\n", objectiveTitle)
+				return
+			}
+
+			// Check if already linked to an objective
+			if command.SelectedFile.ObjectiveID != "" {
+				existingParent, err := data.GetObjectiveByID(command.SelectedFile.ObjectiveID)
+				if err == nil && existingParent != nil {
+					fmt.Printf("WARNING: \"%s\" is currently linked to objective \"%s\"\n",
+						command.SelectedFile.Title, existingParent.Title)
+					fmt.Print("Re-link to \"" + targetObjective.Title + "\"? (y/n): ")
+
+					char, _, err := keyboard.GetKey()
+					if err != nil || (char != 'y' && char != 'Y') {
+						fmt.Println("\nCancelled.")
+						return
+					}
+					fmt.Println()
+				}
+			}
+
+			// Link the note to the objective
+			err = scripts.LinkTodoToObjective(command.SelectedFile, *targetObjective, data.WriteFile)
+			if err != nil {
+				fmt.Printf("Error linking to objective: %v\n", err)
+				return
+			}
+
+			fmt.Printf("Linked \"%s\" to objective \"%s\"\n", command.SelectedFile.Title, targetObjective.Title)
+		} else {
+			// No selected file or queries - open objectives view
+			err := runObjectivesView()
+			if err != nil {
+				fmt.Printf("Error running objectives view: %v\n", err)
+				return
+			}
 		}
 
 	case "tt":
