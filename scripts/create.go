@@ -25,6 +25,26 @@ func CreateTodo(title string, onFileCreated OnFileCreated) (File, error) {
 	return createFile(title, []string{"todo"}, "", now, false, onFileCreated)
 }
 
+// CreateTodoWithCheckboxes creates a todo with optional checkbox items in the content
+func CreateTodoWithCheckboxes(title string, checkboxItems []string, onFileCreated OnFileCreated) (File, error) {
+	now := time.Now()
+
+	content := fmt.Sprintf("# %v", title)
+
+	if len(checkboxItems) > 0 {
+		content += "\n\n"
+		for _, item := range checkboxItems {
+			trimmedItem := strings.TrimSpace(item)
+			if trimmedItem != "" {
+				content += fmt.Sprintf("- [ ] %s\n", trimmedItem)
+			}
+		}
+		content = strings.TrimSuffix(content, "\n")
+	}
+
+	return createFile(title, []string{"todo"}, content, now, false, onFileCreated)
+}
+
 // CreateTodoWithDueDate creates a todo with a specified due date
 func CreateTodoWithDueDate(title string, dueDate time.Time, onFileCreated OnFileCreated) (File, error) {
 	return createFile(title, []string{"todo"}, "", dueDate, false, onFileCreated)

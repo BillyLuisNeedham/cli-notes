@@ -253,7 +253,7 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 		}
 
 	case "ct":
-		handleCreateFile("todo", command.Queries, scripts.CreateTodo)
+		handleCreateTodo(command.Queries)
 
 	case "cm":
 		handleCreateFile("meeting", command.Queries, scripts.CreateMeeting)
@@ -705,6 +705,26 @@ func handleCreateFile(fileType string, queries []string, createFn func(string, s
 	}
 	title := strings.Join(queries, "-")
 	file, err := createFn(title, data.WriteFile)
+	if err != nil {
+		fmt.Printf("Error writing file: %v\n", err)
+		return
+	}
+	openNoteInEditor(file.Name)
+}
+
+func handleCreateTodo(queries []string) {
+	if len(queries) < 1 || queries[0] == "" {
+		fmt.Println("Please provide a title for the new todo")
+		return
+	}
+
+	title := queries[0]
+	var checkboxItems []string
+	if len(queries) > 1 {
+		checkboxItems = queries[1:]
+	}
+
+	file, err := scripts.CreateTodoWithCheckboxes(title, checkboxItems, data.WriteFile)
 	if err != nil {
 		fmt.Printf("Error writing file: %v\n", err)
 		return
