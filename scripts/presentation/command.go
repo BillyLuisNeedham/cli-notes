@@ -87,7 +87,8 @@ func CommandHandler(
 
 	case keyboard.KeyTab:
 		// Handle Tab for autocomplete in "ob <text>" commands
-		if currentCommand.SelectedFile.Name != "" && strings.HasPrefix(currentCommand.Text, "ob ") {
+		// Works both with and without a file selected (for linking vs navigation)
+		if strings.HasPrefix(currentCommand.Text, "ob ") {
 			// Extract the input after "ob "
 			input := strings.TrimPrefix(currentCommand.Text, "ob ")
 

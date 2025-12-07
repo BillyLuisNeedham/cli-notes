@@ -593,8 +593,51 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 			}
 
 			fmt.Printf("Linked \"%s\" to objective \"%s\"\n", command.SelectedFile.Title, targetObjective.Title)
+		} else if len(command.Queries) > 0 && command.Queries[0] != "" {
+			// No selected file but query provided - navigate to specific objective view
+			objectiveTitle := command.Queries[0]
+
+			// Find the objective by title
+			objectives, err := data.QueryNonFinishedObjectives()
+			if err != nil {
+				fmt.Printf("Error querying objectives: %v\n", err)
+				return
+			}
+
+			var targetObjective *scripts.File
+			for _, obj := range objectives {
+				if strings.EqualFold(obj.Title, objectiveTitle) {
+					targetObjective = &obj
+					break
+				}
+			}
+
+			if targetObjective == nil {
+				fmt.Printf("Objective not found: %s\n", objectiveTitle)
+				return
+			}
+
+			// Create state directly in SingleObjectiveView mode
+			state, err := data.NewSingleObjectiveViewStateForObjective(*targetObjective)
+			if err != nil {
+				fmt.Printf("Error creating objective view state: %v\n", err)
+				return
+			}
+
+			var reader input.InputReader
+			if testModeReader != nil {
+				reader = input.NewStdinReader(testModeReader)
+			} else {
+				reader = &input.KeyboardReader{}
+			}
+
+			err = runObjectivesViewWithState(reader, state)
+			if err != nil {
+				fmt.Printf("Error running objectives view: %v\n", err)
+				return
+			}
 		} else {
-			// No selected file or queries - open objectives view
+			// No selected file and no queries - open objectives list view
 			var reader input.InputReader
 			if testModeReader != nil {
 				reader = input.NewStdinReader(testModeReader)
@@ -1096,6 +1139,10 @@ func runObjectivesView(reader input.InputReader) error {
 		return fmt.Errorf("error initializing objectives view: %w", err)
 	}
 
+	return runObjectivesViewWithState(reader, state)
+}
+
+func runObjectivesViewWithState(reader input.InputReader, state *data.ObjectivesViewState) error {
 	lastMessage := ""
 	lastChar := rune(0) // For 'dd' and other multi-key commands
 

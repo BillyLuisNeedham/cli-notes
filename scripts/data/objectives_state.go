@@ -62,6 +62,48 @@ func NewObjectivesViewState() (*ObjectivesViewState, error) {
 	}, nil
 }
 
+// NewSingleObjectiveViewStateForObjective initializes the state directly in SingleObjectiveView mode
+// for a specific objective. This is used when navigating to an objective from the root view.
+func NewSingleObjectiveViewStateForObjective(objective scripts.File) (*ObjectivesViewState, error) {
+	// Query all objectives for BackToList functionality
+	objectives, err := QueryAllObjectives()
+	if err != nil {
+		return nil, err
+	}
+	sortByCreatedAt(objectives, true)
+
+	// Find the index of this objective in the list (for BackToList selection)
+	selectedIndex := 0
+	for i, obj := range objectives {
+		if obj.ObjectiveID == objective.ObjectiveID {
+			selectedIndex = i
+			break
+		}
+	}
+
+	// Load children for the objective
+	children, err := QueryChildrenByObjectiveID(objective.ObjectiveID, true)
+	if err != nil {
+		return nil, err
+	}
+
+	state := &ObjectivesViewState{
+		ViewMode:           SingleObjectiveView,
+		Objectives:         objectives,
+		SelectedIndex:      selectedIndex,
+		CurrentObjective:   &objective,
+		Children:           children,
+		ChildSelectedIndex: 0,
+		OnParent:           true,
+		SortOrder:          SortByDueDateThenPriority,
+		FilterMode:         ShowAll,
+	}
+
+	state.applySortAndFilter()
+
+	return state, nil
+}
+
 // SelectNext moves selection down
 func (ovs *ObjectivesViewState) SelectNext() {
 	if ovs.ViewMode == ObjectivesListView {

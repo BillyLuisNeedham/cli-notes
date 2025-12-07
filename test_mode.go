@@ -31,6 +31,8 @@ func runTestMode(fileStore *data.SearchedFilesStore, onClose func()) {
 		switch r {
 		case '\n':
 			key = keyboard.KeyEnter
+		case '\t': // Tab
+			key = keyboard.KeyTab
 		case '\x7f': // Backspace
 			key = keyboard.KeyBackspace
 		case '\x1b': // Escape or start of sequence
