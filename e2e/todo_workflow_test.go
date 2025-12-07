@@ -110,7 +110,44 @@ func TestTodoWorkflow(t *testing.T) {
 		}
 	})
 
-	// 4. Update operations (interactive)
+	// 4. Create todo with checkboxes
+	t.Run("Create Todo with Checkboxes", func(t *testing.T) {
+		// ct title, checkbox1, checkbox2
+		stdout, _, err := h.RunCommand("ct checkbox-test, first item, second item, third item\n")
+		if err != nil {
+			t.Fatalf("Failed to create todo with checkboxes: %v", err)
+		}
+
+		// Extract filename from output
+		var filename string
+		lines := strings.Split(stdout, "\n")
+		for _, line := range lines {
+			if strings.Contains(line, "notes/") && strings.HasSuffix(line, ".md") {
+				parts := strings.Split(strings.TrimSpace(line), "/")
+				if len(parts) > 0 {
+					filename = parts[len(parts)-1]
+					break
+				}
+			}
+		}
+
+		if filename == "" {
+			t.Fatalf("Could not extract filename from output: %s", stdout)
+		}
+
+		h.AssertFileExists(filename)
+		h.AssertFrontmatterValue(filename, func(fm Frontmatter) error {
+			if fm.Title != "checkbox-test" {
+				return fmt.Errorf("expected title 'checkbox-test', got '%s'", fm.Title)
+			}
+			return nil
+		})
+		h.AssertFileContent(filename, "- [ ] first item")
+		h.AssertFileContent(filename, "- [ ] second item")
+		h.AssertFileContent(filename, "- [ ] third item")
+	})
+
+	// 5. Update operations (interactive)
 	// This is harder because it requires selecting a file first or passing args if supported.
 	// The CLI commands like 'd' (delay) work on the "SelectedFile".
 	// In the interactive loop, we'd need to select a file then run command.
