@@ -135,12 +135,16 @@ func FutureDate(days int) string {
 	return getNow().AddDate(0, 0, days).Format("2006-01-02")
 }
 
-// Helper to get the date of a specific day this week (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+// Helper to get the date of a specific day this week using ISO week (Monday-Sunday)
 func DayThisWeek(targetWeekday time.Weekday) string {
 	now := getNow()
+	// Find Monday of this ISO week (Monday=0 offset, Sunday=6 offset from Monday)
 	currentWeekday := now.Weekday()
-	daysUntilTarget := int(targetWeekday - currentWeekday)
-	return now.AddDate(0, 0, daysUntilTarget).Format("2006-01-02")
+	daysFromMonday := int(currentWeekday+6) % 7 // Sunday(0)->6, Monday(1)->0, Tue(2)->1, etc.
+	monday := now.AddDate(0, 0, -daysFromMonday)
+	// Calculate offset from Monday to target day (Monday=0, ..., Sunday=6)
+	targetOffset := int(targetWeekday+6) % 7
+	return monday.AddDate(0, 0, targetOffset).Format("2006-01-02")
 }
 
 // Helper to get Monday this week
