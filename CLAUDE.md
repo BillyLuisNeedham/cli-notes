@@ -2,96 +2,69 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## Build and Run Commands
 
-This is a CLI-based notes management system written in Go that provides an interactive command-line interface for creating, searching, and managing various types of notes (todos, meetings, plans, standups). The application uses keyboard input handling and stores notes as Markdown files with YAML frontmatter in a `notes/` directory.
-
-## Core Architecture
-
-### Main Components
-
-- **main.go**: Entry point with interactive command loop using `github.com/eiannone/keyboard` for real-time key handling
-- **scripts/**: Core business logic layer
-  - **data/**: Repository layer handling file I/O and data persistence  
-  - **presentation/**: UI layer managing command parsing and display
-- **notes/**: Directory where all note files are stored as Markdown with YAML frontmatter
-
-### Key Architecture Patterns
-
-- **Command Pattern**: Commands are parsed through `presentation.CommandHandler` and executed via `handleCommand` in main.go
-- **Repository Pattern**: Data access abstracted through interfaces in `scripts/data/`
-- **Functional Composition**: Heavy use of function injection for dependencies (e.g., `data.QueryFilesByDone`, `data.WriteFile`)
-
-### File Structure
-
-Notes are stored as Markdown files with YAML frontmatter containing:
-- `title`, `date-created`, `tags`, `priority` (P1/P2/P3)
-- `date-due`, `done` (for todos)
-- Content follows standard Markdown with `- [ ]` for tasks
-
-### State Management
-
-- `SearchedFilesStore`: Maintains recently queried files for navigation
-- Arrow key navigation cycles through search results
-- Selected files can have operations applied (due date changes, etc.)
-
-## Development Commands
-
-### Building and Running
 ```bash
 # Run the application
-go run main.go
+go run .
 
-# Build binary
-go build -o main
+# Build the binary
+go build -o cli-notes .
 
-# Run the built binary
-./main
-```
-
-### Testing
-```bash
 # Run all tests
 go test ./...
 
-# Run tests with verbose output
-go test -v ./...
+# Run a single test file
+go test ./e2e -run TestName -v
 
-# Run specific package tests
-go test ./scripts/data
-go test ./scripts/presentation
+# Run e2e tests only
+go test ./e2e/... -v
 
-# Run single test file
-go test -v ./scripts/create_test.go
+# Run unit tests in scripts package
+go test ./scripts/... -v
 ```
 
-### Dependencies
-- Primary dependency: `github.com/eiannone/keyboard` for real-time keyboard input
-- Uses Go standard library for file operations, time handling, and string processing
+## Architecture Overview
 
-## Key Command Categories
+This is an interactive CLI note manager written in Go. Notes are stored as Markdown files with YAML frontmatter in the `notes/` directory.
 
-The application supports several command categories executed through the interactive prompt:
+### Package Structure
 
-- **Todo Management**: `gt`, `gto`, `gtnd`, `gts`, `ct`, `p1`/`p2`/`p3`
-- **Note Creation**: `cm` (meetings), `cp` (plans), `cs` (standups)  
-- **Search Operations**: `gq`, `gqa`, `gta`, `gat`
-- **Due Date Management**: `d`, `t`, `m`/`tu`/`w`/`th`/`f`/`sa`/`su`
-- **Navigation**: Arrow keys, `o` (open), `gd` (date range queries)
+- **`main.go`** - Entry point, keyboard event loop, command routing via `handleCommand()`
+- **`test_mode.go`** - Alternative stdin-based input for e2e testing (activated via `CLI_NOTES_TEST_MODE=true`)
+- **`input/`** - Input abstraction (`InputReader` interface) for keyboard vs stdin reading
+- **`scripts/`** - Core business logic
+  - `file.go` - `File` struct (the central domain model with Title, Tags, DueAt, Priority, ObjectiveID, etc.)
+  - `create.go` - Note creation functions
+  - `get.go` - Query/fetch operations
+  - `update.go` - Note modification operations
+  - `objectives.go` - Objective linking/unlinking logic
+  - `sort.go` - Sorting algorithms for todos
+- **`scripts/data/`** - Data layer (file I/O, repositories)
+  - `file_repository.go` - Read/write notes to disk, YAML frontmatter parsing
+  - `objective_repository.go` - Objective-specific queries
+  - `week_planner.go`, `week_planner_state.go` - Weekly planner data/state
+  - `objectives_state.go` - Objectives view state management
+  - `talk_to_state.go` - Talk-to feature state
+- **`scripts/presentation/`** - UI rendering and input handling
+  - `command.go` - Main command parser (`CommandHandler`, `WIPCommand`, `CompletedCommand`)
+  - `week_planner_ui.go`, `week_planner_input.go` - Weekly planner TUI
+  - `objectives_ui.go`, `objectives_input.go` - Objectives view TUI
+  - `talk_to_ui.go`, `talk_to_input.go` - Talk-to feature TUI
+- **`e2e/`** - End-to-end tests using `TestHarness` framework
 
-## Working with the Codebase
+### Key Patterns
 
-### Adding New Commands
-1. Add command parsing logic in `scripts/presentation/command.go`
-2. Add command execution in `main.go`'s `handleCommand` function
-3. Implement business logic in appropriate `scripts/` files
-4. Add tests following existing patterns in `*_test.go` files
+1. **Command Flow**: Keyboard input → `CommandHandler` → `WIPCommand` (in-progress) or `CompletedCommand` → `handleCommand()` executes action
 
-### File Operations
-All file operations go through `data.WriteFile` and query functions in `scripts/data/file_repository.go`. The system expects a `notes/` directory to exist in the working directory.
+2. **Repository Pattern**: Business logic in `scripts/` calls repository functions from `scripts/data/` via function parameters (dependency injection), e.g., `data.WriteFile`, `data.QueryFilesByDone`
 
-### Testing Strategy
-The codebase uses standard Go testing with comprehensive coverage across:
-- Unit tests for individual functions
-- Integration tests for command flows
-- Repository tests for file operations
+3. **State Management**: Interactive views (week planner, objectives, talk-to) use dedicated state structs in `scripts/data/` with corresponding UI/input handlers in `scripts/presentation/`
+
+4. **Note Format**: Markdown with YAML frontmatter containing: `title`, `date-created`, `tags`, `priority`, `date-due`, `done`, `objective-role`, `objective-id`
+
+### Testing
+
+- **E2E tests** use `TestHarness` from `e2e/framework.go` which builds the binary, creates temp directories, and runs the CLI with piped stdin
+- Set `CLI_NOTES_TEST_MODE=true` to use stdin-based input instead of keyboard library
+- Set `TEST_FIXED_DATE=2025-11-28` for deterministic date-based tests

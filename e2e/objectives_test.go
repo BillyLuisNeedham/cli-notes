@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -65,4 +66,67 @@ func TestObjectivesWorkflow(t *testing.T) {
 			return nil
 		})
 	})
+}
+
+func TestOpenObjectiveFromRootView(t *testing.T) {
+	h := NewTestHarness(t)
+
+	// 1. Create a parent objective first (by converting a todo)
+	h.CreateTodo("my-objective.md", "My Objective", []string{}, Today(), false, 1)
+
+	// Convert to objective: gt -> select -> cpo -> confirm
+	input := "gt\n\x1b[Bcpo\ny\n"
+	_, _, err := h.RunCommand(input)
+	if err != nil {
+		t.Fatalf("Failed to convert todo to objective: %v", err)
+	}
+
+	// Verify it's now an objective
+	h.AssertFrontmatterValue("my-objective.md", func(fm Frontmatter) error {
+		if fm.ObjectiveRole != "parent" {
+			return fmt.Errorf("expected objective-role 'parent', got '%s'", fm.ObjectiveRole)
+		}
+		return nil
+	})
+
+	// 2. Test: Navigate to objective from root using "ob My Objective"
+	// Then quit with 'q'
+	input = "ob My Objective\nq\n"
+	stdout, _, err := h.RunCommand(input)
+	if err != nil {
+		t.Fatalf("Failed to open objective from root: %v", err)
+	}
+
+	// 3. Verify output shows the objective view (single view, not list view)
+	// The single objective view should show the objective title
+	if !strings.Contains(stdout, "My Objective") {
+		t.Errorf("Expected objective view to show 'My Objective', got: %s", stdout)
+	}
+}
+
+func TestOpenObjectiveFromRootViewWithTabAutocomplete(t *testing.T) {
+	h := NewTestHarness(t)
+
+	// 1. Create a parent objective
+	h.CreateTodo("annual-review.md", "Annual Review", []string{}, Today(), false, 1)
+
+	// Convert to objective
+	input := "gt\n\x1b[Bcpo\ny\n"
+	_, _, err := h.RunCommand(input)
+	if err != nil {
+		t.Fatalf("Failed to convert todo to objective: %v", err)
+	}
+
+	// 2. Test: Tab autocomplete for objective name from root
+	// Type "ob Ann" then Tab to autocomplete, then Enter, then quit
+	input = "ob Ann\t\nq\n"
+	stdout, _, err := h.RunCommand(input)
+	if err != nil {
+		t.Fatalf("Failed to open objective with autocomplete: %v", err)
+	}
+
+	// 3. Verify it opened the correct objective
+	if !strings.Contains(stdout, "Annual Review") {
+		t.Errorf("Expected objective view to show 'Annual Review', got: %s", stdout)
+	}
 }
