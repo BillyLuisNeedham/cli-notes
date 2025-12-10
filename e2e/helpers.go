@@ -310,3 +310,19 @@ func (h *TestHarness) CreateLinkedTodo(filename, title, objectiveID, content str
 	}
 	h.createFileWithFrontmatter(filename, fm, content)
 }
+
+// ListFiles returns all files in the notes directory
+func (h *TestHarness) ListFiles() []string {
+	entries, err := os.ReadDir(h.NotesDir)
+	if err != nil {
+		h.t.Fatalf("Failed to list files in notes dir: %v", err)
+	}
+
+	var files []string
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			files = append(files, entry.Name())
+		}
+	}
+	return files
+}

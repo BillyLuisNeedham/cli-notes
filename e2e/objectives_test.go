@@ -9,32 +9,49 @@ import (
 func TestObjectivesWorkflow(t *testing.T) {
 	h := NewTestHarness(t)
 
-	t.Run("Objectives View", func(t *testing.T) {
-		t.Skip("Skipping objectives view test - requires interactive keyboard input that doesn't work in test mode")
-
-		// ob - Open objectives view
-		// This is an interactive view. We need to simulate keys.
+	t.Run("Create Objective via UI", func(t *testing.T) {
 		// Flow:
-		// 1. "ob" -> enters view
-		// 2. "n" -> new objective
-		// 3. "My Objective" -> title
-		// 4. "q" -> quit view
+		// 1. "ob\n" -> enters objectives list view
+		// 2. "n" -> triggers create new objective prompt
+		// 3. "My Objective\n" -> title input + submit
+		// 4. "q\n" -> quit view
 
-		input := "ob\nnMy Objective\nq"
-		// Note: "n" might prompt for title. If it uses standard input, we send "My Objective\n".
-		// If it uses a separate prompt loop, we need to be careful.
-		// Assuming standard input flow.
+		input := "ob\nnMy Objective\nq\n"
 
-		_, _, err := h.RunCommand(input)
+		stdout, _, err := h.RunCommand(input)
 		if err != nil {
-			// It might fail if "ob" blocks differently.
-			// But let's assume it works for now.
+			t.Logf("Command output: %s", stdout)
 		}
 
-		// Verify objective file created
-		h.AssertFileExists("my-objective.md") // Name might be sanitized/dated
-		// Actually, objectives usually have a date suffix or ID.
-		// We might need to check for any file with "my-objective" in name.
+		// Verify the success message appears in output
+		if !strings.Contains(stdout, "Created objective") {
+			t.Errorf("Expected 'Created objective' message in output, got: %s", stdout)
+		}
+
+		if !strings.Contains(stdout, "My Objective") {
+			t.Errorf("Expected objective title 'My Objective' in output, got: %s", stdout)
+		}
+
+		// Verify a file was created with the objective title
+		files := h.ListFiles()
+		found := false
+		for _, f := range files {
+			if strings.Contains(strings.ToLower(f), "my objective") {
+				found = true
+				// Verify it has objective-role: parent
+				fm := h.ParseFrontmatter(f)
+				if fm.ObjectiveRole != "parent" {
+					t.Errorf("Expected objective-role 'parent', got '%s'", fm.ObjectiveRole)
+				}
+				if fm.ObjectiveID == "" {
+					t.Errorf("Expected objective-id to be set")
+				}
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected to find a file containing 'my objective', found files: %v", files)
+		}
 	})
 
 	t.Run("Convert Todo to Objective", func(t *testing.T) {
