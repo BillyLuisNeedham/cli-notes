@@ -130,3 +130,100 @@ func TestOpenObjectiveFromRootViewWithTabAutocomplete(t *testing.T) {
 		t.Errorf("Expected objective view to show 'Annual Review', got: %s", stdout)
 	}
 }
+
+func TestObjectivesViewShowsOpenTasks(t *testing.T) {
+	h := NewTestHarness(t)
+
+	// 1. Create a parent objective with a unique ID
+	objectiveID := "test1234"
+	h.CreateObjective("project-objective.md", "Project Objective", objectiveID, "Project goals and tasks")
+
+	// 2. Create a child todo with checkbox content (open tasks)
+	childContent := `Tasks to complete:
+- [ ] Task One
+- [ ] Task Two
+- [x] Completed Task`
+	h.CreateLinkedTodo("child-todo.md", "Child Todo", objectiveID, childContent, Today(), 1)
+
+	// 3. Open objectives view, navigate to the objective, then navigate to child
+	// ob -> opens objectives list
+	// o or Enter -> opens selected objective (single view)
+	// j -> navigate down to first child
+	// q -> quit
+	input := "ob\no\nj\nq\n"
+	stdout, _, err := h.RunCommand(input)
+	if err != nil {
+		t.Fatalf("Failed to open objectives view: %v", err)
+	}
+
+	// 4. Verify the output shows the open tasks from the child
+	// The right panel should show "OPEN TASKS" and the uncompleted checkboxes
+	if !strings.Contains(stdout, "OPEN TASKS") {
+		t.Errorf("Expected to see 'OPEN TASKS' section in output, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, "Task One") {
+		t.Errorf("Expected to see 'Task One' in open tasks, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, "Task Two") {
+		t.Errorf("Expected to see 'Task Two' in open tasks, got: %s", stdout)
+	}
+}
+
+func TestObjectivesViewEscapeCancelsQueryInput(t *testing.T) {
+	h := NewTestHarness(t)
+
+	// 1. Create a parent objective
+	objectiveID := "esc12345"
+	h.CreateObjective("escape-test-obj.md", "Escape Test Objective", objectiveID, "Test objective")
+
+	// 2. Create an unlinked todo that could be linked
+	h.CreateTodo("unlinked-todo.md", "Unlinked Todo", []string{}, Today(), false, 1)
+
+	// 3. Open objectives view, open the objective, press 'l' to link, then press Escape
+	// ob -> opens objectives list
+	// o -> opens selected objective
+	// l -> start link mode (prompts for search query)
+	// \x1b -> escape key (cancel)
+	// q -> quit
+	input := "ob\no\nl\x1b\nq\n"
+	stdout, _, err := h.RunCommand(input)
+	if err != nil {
+		t.Fatalf("Failed in escape test: %v", err)
+	}
+
+	// 4. Verify that "Cancelled" appears in output (indicates escape was handled)
+	if !strings.Contains(stdout, "Cancelled") {
+		t.Errorf("Expected 'Cancelled' message when pressing escape, got: %s", stdout)
+	}
+
+	// 5. Verify the todo was NOT linked (still has no objective-id or has different one)
+	fm := h.ParseFrontmatter("unlinked-todo.md")
+	if fm.ObjectiveID == objectiveID {
+		t.Errorf("Expected todo to remain unlinked after escape, but it was linked to %s", fm.ObjectiveID)
+	}
+}
+
+func TestObjectivesViewEscapeCancelsCreateChild(t *testing.T) {
+	h := NewTestHarness(t)
+
+	// 1. Create a parent objective
+	objectiveID := "cresc123"
+	h.CreateObjective("create-escape-obj.md", "Create Escape Test", objectiveID, "Test objective")
+
+	// 2. Open objectives view, open the objective, press 'n' to create child, then press Escape
+	// ob -> opens objectives list
+	// o -> opens selected objective
+	// n -> start create child mode (prompts for title)
+	// \x1b -> escape key (cancel)
+	// q -> quit
+	input := "ob\no\nn\x1b\nq\n"
+	stdout, _, err := h.RunCommand(input)
+	if err != nil {
+		t.Fatalf("Failed in create escape test: %v", err)
+	}
+
+	// 3. Verify that "Cancelled" appears in output (indicates escape was handled)
+	if !strings.Contains(stdout, "Cancelled") {
+		t.Errorf("Expected 'Cancelled' message when pressing escape during title input, got: %s", stdout)
+	}
+}

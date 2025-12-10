@@ -284,3 +284,29 @@ func (h *TestHarness) VerifyFileNotContains(filename, unexpectedContent string) 
 		h.t.Errorf("Expected file %s NOT to contain %q, but it was found.\nFile content:\n%s", filename, unexpectedContent, content)
 	}
 }
+
+// CreateObjective creates a parent objective file with frontmatter
+func (h *TestHarness) CreateObjective(filename, title, objectiveID, content string) {
+	fm := Frontmatter{
+		Title:         title,
+		DateCreated:   getNow().Format("2006-01-02"),
+		Tags:          []string{},
+		ObjectiveRole: "parent",
+		ObjectiveID:   objectiveID,
+	}
+	h.createFileWithFrontmatter(filename, fm, content)
+}
+
+// CreateLinkedTodo creates a todo linked to a parent objective
+func (h *TestHarness) CreateLinkedTodo(filename, title, objectiveID, content string, dueDate string, priority int) {
+	fm := Frontmatter{
+		Title:       title,
+		DateCreated: getNow().Format("2006-01-02"),
+		Tags:        []string{},
+		DateDue:     dueDate,
+		Done:        false,
+		Priority:    priority,
+		ObjectiveID: objectiveID,
+	}
+	h.createFileWithFrontmatter(filename, fm, content)
+}

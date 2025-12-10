@@ -1146,13 +1146,21 @@ func runObjectivesViewWithState(reader input.InputReader, state *data.Objectives
 	lastMessage := ""
 	lastChar := rune(0) // For 'dd' and other multi-key commands
 
+	// Get terminal size for split screen layout
+	termWidth, termHeight, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		// Fallback to default size if unable to get terminal size
+		termWidth = 100
+		termHeight = 30
+	}
+
 	for {
 		// Render current view
 		var display string
 		if state.ViewMode == data.ObjectivesListView {
 			display = presentation.RenderObjectivesListView(state)
 		} else {
-			display = presentation.RenderSingleObjectiveView(state)
+			display = presentation.RenderSingleObjectiveView(state, termWidth, termHeight)
 		}
 		fmt.Print(display)
 
@@ -1272,7 +1280,7 @@ func runObjectivesViewWithState(reader input.InputReader, state *data.Objectives
 			}
 
 			if parentObj != nil {
-				selectedTodo, err := presentation.SearchAndLinkTodo(*parentObj, closeKeyboard, reopenKeyboard)
+				selectedTodo, err := presentation.SearchAndLinkTodo(*parentObj, reader)
 				if err != nil {
 					lastMessage = fmt.Sprintf("Error: %v", err)
 				} else if selectedTodo != nil {

@@ -1,28 +1,27 @@
 package presentation
 
 import (
+	"cli-notes/input"
 	"cli-notes/scripts"
 	"cli-notes/scripts/data"
 	"fmt"
-	"github.com/eiannone/keyboard"
 	"strings"
+
+	"github.com/eiannone/keyboard"
 )
 
 // SearchAndLinkTodo presents a search interface to find and link todos
-func SearchAndLinkTodo(parentObjective scripts.File, closeKeyboard func(), reopenKeyboard func() error) (*scripts.File, error) {
+func SearchAndLinkTodo(parentObjective scripts.File, reader input.InputReader) (*scripts.File, error) {
 	fmt.Printf("\nLink existing todo to: %s\n", parentObjective.Title)
 	fmt.Print("Enter search query (comma-separated): ")
 
-	// Get search terms
-	closeKeyboard()
-	var queryStr string
-	fmt.Scanln(&queryStr)
-	if err := reopenKeyboard(); err != nil {
+	// Get search terms using keyboard input (supports escape to cancel)
+	queryStr, err := readSearchQuery(reader)
+	if err != nil {
 		return nil, err
 	}
-
 	if queryStr == "" {
-		return nil, fmt.Errorf("no query provided")
+		return nil, nil // User cancelled
 	}
 
 	queries := strings.Split(queryStr, ",")
@@ -77,7 +76,7 @@ func SearchAndLinkTodo(parentObjective scripts.File, closeKeyboard func(), reope
 
 		fmt.Println("\nj/k=navigate, Enter=link, Esc=cancel")
 
-		char, key, err := keyboard.GetKey()
+		char, key, err := reader.GetKey()
 		if err != nil {
 			return nil, err
 		}
@@ -95,12 +94,53 @@ func SearchAndLinkTodo(parentObjective scripts.File, closeKeyboard func(), reope
 			if selected.ObjectiveRole == "parent" {
 				fmt.Println("\nError: Cannot link parent objectives as children.")
 				fmt.Println("Press any key to continue...")
-				keyboard.GetKey()
+				reader.GetKey()
 				continue
 			}
 			return &selected, nil
 		case key == keyboard.KeyEsc:
 			return nil, nil
+		}
+	}
+}
+
+// readSearchQuery reads search query input character by character
+// Returns empty string if user presses Escape to cancel
+func readSearchQuery(reader input.InputReader) (string, error) {
+	var inputStr strings.Builder
+
+	for {
+		char, key, err := reader.GetKey()
+		if err != nil {
+			return "", fmt.Errorf("error reading input: %w", err)
+		}
+
+		switch key {
+		case keyboard.KeyEnter:
+			fmt.Println()
+			return strings.TrimSpace(inputStr.String()), nil
+
+		case keyboard.KeyEsc:
+			fmt.Println("\nCancelled")
+			return "", nil
+
+		case keyboard.KeyBackspace, keyboard.KeyBackspace2:
+			if inputStr.Len() > 0 {
+				str := inputStr.String()
+				inputStr.Reset()
+				inputStr.WriteString(str[:len(str)-1])
+				fmt.Print("\b \b")
+			}
+
+		case keyboard.KeySpace:
+			inputStr.WriteRune(' ')
+			fmt.Print(" ")
+
+		default:
+			if char != 0 && char >= 32 && char <= 126 { // Printable ASCII
+				inputStr.WriteRune(char)
+				fmt.Printf("%c", char)
+			}
 		}
 	}
 }
