@@ -27,12 +27,21 @@ const (
 	ShowCompleteOnly
 )
 
+type ListFilterMode int
+
+const (
+	ListShowActive ListFilterMode = iota
+	ListShowCompleted
+)
+
 type ObjectivesViewState struct {
 	ViewMode ObjectivesViewMode
 
 	// List view state
-	Objectives    []scripts.File
-	SelectedIndex int // Index in Objectives list
+	AllObjectives  []scripts.File     // All objectives (unfiltered)
+	Objectives     []scripts.File     // Filtered objectives for display
+	SelectedIndex  int                // Index in Objectives list
+	ListFilterMode ListFilterMode     // Active vs Completed tab
 
 	// Single objective view state
 	CurrentObjective   *scripts.File
@@ -50,16 +59,19 @@ func NewObjectivesViewState() (*ObjectivesViewState, error) {
 		return nil, err
 	}
 
-	// Sort by most recently created first
-	sortByCreatedAt(objectives, true)
+	state := &ObjectivesViewState{
+		ViewMode:       ObjectivesListView,
+		AllObjectives:  objectives,
+		SelectedIndex:  0,
+		ListFilterMode: ListShowActive,
+		SortOrder:      SortByDueDateThenPriority,
+		FilterMode:     ShowAll,
+	}
 
-	return &ObjectivesViewState{
-		ViewMode:      ObjectivesListView,
-		Objectives:    objectives,
-		SelectedIndex: 0,
-		SortOrder:     SortByDueDateThenPriority,
-		FilterMode:    ShowAll,
-	}, nil
+	// Apply filter to populate Objectives from AllObjectives
+	state.applyListFilter()
+
+	return state, nil
 }
 
 // NewSingleObjectiveViewStateForObjective initializes the state directly in SingleObjectiveView mode
@@ -70,13 +82,26 @@ func NewSingleObjectiveViewStateForObjective(objective scripts.File) (*Objective
 	if err != nil {
 		return nil, err
 	}
-	sortByCreatedAt(objectives, true)
 
-	// Find the index of this objective in the list (for BackToList selection)
-	selectedIndex := 0
-	for i, obj := range objectives {
+	state := &ObjectivesViewState{
+		ViewMode:           SingleObjectiveView,
+		AllObjectives:      objectives,
+		SelectedIndex:      0,
+		ListFilterMode:     ListShowActive,
+		CurrentObjective:   &objective,
+		ChildSelectedIndex: 0,
+		OnParent:           true,
+		SortOrder:          SortByDueDateThenPriority,
+		FilterMode:         ShowAll,
+	}
+
+	// Apply list filter to populate Objectives
+	state.applyListFilter()
+
+	// Find the index of this objective in the filtered list (for BackToList selection)
+	for i, obj := range state.Objectives {
 		if obj.ObjectiveID == objective.ObjectiveID {
-			selectedIndex = i
+			state.SelectedIndex = i
 			break
 		}
 	}
@@ -86,18 +111,7 @@ func NewSingleObjectiveViewStateForObjective(objective scripts.File) (*Objective
 	if err != nil {
 		return nil, err
 	}
-
-	state := &ObjectivesViewState{
-		ViewMode:           SingleObjectiveView,
-		Objectives:         objectives,
-		SelectedIndex:      selectedIndex,
-		CurrentObjective:   &objective,
-		Children:           children,
-		ChildSelectedIndex: 0,
-		OnParent:           true,
-		SortOrder:          SortByDueDateThenPriority,
-		FilterMode:         ShowAll,
-	}
+	state.Children = children
 
 	state.applySortAndFilter()
 
@@ -186,20 +200,15 @@ func (ovs *ObjectivesViewState) BackToList() error {
 		return err
 	}
 
-	// Sort by most recently created
-	sortByCreatedAt(objectives, true)
-
-	ovs.Objectives = objectives
+	ovs.AllObjectives = objectives
 	ovs.ViewMode = ObjectivesListView
 	ovs.CurrentObjective = nil
 	ovs.Children = nil
 	ovs.SortOrder = SortByDueDateThenPriority
 	ovs.FilterMode = ShowAll
 
-	// Try to maintain selection if possible
-	if ovs.SelectedIndex >= len(objectives) {
-		ovs.SelectedIndex = 0
-	}
+	// Apply list filter to populate Objectives
+	ovs.applyListFilter()
 
 	return nil
 }
@@ -211,13 +220,8 @@ func (ovs *ObjectivesViewState) Refresh() error {
 		if err != nil {
 			return err
 		}
-		sortByCreatedAt(objectives, true)
-		ovs.Objectives = objectives
-
-		// Adjust selection if out of bounds
-		if ovs.SelectedIndex >= len(objectives) && len(objectives) > 0 {
-			ovs.SelectedIndex = len(objectives) - 1
-		}
+		ovs.AllObjectives = objectives
+		ovs.applyListFilter()
 	} else {
 		if ovs.CurrentObjective == nil {
 			return fmt.Errorf("no current objective")
@@ -290,6 +294,39 @@ func (ovs *ObjectivesViewState) applySortAndFilter() {
 	ovs.Children = filtered
 }
 
+// applyListFilter filters AllObjectives based on ListFilterMode
+func (ovs *ObjectivesViewState) applyListFilter() {
+	active := make([]scripts.File, 0)
+	completed := make([]scripts.File, 0)
+
+	for _, obj := range ovs.AllObjectives {
+		if obj.Done {
+			completed = append(completed, obj)
+		} else {
+			active = append(active, obj)
+		}
+	}
+
+	// Sort each group by creation date (most recent first)
+	sortByCreatedAt(active, true)
+	sortByCreatedAt(completed, true)
+
+	if ovs.ListFilterMode == ListShowActive {
+		ovs.Objectives = active
+	} else {
+		ovs.Objectives = completed
+	}
+
+	// Reset selection if out of bounds
+	if ovs.SelectedIndex >= len(ovs.Objectives) {
+		if len(ovs.Objectives) > 0 {
+			ovs.SelectedIndex = 0
+		} else {
+			ovs.SelectedIndex = 0
+		}
+	}
+}
+
 // ToggleSortOrder switches between sort orders
 func (ovs *ObjectivesViewState) ToggleSortOrder() {
 	if ovs.SortOrder == SortByDueDateThenPriority {
@@ -311,6 +348,30 @@ func (ovs *ObjectivesViewState) CycleFilterMode() {
 		ovs.FilterMode = ShowAll
 	}
 	ovs.applySortAndFilter()
+}
+
+// CycleListFilterMode toggles between Active and Completed tabs in list view
+func (ovs *ObjectivesViewState) CycleListFilterMode() {
+	if ovs.ListFilterMode == ListShowActive {
+		ovs.ListFilterMode = ListShowCompleted
+	} else {
+		ovs.ListFilterMode = ListShowActive
+	}
+	ovs.applyListFilter()
+}
+
+// GetListCounts returns (activeCount, completedCount) for tab headers
+func (ovs *ObjectivesViewState) GetListCounts() (int, int) {
+	active := 0
+	completed := 0
+	for _, obj := range ovs.AllObjectives {
+		if obj.Done {
+			completed++
+		} else {
+			active++
+		}
+	}
+	return active, completed
 }
 
 // GetSelectedObjective returns currently selected objective in list view

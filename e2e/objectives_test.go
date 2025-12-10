@@ -244,3 +244,84 @@ func TestObjectivesViewEscapeCancelsCreateChild(t *testing.T) {
 		t.Errorf("Expected 'Cancelled' message when pressing escape during title input, got: %s", stdout)
 	}
 }
+
+func TestObjectivesListViewTabSwitching(t *testing.T) {
+	h := NewTestHarness(t)
+
+	// 1. Create an active objective
+	h.CreateObjective("active-obj.md", "Active Objective", "act12345", "This is active")
+
+	// 2. Create a completed objective
+	h.CreateCompletedObjective("completed-obj.md", "Completed Objective", "done1234", "This is done")
+
+	// 3. Open objectives view - should show active tab by default
+	// ob -> opens objectives list
+	// q -> quit (no newline between commands in objectives view - newline = Enter = open)
+	input := "ob\nq"
+	stdout, _, err := h.RunCommand(input)
+	if err != nil {
+		t.Fatalf("Failed to open objectives view: %v", err)
+	}
+
+	// 4. Verify tab header shows [ACTIVE] (selected) and active objective is visible
+	if !strings.Contains(stdout, "[ACTIVE") {
+		t.Errorf("Expected [ACTIVE] tab to be selected by default, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, "Active Objective") {
+		t.Errorf("Expected 'Active Objective' to be visible in active tab, got: %s", stdout)
+	}
+	// Completed objective should NOT be visible in active tab
+	if strings.Contains(stdout, "Completed Objective") {
+		t.Errorf("Expected 'Completed Objective' NOT to be visible in active tab, got: %s", stdout)
+	}
+
+	// 5. Test switching to completed tab with 'f' key
+	// ob -> opens objectives list
+	// f -> switch to completed tab
+	// q -> quit (no newlines between single-char commands)
+	input = "ob\nfq"
+	stdout, _, err = h.RunCommand(input)
+	if err != nil {
+		t.Fatalf("Failed to switch to completed tab: %v", err)
+	}
+
+	// 6. Verify [COMPLETED] tab is now selected and completed objective is visible
+	if !strings.Contains(stdout, "[COMPLETED") {
+		t.Errorf("Expected [COMPLETED] tab to be selected after pressing 'f', got: %s", stdout)
+	}
+	if !strings.Contains(stdout, "Completed Objective") {
+		t.Errorf("Expected 'Completed Objective' to be visible in completed tab, got: %s", stdout)
+	}
+
+	// 7. Verify the completed tab view shows Completed Objective as selectable (with > prefix)
+	// This confirms it's in the completed tab, not active tab
+	if !strings.Contains(stdout, "> Completed Objective") {
+		t.Errorf("Expected 'Completed Objective' to be selected in completed tab, got: %s", stdout)
+	}
+}
+
+func TestObjectivesListViewTabCounts(t *testing.T) {
+	h := NewTestHarness(t)
+
+	// Create 2 active objectives
+	h.CreateObjective("active1.md", "Active One", "act00001", "Active 1")
+	h.CreateObjective("active2.md", "Active Two", "act00002", "Active 2")
+
+	// Create 1 completed objective
+	h.CreateCompletedObjective("completed1.md", "Completed One", "done0001", "Done 1")
+
+	// Open objectives view and check counts (no newline between single-char commands)
+	input := "ob\nq"
+	stdout, _, err := h.RunCommand(input)
+	if err != nil {
+		t.Fatalf("Failed to open objectives view: %v", err)
+	}
+
+	// Verify tab header shows correct counts: [ACTIVE (2)]  COMPLETED (1)
+	if !strings.Contains(stdout, "ACTIVE (2)") {
+		t.Errorf("Expected 'ACTIVE (2)' in tab header, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, "COMPLETED (1)") {
+		t.Errorf("Expected 'COMPLETED (1)' in tab header, got: %s", stdout)
+	}
+}

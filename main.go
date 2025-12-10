@@ -1334,6 +1334,8 @@ func runObjectivesViewWithState(reader input.InputReader, state *data.Objectives
 		case presentation.ObjChangeFilter:
 			if state.ViewMode == data.SingleObjectiveView {
 				state.CycleFilterMode()
+			} else if state.ViewMode == data.ObjectivesListView {
+				state.CycleListFilterMode()
 			}
 
 		case presentation.ObjSetPriority1, presentation.ObjSetPriority2, presentation.ObjSetPriority3:

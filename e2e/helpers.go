@@ -297,6 +297,19 @@ func (h *TestHarness) CreateObjective(filename, title, objectiveID, content stri
 	h.createFileWithFrontmatter(filename, fm, content)
 }
 
+// CreateCompletedObjective creates a completed parent objective file with frontmatter
+func (h *TestHarness) CreateCompletedObjective(filename, title, objectiveID, content string) {
+	fm := Frontmatter{
+		Title:         title,
+		DateCreated:   getNow().Format("2006-01-02"),
+		Tags:          []string{},
+		Done:          true,
+		ObjectiveRole: "parent",
+		ObjectiveID:   objectiveID,
+	}
+	h.createFileWithFrontmatter(filename, fm, content)
+}
+
 // CreateLinkedTodo creates a todo linked to a parent objective
 func (h *TestHarness) CreateLinkedTodo(filename, title, objectiveID, content string, dueDate string, priority int) {
 	fm := Frontmatter{

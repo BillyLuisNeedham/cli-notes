@@ -73,9 +73,22 @@ func RenderObjectivesListView(state *data.ObjectivesViewState) string {
 	output.WriteString("OBJECTIVES\n")
 	output.WriteString("================================\n\n")
 
+	// Tab header
+	activeCount, completedCount := state.GetListCounts()
+	if state.ListFilterMode == data.ListShowActive {
+		output.WriteString(fmt.Sprintf("[ACTIVE (%d)]  COMPLETED (%d)\n", activeCount, completedCount))
+	} else {
+		output.WriteString(fmt.Sprintf(" ACTIVE (%d)  [COMPLETED (%d)]\n", activeCount, completedCount))
+	}
+	output.WriteString("────────────────────────────────\n\n")
+
 	if len(state.Objectives) == 0 {
-		output.WriteString("No objectives found.\n\n")
-		output.WriteString("Press 'n' to create a new objective.\n")
+		if state.ListFilterMode == data.ListShowActive {
+			output.WriteString("No active objectives.\n\n")
+		} else {
+			output.WriteString("No completed objectives.\n\n")
+		}
+		output.WriteString("Press 'n' to create a new objective, 'f' to switch tab.\n")
 	} else {
 		for i, obj := range state.Objectives {
 			// Get completion stats
@@ -97,7 +110,7 @@ func RenderObjectivesListView(state *data.ObjectivesViewState) string {
 	}
 
 	output.WriteString("\n")
-	output.WriteString("j/k=navigate, o=open, n=create, l=link, dd=delete, q=quit\n")
+	output.WriteString("j/k=navigate, f=switch tab, o=open, n=create, l=link, dd=delete, q=quit\n")
 
 	return output.String()
 }
