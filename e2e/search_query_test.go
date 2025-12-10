@@ -52,11 +52,7 @@ func TestSearchQueries(t *testing.T) {
 		}
 	})
 
-	// TODO: Fix date range query - currently fails because YAML marshaler adds quotes around dates
-	// Error: parsing time "\"2025-11-21\"" as "2006-01-02": cannot parse "\"2025-11-21\"" as "2006"
-	// This is a bug in the CLI code (data layer), not the test
 	t.Run("Date Range Query", func(t *testing.T) {
-		t.Skip("Skipping due to CLI date parsing bug - YAML adds quotes to dates")
 
 		// Create completed todos
 		h.CreateTodo("done1.md", "Done 1", []string{}, Today(), true, 1)

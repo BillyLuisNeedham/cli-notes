@@ -7,6 +7,60 @@ import (
 	"strings"
 )
 
+// objectivesDimensions holds the calculated UI dimensions for objectives view
+type objectivesDimensions struct {
+	terminalWidth   int
+	terminalHeight  int
+	leftPanelWidth  int
+	rightPanelWidth int
+}
+
+// calculateObjectivesDimensions calculates panel widths based on terminal size
+func calculateObjectivesDimensions(termWidth, termHeight int) objectivesDimensions {
+	// Calculate panel widths proportionally (~60% left, ~40% right)
+	leftWidth := int(float64(termWidth) * 0.6)
+	rightWidth := termWidth - leftWidth - 3 // -3 for borders
+
+	return objectivesDimensions{
+		terminalWidth:   termWidth,
+		terminalHeight:  termHeight,
+		leftPanelWidth:  leftWidth,
+		rightPanelWidth: rightWidth,
+	}
+}
+
+// renderObjectivesSplitLine renders a line split between left and right panels
+func renderObjectivesSplitLine(leftContent, rightContent string, dims objectivesDimensions) string {
+	// Use rune count for proper length calculation with multi-byte characters
+	leftLen := len([]rune(leftContent))
+	rightLen := len([]rune(rightContent))
+
+	// Pad left content to left panel width
+	leftPadding := dims.leftPanelWidth - leftLen
+	if leftPadding < 0 {
+		leftPadding = 0
+		// Truncate using runes
+		leftRunes := []rune(leftContent)
+		leftContent = string(leftRunes[:dims.leftPanelWidth])
+	}
+
+	// Pad right content to right panel width
+	rightPadding := dims.rightPanelWidth - rightLen
+	if rightPadding < 0 {
+		rightPadding = 0
+		// Truncate using runes
+		rightRunes := []rune(rightContent)
+		rightContent = string(rightRunes[:dims.rightPanelWidth])
+	}
+
+	return fmt.Sprintf("│%s%s│%s%s│\n",
+		leftContent,
+		strings.Repeat(" ", leftPadding),
+		rightContent,
+		strings.Repeat(" ", rightPadding),
+	)
+}
+
 // RenderObjectivesListView renders the objectives list view
 func RenderObjectivesListView(state *data.ObjectivesViewState) string {
 	var output strings.Builder
@@ -48,80 +102,195 @@ func RenderObjectivesListView(state *data.ObjectivesViewState) string {
 	return output.String()
 }
 
-// RenderSingleObjectiveView renders a single objective with its children
-func RenderSingleObjectiveView(state *data.ObjectivesViewState) string {
+// RenderSingleObjectiveView renders a single objective with its children in split screen layout
+func RenderSingleObjectiveView(state *data.ObjectivesViewState, termWidth, termHeight int) string {
 	var output strings.Builder
 
 	if state.CurrentObjective == nil {
 		return "Error: No objective selected\n"
 	}
 
-	// Clear screen
-	output.WriteString("\033[2J\033[H")
+	dims := calculateObjectivesDimensions(termWidth, termHeight)
 
-	// Header
-	output.WriteString("================================\n")
-	output.WriteString(fmt.Sprintf("OBJECTIVE: %s [%s]\n",
-		state.CurrentObjective.Title,
-		state.CurrentObjective.ObjectiveID))
-	output.WriteString("================================\n\n")
-
-	// Parent content - show selection indicator if on parent
-	if state.OnParent {
-		output.WriteString("> ")
-	} else {
-		output.WriteString("  ")
-	}
-
-	// Display parent content
-	content := state.CurrentObjective.Content
-	// Split content into lines and indent each line
-	lines := strings.Split(content, "\n")
-	for i, line := range lines {
-		if i == 0 {
-			output.WriteString(line)
-			output.WriteString("\n")
-		} else {
-			output.WriteString("  ")
-			output.WriteString(line)
-			output.WriteString("\n")
+	// Get uncompleted tasks from selected child
+	var uncompletedTasks []string
+	selectedChild := state.GetSelectedChild()
+	if selectedChild != nil {
+		tasks, err := scripts.GetUncompletedTasksInFiles([]scripts.File{*selectedChild})
+		if err == nil {
+			uncompletedTasks = tasks
 		}
 	}
 
-	// Separator
-	output.WriteString("─────────────────────────────────\n")
+	// Clear screen
+	output.WriteString("\033[2J\033[H")
+
+	// Render top border
+	output.WriteString("┌" + strings.Repeat("─", termWidth-2) + "┐\n")
+
+	// Render header
+	title := fmt.Sprintf("OBJECTIVE: %s [%s]",
+		state.CurrentObjective.Title,
+		state.CurrentObjective.ObjectiveID)
+	titlePadding := (termWidth - len(title) - 4) / 2
+	if titlePadding < 1 {
+		titlePadding = 1
+	}
+	output.WriteString(fmt.Sprintf("│%s%s%s│\n",
+		strings.Repeat(" ", titlePadding),
+		title,
+		strings.Repeat(" ", termWidth-len(title)-titlePadding-2)))
+
+	// Render split border
+	output.WriteString("├" + strings.Repeat("─", dims.leftPanelWidth) + "┬" + strings.Repeat("─", dims.rightPanelWidth) + "┤\n")
+
+	// Build left panel content lines
+	leftLines := buildLeftPanelLines(state, dims)
+
+	// Build right panel content lines
+	rightLines := buildRightPanelLines(selectedChild, uncompletedTasks, dims)
+
+	// Render content rows (left panel + right panel)
+	maxLines := len(leftLines)
+	if len(rightLines) > maxLines {
+		maxLines = len(rightLines)
+	}
+
+	// Ensure minimum height
+	if maxLines < termHeight-8 {
+		maxLines = termHeight - 8
+	}
+
+	for i := 0; i < maxLines; i++ {
+		leftContent := ""
+		rightContent := ""
+		if i < len(leftLines) {
+			leftContent = leftLines[i]
+		}
+		if i < len(rightLines) {
+			rightContent = rightLines[i]
+		}
+		output.WriteString(renderObjectivesSplitLine(leftContent, rightContent, dims))
+	}
+
+	// Render bottom border
+	output.WriteString("├" + strings.Repeat("─", dims.leftPanelWidth) + "┴" + strings.Repeat("─", dims.rightPanelWidth) + "┤\n")
+
+	// Render controls
+	controls := "  j/k=navigate, o=open, n=new child, l=link, e=edit, u=unlink, s=sort, f=filter, q=back"
+	controlsLen := len([]rune(controls))
+	controlsPadding := termWidth - controlsLen - 2
+	if controlsPadding < 0 {
+		controlsPadding = 0
+	}
+	output.WriteString(fmt.Sprintf("│%s%s│\n", controls, strings.Repeat(" ", controlsPadding)))
+
+	output.WriteString("└" + strings.Repeat("─", termWidth-2) + "┘\n")
+
+	return output.String()
+}
+
+// buildLeftPanelLines builds content lines for the left panel (parent + children)
+func buildLeftPanelLines(state *data.ObjectivesViewState, dims objectivesDimensions) []string {
+	var lines []string
+
+	// Parent content header
+	parentIndicator := "  "
+	if state.OnParent {
+		parentIndicator = "► "
+	}
+	lines = append(lines, parentIndicator+"[PARENT] "+state.CurrentObjective.Title)
+
+	// Parent content lines (first few lines of content)
+	content := state.CurrentObjective.Content
+	contentLines := strings.Split(content, "\n")
+	for i, line := range contentLines {
+		if i >= 3 { // Limit content preview to 3 lines
+			lines = append(lines, "    ...")
+			break
+		}
+		lines = append(lines, "    "+line)
+	}
+
+	lines = append(lines, "") // blank line
 
 	// Get incomplete and complete children separately
 	incomplete, complete := state.GetIncompleteAndCompleteChildren()
 	incompleteCnt, completeCnt := state.GetCompletionCounts()
 
-	output.WriteString(fmt.Sprintf("LINKED TODOS (%d incomplete, %d complete)\n",
-		incompleteCnt, completeCnt))
-	output.WriteString("─────────────────────────────────\n\n")
+	// Linked todos header
+	lines = append(lines, fmt.Sprintf("  LINKED TODOS (%d incomplete, %d complete)", incompleteCnt, completeCnt))
+	lines = append(lines, "  "+strings.Repeat("─", dims.leftPanelWidth-4))
 
 	if len(state.Children) == 0 {
-		output.WriteString("No linked todos yet.\n\n")
+		lines = append(lines, "  No linked todos yet.")
 	} else {
 		// Render incomplete todos
 		if state.FilterMode != data.ShowCompleteOnly && len(incomplete) > 0 {
-			output.WriteString("INCOMPLETE:\n")
-			renderChildrenList(&output, incomplete, 0, state)
-			output.WriteString("\n")
+			lines = append(lines, "  INCOMPLETE:")
+			lines = append(lines, buildChildLines(incomplete, 0, state)...)
+			lines = append(lines, "")
 		}
 
 		// Render complete todos
 		if state.FilterMode != data.ShowIncompleteOnly && len(complete) > 0 {
-			output.WriteString("COMPLETE:\n")
-			renderChildrenList(&output, complete, len(incomplete), state)
+			lines = append(lines, "  COMPLETE:")
+			lines = append(lines, buildChildLines(complete, len(incomplete), state)...)
 		}
 	}
 
-	output.WriteString("\n")
-	output.WriteString("j/k=navigate, o=open, n=new child, l=link existing,\n")
-	output.WriteString("e=edit parent, u=unlink, s=sort, f=filter,\n")
-	output.WriteString("1/2/3=priority, t=due today, m/tu/w/th/f/sa/su=due day, q=back\n")
+	return lines
+}
 
-	return output.String()
+// buildChildLines builds content lines for a list of children
+func buildChildLines(children []scripts.File, offset int, state *data.ObjectivesViewState) []string {
+	var lines []string
+	for i, child := range children {
+		globalIndex := offset + i
+		indicator := "  "
+		if !state.OnParent && globalIndex == state.ChildSelectedIndex {
+			indicator = "► "
+		}
+
+		line := fmt.Sprintf("  %s[P%d] %s", indicator, child.Priority, child.Title)
+		if !child.DueAt.IsZero() && child.DueAt.Year() < 2100 {
+			line += fmt.Sprintf(" (due: %s)", child.DueAt.Format("2006-01-02"))
+		}
+		lines = append(lines, line)
+	}
+	return lines
+}
+
+// buildRightPanelLines builds content lines for the right panel (open tasks)
+func buildRightPanelLines(selectedChild *scripts.File, uncompletedTasks []string, dims objectivesDimensions) []string {
+	var lines []string
+
+	lines = append(lines, "  OPEN TASKS")
+	lines = append(lines, "  "+strings.Repeat("─", dims.rightPanelWidth-4))
+
+	if selectedChild == nil {
+		lines = append(lines, "  (select a child todo)")
+		lines = append(lines, "  (to see open tasks)")
+	} else if len(uncompletedTasks) == 0 {
+		lines = append(lines, "  No open tasks")
+	} else {
+		for _, task := range uncompletedTasks {
+			// Clean up task string (remove filename prefix if present)
+			parts := strings.SplitN(task, ": ", 2)
+			if len(parts) > 1 {
+				task = parts[1]
+			}
+			task = strings.TrimSpace(task)
+			// Truncate if needed (use rune count)
+			taskRunes := []rune(task)
+			if len(taskRunes) > dims.rightPanelWidth-4 {
+				task = string(taskRunes[:dims.rightPanelWidth-7]) + "..."
+			}
+			lines = append(lines, "  "+task)
+		}
+	}
+
+	return lines
 }
 
 // renderChildrenList renders a list of children with proper selection
