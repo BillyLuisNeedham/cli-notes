@@ -193,6 +193,53 @@ func NextMonday() string {
 	return now.AddDate(0, 0, daysUntilMonday).Format("2006-01-02")
 }
 
+// Helper to get a specific day next week (7 days after same day this week)
+func DayNextWeek(targetWeekday time.Weekday) string {
+	now := getNow()
+	// Find Monday of this ISO week
+	currentWeekday := now.Weekday()
+	daysFromMonday := int(currentWeekday+6) % 7
+	monday := now.AddDate(0, 0, -daysFromMonday)
+	// Calculate offset from Monday to target day, then add 7 for next week
+	targetOffset := int(targetWeekday+6) % 7
+	return monday.AddDate(0, 0, targetOffset+7).Format("2006-01-02")
+}
+
+// Helper to get Monday next week
+func MondayNextWeek() string {
+	return DayNextWeek(time.Monday)
+}
+
+// Helper to get Tuesday next week
+func TuesdayNextWeek() string {
+	return DayNextWeek(time.Tuesday)
+}
+
+// Helper to get Wednesday next week
+func WednesdayNextWeek() string {
+	return DayNextWeek(time.Wednesday)
+}
+
+// Helper to get Thursday next week
+func ThursdayNextWeek() string {
+	return DayNextWeek(time.Thursday)
+}
+
+// Helper to get Friday next week
+func FridayNextWeek() string {
+	return DayNextWeek(time.Friday)
+}
+
+// Helper to get Saturday next week
+func SaturdayNextWeek() string {
+	return DayNextWeek(time.Saturday)
+}
+
+// Helper to get Sunday next week
+func SundayNextWeek() string {
+	return DayNextWeek(time.Sunday)
+}
+
 // CreateTodoWithTalkToTag creates a todo with to-talk-X tag in the content
 func (h *TestHarness) CreateTodoWithTalkToTag(filename, title string, person string, tags []string, dueDate string, priority int) {
 	content := fmt.Sprintf("- [ ] %s to-talk-%s", title, person)

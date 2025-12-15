@@ -216,8 +216,9 @@ func TestWeekPlanner_CreateInNextMondayBucket(t *testing.T) {
 
 	// Switch to Next Monday view and create a todo there
 	// The exact key for "Next Monday" view might vary, but typically it's accessible
-	// For this test, we'll create on current Monday and move to Next Monday
-	input := "wp\nMnTask for Next Monday\nN\x13q"
+	// For this test, we'll create on current Monday and move to Next Monday using Ctrl+N
+	// \x0E = Ctrl+N (move to next week Monday)
+	input := "wp\nMnTask for Next Monday\n\x0E\x13q"
 
 	_, _, err := h.RunCommand(input)
 	if err != nil {
@@ -255,7 +256,7 @@ func TestWeekPlanner_CreateInNextMondayBucket(t *testing.T) {
 
 	// Verify the due date is next Monday
 	fm := h.ParseFrontmatter(foundFile)
-	expectedDate := NextMonday()
+	expectedDate := MondayNextWeek()
 	if fm.DateDue != expectedDate {
 		t.Errorf("Expected todo in Next Monday bucket to have due date %s, got %s", expectedDate, fm.DateDue)
 	}

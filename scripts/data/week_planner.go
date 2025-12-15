@@ -58,10 +58,11 @@ type WeekPlan struct {
 
 // PlanChange represents a single change in the week plan
 type PlanChange struct {
-	Todo      scripts.File
-	FromDay   WeekDay
-	ToDay     WeekDay
-	Timestamp time.Time
+	Todo       scripts.File
+	FromDay    WeekDay
+	ToDay      WeekDay
+	TargetDate time.Time // Actual target date (for next-week moves where ToDay is a placeholder)
+	Timestamp  time.Time
 }
 
 // NewWeekPlan creates a new week plan for the given start date (should be a Monday)
@@ -233,8 +234,13 @@ func (wp *WeekPlan) Redo() bool {
 	wp.removeTodoFromDay(change.Todo, change.FromDay)
 	wp.TodosByDay[change.ToDay] = append(wp.TodosByDay[change.ToDay], change.Todo)
 
-	// Update the due date
-	newDueDate := wp.GetDateForWeekDay(change.ToDay)
+	// Update the due date (use TargetDate if available for next-week moves)
+	var newDueDate time.Time
+	if !change.TargetDate.IsZero() {
+		newDueDate = change.TargetDate
+	} else {
+		newDueDate = wp.GetDateForWeekDay(change.ToDay)
+	}
 	for i := range wp.TodosByDay[change.ToDay] {
 		if wp.TodosByDay[change.ToDay][i].Name == change.Todo.Name {
 			wp.TodosByDay[change.ToDay][i].DueAt = newDueDate
@@ -382,6 +388,46 @@ func (wp *WeekPlan) removeTodoFromDay(todo scripts.File, day WeekDay) {
 			break
 		}
 	}
+}
+
+// MoveTodoToNextWeek moves a todo from current week to a specific day in the following week
+func (wp *WeekPlan) MoveTodoToNextWeek(todo scripts.File, fromDay WeekDay, targetDay WeekDay) {
+	// Calculate next week's date for the target day
+	// StartDate is Monday of current week, so add 7 days to get next Monday
+	// then add (targetDay - 1) to get the correct day offset
+	nextWeekDate := wp.StartDate.AddDate(0, 0, 7+int(targetDay)-1)
+	nextWeekDate = time.Date(nextWeekDate.Year(), nextWeekDate.Month(), nextWeekDate.Day(), 0, 0, 0, 0, time.Local)
+
+	// Record the change (using NextMonday as a placeholder for "next week" in the change history)
+	change := PlanChange{
+		Todo:       todo,
+		FromDay:    fromDay,
+		ToDay:      NextMonday,    // Indicates moved to future week
+		TargetDate: nextWeekDate,  // Store actual target date for redo
+		Timestamp:  time.Now(),
+	}
+
+	// Remove from source day
+	wp.removeTodoFromDay(todo, fromDay)
+
+	// Add to NextMonday bucket (overflow) so it's tracked until save
+	// After save+reload, it will appear in the correct week
+	wp.TodosByDay[NextMonday] = append(wp.TodosByDay[NextMonday], todo)
+
+	// Update the todo's due date in the slice (Go structs are passed by value)
+	for i := range wp.TodosByDay[NextMonday] {
+		if wp.TodosByDay[NextMonday][i].Name == todo.Name {
+			wp.TodosByDay[NextMonday][i].DueAt = nextWeekDate
+			break
+		}
+	}
+
+	// Add to change history and undo stack
+	wp.Changes = append(wp.Changes, change)
+	wp.UndoStack = append(wp.UndoStack, change)
+
+	// Clear redo stack when a new action is performed
+	wp.RedoStack = make([]PlanChange, 0)
 }
 
 // SortTodosByPriority sorts a slice of todos by priority (P1 first, then P2, then P3)

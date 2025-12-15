@@ -44,6 +44,20 @@ func mapRuneToKeyboard(r rune, reader *bufio.Reader) (char rune, key keyboard.Ke
 		key = keyboard.KeyEnter
 	case '\x13': // Ctrl+S
 		key = keyboard.KeyCtrlS
+	case '\x0E': // Ctrl+N
+		key = keyboard.KeyCtrlN
+	case '\x14': // Ctrl+T
+		key = keyboard.KeyCtrlT
+	case '\x17': // Ctrl+W
+		key = keyboard.KeyCtrlW
+	case '\x12': // Ctrl+R
+		key = keyboard.KeyCtrlR
+	case '\x06': // Ctrl+F
+		key = keyboard.KeyCtrlF
+	case '\x01': // Ctrl+A
+		key = keyboard.KeyCtrlA
+	case '\x15': // Ctrl+U
+		key = keyboard.KeyCtrlU
 	case '\x7f': // Backspace
 		key = keyboard.KeyBackspace
 	case '\t': // Tab
