@@ -137,9 +137,10 @@ func TestWeekPlanner_MoveToNextMonday(t *testing.T) {
 	filename := "next-monday.md"
 	h.CreateTodo(filename, "Move to Next Monday", []string{}, Today(), false, 1)
 
-	// Move to Next Monday bucket with 'N' key
-	// Flow: wp -> N (move to Next Monday) -> Ctrl+S -> q
-	input := "wp\nN\x13q"
+	// Move to Next Monday with Ctrl+N key
+	// Flow: wp -> Ctrl+N (move to Next Monday) -> Ctrl+S -> q
+	// \x0E = Ctrl+N, \x13 = Ctrl+S
+	input := "wp\n\x0E\x13q"
 
 	_, _, err := h.RunCommand(input)
 	if err != nil {
@@ -148,10 +149,141 @@ func TestWeekPlanner_MoveToNextMonday(t *testing.T) {
 
 	// Verify due date is next Monday
 	fm := h.ParseFrontmatter(filename)
-	expectedDate := NextMonday()
+	expectedDate := MondayNextWeek()
 	if fm.DateDue != expectedDate {
 		t.Errorf("Expected due date to be %s (Next Monday), got %s", expectedDate, fm.DateDue)
 	}
+}
+
+func TestWeekPlanner_MoveToNextWeekDays(t *testing.T) {
+	// Test Ctrl+day shortcuts for moving todos to specific days next week
+	// Ctrl key codes: N=\x0E, T=\x14, W=\x17, R=\x12, F=\x06, A=\x01, U=\x15
+
+	t.Run("MoveToNextTuesday", func(t *testing.T) {
+		h := NewTestHarness(t)
+
+		filename := "next-tuesday.md"
+		h.CreateTodo(filename, "Move to Next Tuesday", []string{}, Today(), false, 1)
+
+		// Ctrl+T = \x14
+		input := "wp\n\x14\x13q"
+
+		_, _, err := h.RunCommand(input)
+		if err != nil {
+			t.Logf("Command completed with: %v", err)
+		}
+
+		fm := h.ParseFrontmatter(filename)
+		expectedDate := TuesdayNextWeek()
+		if fm.DateDue != expectedDate {
+			t.Errorf("Expected due date to be %s (Next Tuesday), got %s", expectedDate, fm.DateDue)
+		}
+	})
+
+	t.Run("MoveToNextWednesday", func(t *testing.T) {
+		h := NewTestHarness(t)
+
+		filename := "next-wednesday.md"
+		h.CreateTodo(filename, "Move to Next Wednesday", []string{}, Today(), false, 1)
+
+		// Ctrl+W = \x17
+		input := "wp\n\x17\x13q"
+
+		_, _, err := h.RunCommand(input)
+		if err != nil {
+			t.Logf("Command completed with: %v", err)
+		}
+
+		fm := h.ParseFrontmatter(filename)
+		expectedDate := WednesdayNextWeek()
+		if fm.DateDue != expectedDate {
+			t.Errorf("Expected due date to be %s (Next Wednesday), got %s", expectedDate, fm.DateDue)
+		}
+	})
+
+	t.Run("MoveToNextThursday", func(t *testing.T) {
+		h := NewTestHarness(t)
+
+		filename := "next-thursday.md"
+		h.CreateTodo(filename, "Move to Next Thursday", []string{}, Today(), false, 1)
+
+		// Ctrl+R = \x12
+		input := "wp\n\x12\x13q"
+
+		_, _, err := h.RunCommand(input)
+		if err != nil {
+			t.Logf("Command completed with: %v", err)
+		}
+
+		fm := h.ParseFrontmatter(filename)
+		expectedDate := ThursdayNextWeek()
+		if fm.DateDue != expectedDate {
+			t.Errorf("Expected due date to be %s (Next Thursday), got %s", expectedDate, fm.DateDue)
+		}
+	})
+
+	t.Run("MoveToNextFriday", func(t *testing.T) {
+		h := NewTestHarness(t)
+
+		filename := "next-friday.md"
+		h.CreateTodo(filename, "Move to Next Friday", []string{}, Today(), false, 1)
+
+		// Ctrl+F = \x06
+		input := "wp\n\x06\x13q"
+
+		_, _, err := h.RunCommand(input)
+		if err != nil {
+			t.Logf("Command completed with: %v", err)
+		}
+
+		fm := h.ParseFrontmatter(filename)
+		expectedDate := FridayNextWeek()
+		if fm.DateDue != expectedDate {
+			t.Errorf("Expected due date to be %s (Next Friday), got %s", expectedDate, fm.DateDue)
+		}
+	})
+
+	t.Run("MoveToNextSaturday", func(t *testing.T) {
+		h := NewTestHarness(t)
+
+		filename := "next-saturday.md"
+		h.CreateTodo(filename, "Move to Next Saturday", []string{}, Today(), false, 1)
+
+		// Ctrl+A = \x01
+		input := "wp\n\x01\x13q"
+
+		_, _, err := h.RunCommand(input)
+		if err != nil {
+			t.Logf("Command completed with: %v", err)
+		}
+
+		fm := h.ParseFrontmatter(filename)
+		expectedDate := SaturdayNextWeek()
+		if fm.DateDue != expectedDate {
+			t.Errorf("Expected due date to be %s (Next Saturday), got %s", expectedDate, fm.DateDue)
+		}
+	})
+
+	t.Run("MoveToNextSunday", func(t *testing.T) {
+		h := NewTestHarness(t)
+
+		filename := "next-sunday.md"
+		h.CreateTodo(filename, "Move to Next Sunday", []string{}, Today(), false, 1)
+
+		// Ctrl+U = \x15
+		input := "wp\n\x15\x13q"
+
+		_, _, err := h.RunCommand(input)
+		if err != nil {
+			t.Logf("Command completed with: %v", err)
+		}
+
+		fm := h.ParseFrontmatter(filename)
+		expectedDate := SundayNextWeek()
+		if fm.DateDue != expectedDate {
+			t.Errorf("Expected due date to be %s (Next Sunday), got %s", expectedDate, fm.DateDue)
+		}
+	})
 }
 
 func TestWeekPlanner_UndoMove(t *testing.T) {

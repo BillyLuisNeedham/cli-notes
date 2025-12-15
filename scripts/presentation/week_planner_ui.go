@@ -140,7 +140,7 @@ func renderDayTabs(state *data.WeekPlannerState, dims uiDimensions) string {
 
 // renderControlsBar renders the controls help bar
 func renderControlsBar(state *data.WeekPlannerState, dims uiDimensions) string {
-	controls := "j/k:Sel │ h/l:Move │ mtwrfas:MoveTo │ MTWRFAS:Day │ b:BulkMove │ e:Earlier │ ^S:Save │ u:Undo │ q:Quit"
+	controls := "j/k:Sel │ h/l:Move │ mtwrfas:MoveTo │ ^ntwrfau:NextWk │ MTWRFAS:Day │ b:BulkMove │ e:Earlier │ ^S:Save │ u:Undo │ q:Quit"
 	padding := dims.terminalWidth - len(controls) - 4 // -4 for "│ " and " │"
 	if padding < 0 {
 		padding = 0
@@ -180,11 +180,11 @@ func renderContent(state *data.WeekPlannerState, dims uiDimensions) []string {
 	// - Controls bar: 1
 	// - Split border: 1
 	// - Panel titles: 2 (title + spacer)
-	// - Bottom controls: 10 (spacer + Controls: + 8 control lines)
+	// - Bottom controls: 11 (spacer + Controls: + 9 control lines)
 	// - Bottom border: 1
 	// - Message space: 3 (newline + message + newline from main.go)
-	// Total overhead = 22 lines
-	maxLines := dims.terminalHeight - 22
+	// Total overhead = 23 lines
+	maxLines := dims.terminalHeight - 23
 	if maxLines < 15 {
 		maxLines = 15 // Ensure minimum space for content
 	}
@@ -320,6 +320,7 @@ func renderContent(state *data.WeekPlannerState, dims uiDimensions) []string {
 	lines = append(lines, renderSplitLine("  • h/l Move to prev/next day", "", dims))
 	lines = append(lines, renderSplitLine("  • Enter Open note", "", dims))
 	lines = append(lines, renderSplitLine("  • m/t/w/r/f/a/s Move todo to day", "", dims))
+	lines = append(lines, renderSplitLine("  • Ctrl+n/t/w/r/f/a/u Move to next week", "", dims))
 	lines = append(lines, renderSplitLine("  • M/T/W/R/F/A/S Switch to day", "", dims))
 	lines = append(lines, renderSplitLine("  • b Bulk move earlier todos", "", dims))
 	lines = append(lines, renderSplitLine("  • e Show earlier todos", "", dims))

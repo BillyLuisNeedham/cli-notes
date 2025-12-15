@@ -76,6 +76,30 @@ func (wps *WeekPlannerState) MoveSelectedTodoToNextMonday() error {
 	return wps.moveSelectedTodo(NextMonday)
 }
 
+// MoveSelectedTodoToNextWeekDay moves the selected todo to a specific day in the following week
+func (wps *WeekPlannerState) MoveSelectedTodoToNextWeekDay(targetDay WeekDay) error {
+	if wps.SelectedDay == Earlier {
+		return fmt.Errorf("cannot move tasks from Earlier (read-only)")
+	}
+
+	todos := wps.Plan.TodosByDay[wps.SelectedDay]
+	if len(todos) == 0 {
+		return fmt.Errorf("no todos on current day")
+	}
+
+	if wps.SelectedTodo < 0 || wps.SelectedTodo >= len(todos) {
+		return fmt.Errorf("invalid todo selection")
+	}
+
+	todo := todos[wps.SelectedTodo]
+	wps.Plan.MoveTodoToNextWeek(todo, wps.SelectedDay, targetDay)
+
+	// Adjust selection after move
+	wps.AdjustSelectionAfterMove()
+
+	return nil
+}
+
 // moveSelectedTodo is a helper that moves the selected todo to a target day
 func (wps *WeekPlannerState) moveSelectedTodo(targetDay WeekDay) error {
 	todos := wps.Plan.TodosByDay[wps.SelectedDay]
