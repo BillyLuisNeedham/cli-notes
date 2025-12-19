@@ -97,25 +97,6 @@ func commonPrefix(a, b string) string {
 	return a[:minLen] // Return original case from 'a'
 }
 
-// FilterObjectivesByPrefix filters objectives by title prefix (case-insensitive)
-func FilterObjectivesByPrefix(objectives []scripts.File, prefix string) []scripts.File {
-	if prefix == "" {
-		return objectives
-	}
-
-	prefixLower := strings.ToLower(prefix)
-	matches := make([]scripts.File, 0)
-
-	for _, obj := range objectives {
-		titleLower := strings.ToLower(obj.Title)
-		if strings.HasPrefix(titleLower, prefixLower) {
-			matches = append(matches, obj)
-		}
-	}
-
-	return matches
-}
-
 // FuzzyFilterObjectives filters objectives using fzf-style fuzzy matching
 // Results are sorted by match quality (best first)
 func FuzzyFilterObjectives(objectives []scripts.File, pattern string) []scripts.File {

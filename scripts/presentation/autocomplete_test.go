@@ -6,61 +6,6 @@ import (
 	"time"
 )
 
-func TestFilterObjectivesByPrefix(t *testing.T) {
-	objectives := []scripts.File{
-		{Title: "annual-review", Name: "annual-review.md"},
-		{Title: "annual-planning", Name: "annual-planning.md"},
-		{Title: "quarterly-goals", Name: "quarterly-goals.md"},
-		{Title: "team-objectives", Name: "team-objectives.md"},
-	}
-
-	tests := []struct {
-		name     string
-		prefix   string
-		expected int
-	}{
-		{
-			name:     "Empty prefix returns all",
-			prefix:   "",
-			expected: 4,
-		},
-		{
-			name:     "Prefix 'an' matches two",
-			prefix:   "an",
-			expected: 2,
-		},
-		{
-			name:     "Prefix 'annual' matches two",
-			prefix:   "annual",
-			expected: 2,
-		},
-		{
-			name:     "Prefix 'q' matches one",
-			prefix:   "q",
-			expected: 1,
-		},
-		{
-			name:     "No match returns empty",
-			prefix:   "xyz",
-			expected: 0,
-		},
-		{
-			name:     "Case insensitive matching",
-			prefix:   "AN",
-			expected: 2,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := FilterObjectivesByPrefix(objectives, tt.prefix)
-			if len(result) != tt.expected {
-				t.Errorf("Expected %d matches, got %d", tt.expected, len(result))
-			}
-		})
-	}
-}
-
 func TestFuzzyFilterObjectives(t *testing.T) {
 	objectives := []scripts.File{
 		{Title: "annual-review", Name: "annual-review.md"},
