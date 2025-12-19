@@ -7,8 +7,16 @@ import (
 )
 
 const (
-	boxWidth = 20
+	boxWidth = 30
 )
+
+// maxInt returns the larger of two integers
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
 
 // RenderGraphView renders the ASCII graph view
 func RenderGraphView(state *data.GraphViewState, termWidth, termHeight int) string {
@@ -89,13 +97,6 @@ func renderGraph(sb *strings.Builder, state *data.GraphViewState) {
 
 // renderCenterBox renders the center node with special styling
 func renderCenterBox(sb *strings.Builder, title string, selected bool) {
-	// Calculate padding
-	padding := (boxWidth - len(title) - 2) / 2
-	if padding < 0 {
-		padding = 0
-	}
-	rightPadding := boxWidth - len(title) - 2 - padding
-
 	selector := "  "
 	if selected {
 		selector = "> "
@@ -104,16 +105,19 @@ func renderCenterBox(sb *strings.Builder, title string, selected bool) {
 	// Top border
 	sb.WriteString(fmt.Sprintf("                       %s╔%s╗\n", selector, strings.Repeat("═", boxWidth)))
 
-	// Title line
-	sb.WriteString(fmt.Sprintf("                       %s║ %s[CENTER]%s%s ║\n",
+	// CENTER label line - center the [CENTER] text
+	centerLabel := "[CENTER]"
+	centerPadding := maxInt(0, (boxWidth-len(centerLabel))/2)
+	centerRightPad := maxInt(0, boxWidth-len(centerLabel)-centerPadding)
+	sb.WriteString(fmt.Sprintf("                       %s║%s%s%s║\n",
 		selector,
-		strings.Repeat(" ", padding),
-		strings.Repeat(" ", rightPadding-8),
-		""))
+		strings.Repeat(" ", centerPadding),
+		centerLabel,
+		strings.Repeat(" ", centerRightPad)))
 
-	// Note title
-	titlePadding := (boxWidth - len(title)) / 2
-	titleRightPad := boxWidth - len(title) - titlePadding
+	// Note title line
+	titlePadding := maxInt(0, (boxWidth-len(title))/2)
+	titleRightPad := maxInt(0, boxWidth-len(title)-titlePadding)
 	sb.WriteString(fmt.Sprintf("                       %s║%s%s%s║\n",
 		selector,
 		strings.Repeat(" ", titlePadding),
@@ -131,12 +135,9 @@ func renderNodeBox(sb *strings.Builder, title string, selected bool, prefix stri
 		selector = "> "
 	}
 
-	// Calculate padding
-	titlePadding := (boxWidth - len(title) - 2) / 2
-	if titlePadding < 0 {
-		titlePadding = 0
-	}
-	titleRightPad := boxWidth - len(title) - 2 - titlePadding
+	// Calculate padding with safety checks
+	titlePadding := maxInt(0, (boxWidth-len(title)-2)/2)
+	titleRightPad := maxInt(0, boxWidth-len(title)-2-titlePadding)
 
 	// Single line box
 	sb.WriteString(fmt.Sprintf("%s%s┌%s┐  ", prefix, selector, strings.Repeat("─", boxWidth-2)))
