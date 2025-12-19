@@ -671,6 +671,133 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 			return
 		}
 
+	case "gl":
+		// Get Links - show outgoing links from selected note
+		if command.SelectedFile.Name == "" {
+			fmt.Println("No file selected")
+			return
+		}
+
+		links, err := data.GetLinksFrom(command.SelectedFile.Name)
+		if err != nil {
+			fmt.Printf("Error getting links: %v\n", err)
+			return
+		}
+
+		// Check for unresolved links
+		unresolved, err := data.GetUnresolvedLinks(command.SelectedFile.Name)
+		if err != nil {
+			fmt.Printf("Error checking links: %v\n", err)
+		}
+
+		if len(links) == 0 && len(unresolved) == 0 {
+			fmt.Printf("No outgoing links from: %s\n", command.SelectedFile.Title)
+			return
+		}
+
+		if len(links) > 0 {
+			fmt.Printf("Links from \"%s\":\n", command.SelectedFile.Title)
+			onFilesFetched(links, fileStore)
+		}
+
+		// Show unresolved links and offer to create them
+		if len(unresolved) > 0 {
+			fmt.Printf("\nUnresolved links (%d):\n", len(unresolved))
+			for _, link := range unresolved {
+				fmt.Printf("  [[%s]] - not found\n", link)
+			}
+
+			// Prompt to create first unresolved link
+			fmt.Printf("\nCreate note for [[%s]]? (y/n): ", unresolved[0])
+			char, _, _ := keyboard.GetKey()
+			fmt.Println()
+
+			if char == 'y' || char == 'Y' {
+				newFile, err := data.CreateNoteFromDeadLink(unresolved[0])
+				if err != nil {
+					fmt.Printf("Error creating note: %v\n", err)
+					return
+				}
+				fmt.Printf("Created: %s\n", newFile.Name)
+				openNoteInEditor(newFile.Name)
+			}
+		}
+
+	case "gb":
+		// Get Backlinks - show notes that link TO selected note
+		if command.SelectedFile.Name == "" {
+			fmt.Println("No file selected")
+			return
+		}
+
+		backlinks, err := data.GetBacklinks(command.SelectedFile.Name)
+		if err != nil {
+			fmt.Printf("Error getting backlinks: %v\n", err)
+			return
+		}
+
+		if len(backlinks) == 0 {
+			fmt.Printf("No backlinks to: %s\n", command.SelectedFile.Title)
+			return
+		}
+
+		fmt.Printf("Notes linking to \"%s\":\n", command.SelectedFile.Title)
+		onFilesFetched(backlinks, fileStore)
+
+	case "ln":
+		// Link Note - add a link to another note using fuzzy picker
+		if command.SelectedFile.Name == "" {
+			fmt.Println("No file selected")
+			return
+		}
+
+		var reader input.InputReader
+		if testModeReader != nil {
+			reader = input.NewStdinReader(testModeReader)
+		} else {
+			reader = &input.KeyboardReader{}
+		}
+
+		selectedNote, err := presentation.SearchAndSelectNote(reader)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+
+		if selectedNote == nil {
+			fmt.Println("Cancelled")
+			return
+		}
+
+		// Insert link to the selected note
+		err = data.InsertLinkAtTop(command.SelectedFile.Name, selectedNote.Title)
+		if err != nil {
+			fmt.Printf("Error inserting link: %v\n", err)
+			return
+		}
+
+		fmt.Printf("Linked [[%s]] in %s\n", selectedNote.Title, command.SelectedFile.Name)
+
+	case "gg":
+		// Graph view - show ASCII graph of note connections
+		if command.SelectedFile.Name == "" {
+			fmt.Println("No file selected")
+			return
+		}
+
+		var reader input.InputReader
+		if testModeReader != nil {
+			reader = input.NewStdinReader(testModeReader)
+		} else {
+			reader = &input.KeyboardReader{}
+		}
+
+		err := runGraphView(command.SelectedFile, reader, fileStore)
+		if err != nil {
+			fmt.Printf("Error running graph view: %v\n", err)
+			return
+		}
+
 	case "cpo":
 		if command.SelectedFile.Name == "" {
 			fmt.Println("No file selected")
@@ -1571,6 +1698,71 @@ func runTalkToView(filterPerson string, reader input.InputReader) error {
 	fmt.Print("\033[2J\033[H")
 
 	return nil
+}
+
+func runGraphView(centerFile scripts.File, reader input.InputReader, fileStore *data.SearchedFilesStore) error {
+	// Ensure terminal is cleaned up on all exit paths
+	defer func() {
+		fmt.Print("\033[2J\033[H")
+	}()
+
+	// Get terminal size
+	termWidth, termHeight, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		termWidth = 100
+		termHeight = 30
+	}
+
+	// Initialize state
+	state, err := data.NewGraphViewState(centerFile)
+	if err != nil {
+		return fmt.Errorf("error initializing graph view: %w", err)
+	}
+
+	lastMessage := ""
+
+	for {
+		// Render the UI
+		display := presentation.RenderGraphView(state, termWidth, termHeight)
+		fmt.Print(display)
+
+		if lastMessage != "" {
+			fmt.Printf("\n%s\n", lastMessage)
+			lastMessage = ""
+		}
+
+		// Get input
+		char, key, err := reader.GetKey()
+		if err != nil {
+			return fmt.Errorf("error reading input: %w", err)
+		}
+
+		switch {
+		case char == 'q' || key == keyboard.KeyEsc:
+			return nil
+
+		case char == 'j':
+			state.SelectNext()
+
+		case char == 'k':
+			state.SelectPrevious()
+
+		case key == keyboard.KeyEnter:
+			// Navigate to selected node
+			err := state.NavigateToSelected()
+			if err != nil {
+				lastMessage = fmt.Sprintf("Error: %v", err)
+			}
+
+		case char == 'o':
+			// Open selected node in editor
+			node := state.GetSelectedNode()
+			if node != nil {
+				openNoteInEditor(node.File.Name)
+				state.Refresh()
+			}
+		}
+	}
 }
 
 func getLineInput(reader input.InputReader) (string, error) {
