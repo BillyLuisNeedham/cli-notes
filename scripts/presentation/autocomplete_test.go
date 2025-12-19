@@ -61,6 +61,77 @@ func TestFilterObjectivesByPrefix(t *testing.T) {
 	}
 }
 
+func TestFuzzyFilterObjectives(t *testing.T) {
+	objectives := []scripts.File{
+		{Title: "annual-review", Name: "annual-review.md"},
+		{Title: "annual-planning", Name: "annual-planning.md"},
+		{Title: "quarterly-goals", Name: "quarterly-goals.md"},
+		{Title: "team-objectives", Name: "team-objectives.md"},
+	}
+
+	tests := []struct {
+		name      string
+		pattern   string
+		wantFirst string // Best match should be first
+		wantCount int
+	}{
+		{
+			name:      "Empty pattern returns all",
+			pattern:   "",
+			wantFirst: "annual-review",
+			wantCount: 4,
+		},
+		{
+			name:      "Prefix match works",
+			pattern:   "an",
+			wantFirst: "annual-review", // or annual-planning - both valid
+			wantCount: 2,
+		},
+		{
+			name:      "Fuzzy match non-contiguous",
+			pattern:   "arv", // matches a...r...v in annual-review
+			wantFirst: "annual-review",
+			wantCount: 1,
+		},
+		{
+			name:      "Case insensitive",
+			pattern:   "ARV",
+			wantFirst: "annual-review",
+			wantCount: 1,
+		},
+		{
+			name:      "No match returns empty",
+			pattern:   "xyz",
+			wantFirst: "",
+			wantCount: 0,
+		},
+		{
+			name:      "Fuzzy match team-objectives",
+			pattern:   "tob", // t...ob in team-objectives
+			wantFirst: "team-objectives",
+			wantCount: 1,
+		},
+		{
+			name:      "Middle of word match",
+			pattern:   "review",
+			wantFirst: "annual-review",
+			wantCount: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FuzzyFilterObjectives(objectives, tt.pattern)
+			if len(result) != tt.wantCount {
+				t.Errorf("Expected %d matches, got %d", tt.wantCount, len(result))
+			}
+			if tt.wantCount > 0 && result[0].Title != tt.wantFirst {
+				t.Errorf("Expected first match '%s', got '%s'", tt.wantFirst, result[0].Title)
+			}
+		})
+	}
+}
+
 func TestAutocompleteState_GetCurrentCompletion(t *testing.T) {
 	objectives := []scripts.File{
 		{Title: "annual-review", Name: "annual-review.md"},

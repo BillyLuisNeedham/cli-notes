@@ -325,3 +325,43 @@ func TestObjectivesListViewTabCounts(t *testing.T) {
 		t.Errorf("Expected 'COMPLETED (1)' in tab header, got: %s", stdout)
 	}
 }
+
+func TestObjectiveFuzzySearchAutocomplete(t *testing.T) {
+	h := NewTestHarness(t)
+
+	// Create an objective with a multi-word name
+	h.CreateObjective("annual-review.md", "Annual Review 2025", "annrev25", "Review goals")
+
+	// Test: Fuzzy match with non-contiguous characters
+	// "arv" should match "Annual Review" (a...r...v)
+	input := "ob arv\t\nq\n"
+	stdout, _, err := h.RunCommand(input)
+	if err != nil {
+		t.Fatalf("Failed fuzzy autocomplete: %v", err)
+	}
+
+	// Verify it opened the correct objective
+	if !strings.Contains(stdout, "Annual Review 2025") {
+		t.Errorf("Expected fuzzy match to find 'Annual Review 2025', got: %s", stdout)
+	}
+}
+
+func TestObjectiveFuzzySearchRanking(t *testing.T) {
+	h := NewTestHarness(t)
+
+	// Create multiple objectives that could match
+	h.CreateObjective("archive-values.md", "Archive Values", "archv001", "Old values")
+	h.CreateObjective("annual-review.md", "Annual Review", "annrev01", "Review")
+
+	// "anrev" should match "Annual Review" better (consecutive match)
+	input := "ob anrev\t\nq\n"
+	stdout, _, err := h.RunCommand(input)
+	if err != nil {
+		t.Fatalf("Failed fuzzy ranking: %v", err)
+	}
+
+	// First tab should show best match
+	if !strings.Contains(stdout, "Annual Review") {
+		t.Errorf("Expected 'Annual Review' as best match for 'anrev', got: %s", stdout)
+	}
+}
