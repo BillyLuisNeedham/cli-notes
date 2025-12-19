@@ -112,7 +112,7 @@ func CommandHandler(
 				return nil, err
 			}
 
-			candidates := FilterObjectivesByPrefix(objectives, input)
+			candidates := FuzzyFilterObjectives(objectives, input)
 			if len(candidates) == 0 {
 				// No matches, return unchanged
 				return currentCommand, nil

@@ -3,6 +3,8 @@ package presentation
 import (
 	"cli-notes/scripts"
 	"strings"
+
+	"github.com/sahilm/fuzzy"
 )
 
 // AutocompleteState tracks the state of autocomplete during command input
@@ -95,21 +97,27 @@ func commonPrefix(a, b string) string {
 	return a[:minLen] // Return original case from 'a'
 }
 
-// FilterObjectivesByPrefix filters objectives by title prefix (case-insensitive)
-func FilterObjectivesByPrefix(objectives []scripts.File, prefix string) []scripts.File {
-	if prefix == "" {
+// FuzzyFilterObjectives filters objectives using fzf-style fuzzy matching
+// Results are sorted by match quality (best first)
+func FuzzyFilterObjectives(objectives []scripts.File, pattern string) []scripts.File {
+	if pattern == "" {
 		return objectives
 	}
 
-	prefixLower := strings.ToLower(prefix)
-	matches := make([]scripts.File, 0)
+	patternLower := strings.ToLower(pattern)
 
-	for _, obj := range objectives {
-		titleLower := strings.ToLower(obj.Title)
-		if strings.HasPrefix(titleLower, prefixLower) {
-			matches = append(matches, obj)
-		}
+	// Create lowercase titles for case-insensitive matching
+	lowercaseTitles := make([]string, len(objectives))
+	for i, obj := range objectives {
+		lowercaseTitles[i] = strings.ToLower(obj.Title)
 	}
 
-	return matches
+	matches := fuzzy.Find(patternLower, lowercaseTitles)
+
+	result := make([]scripts.File, len(matches))
+	for i, match := range matches {
+		result[i] = objectives[match.Index]
+	}
+
+	return result
 }

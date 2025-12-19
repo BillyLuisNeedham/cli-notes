@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func TestFilterObjectivesByPrefix(t *testing.T) {
+func TestFuzzyFilterObjectives(t *testing.T) {
 	objectives := []scripts.File{
 		{Title: "annual-review", Name: "annual-review.md"},
 		{Title: "annual-planning", Name: "annual-planning.md"},
@@ -15,47 +15,63 @@ func TestFilterObjectivesByPrefix(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		prefix   string
-		expected int
+		name      string
+		pattern   string
+		wantFirst string // Best match should be first
+		wantCount int
 	}{
 		{
-			name:     "Empty prefix returns all",
-			prefix:   "",
-			expected: 4,
+			name:      "Empty pattern returns all",
+			pattern:   "",
+			wantFirst: "annual-review",
+			wantCount: 4,
 		},
 		{
-			name:     "Prefix 'an' matches two",
-			prefix:   "an",
-			expected: 2,
+			name:      "Prefix match works",
+			pattern:   "an",
+			wantFirst: "annual-review", // or annual-planning - both valid
+			wantCount: 2,
 		},
 		{
-			name:     "Prefix 'annual' matches two",
-			prefix:   "annual",
-			expected: 2,
+			name:      "Fuzzy match non-contiguous",
+			pattern:   "arv", // matches a...r...v in annual-review
+			wantFirst: "annual-review",
+			wantCount: 1,
 		},
 		{
-			name:     "Prefix 'q' matches one",
-			prefix:   "q",
-			expected: 1,
+			name:      "Case insensitive",
+			pattern:   "ARV",
+			wantFirst: "annual-review",
+			wantCount: 1,
 		},
 		{
-			name:     "No match returns empty",
-			prefix:   "xyz",
-			expected: 0,
+			name:      "No match returns empty",
+			pattern:   "xyz",
+			wantFirst: "",
+			wantCount: 0,
 		},
 		{
-			name:     "Case insensitive matching",
-			prefix:   "AN",
-			expected: 2,
+			name:      "Fuzzy match team-objectives",
+			pattern:   "tob", // t...ob in team-objectives
+			wantFirst: "team-objectives",
+			wantCount: 1,
+		},
+		{
+			name:      "Middle of word match",
+			pattern:   "review",
+			wantFirst: "annual-review",
+			wantCount: 1,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := FilterObjectivesByPrefix(objectives, tt.prefix)
-			if len(result) != tt.expected {
-				t.Errorf("Expected %d matches, got %d", tt.expected, len(result))
+			result := FuzzyFilterObjectives(objectives, tt.pattern)
+			if len(result) != tt.wantCount {
+				t.Errorf("Expected %d matches, got %d", tt.wantCount, len(result))
+			}
+			if tt.wantCount > 0 && result[0].Title != tt.wantFirst {
+				t.Errorf("Expected first match '%s', got '%s'", tt.wantFirst, result[0].Title)
 			}
 		})
 	}
