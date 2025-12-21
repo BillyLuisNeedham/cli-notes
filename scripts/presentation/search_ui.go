@@ -109,12 +109,15 @@ func RenderSearchView(state *data.SearchState, termWidth, termHeight int) string
 	// Bottom panel border
 	output.WriteString("├" + strings.Repeat("─", dims.leftPanelWidth) + "┴" + strings.Repeat("─", dims.rightPanelWidth) + "┤\n")
 
-	// Controls
+	// Controls - mode-specific
 	var controls string
-	if state.ViewMode == data.SearchModeActions {
-		controls = " j/k:Navigate  Enter:Execute  Esc:Back"
-	} else {
-		controls = " j/k:Navigate  Enter:Actions  o:Open  Esc:Close"
+	switch state.ViewMode {
+	case data.SearchModeInsert:
+		controls = " [INSERT] Type to search | Esc/Enter:Normal | ↑↓:Navigate"
+	case data.SearchModeNormal:
+		controls = " [NORMAL] i:Insert j/k:Nav o:Open d:Done 1-3:Pri t:Today l:Link L:Obj q:Quit"
+	case data.SearchModeActions:
+		controls = " [ACTIONS] j/k:Navigate  Enter:Execute  Esc:Back"
 	}
 	controlsPadding := termWidth - len([]rune(controls)) - 2
 	if controlsPadding < 0 {

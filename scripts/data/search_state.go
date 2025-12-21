@@ -10,8 +10,9 @@ import (
 type SearchViewMode int
 
 const (
-	SearchModeTyping SearchViewMode = iota // User is typing search query
-	SearchModeActions                      // Quick actions menu is shown
+	SearchModeInsert  SearchViewMode = iota // User is typing search query (all chars go to query)
+	SearchModeNormal                        // Command mode (j/k navigate, shortcuts work)
+	SearchModeActions                       // Quick actions menu is shown
 )
 
 // SearchResult represents a search match with context
@@ -53,7 +54,7 @@ func NewSearchState(initialQuery string) (*SearchState, error) {
 	}
 
 	state := &SearchState{
-		ViewMode:      SearchModeTyping,
+		ViewMode:      SearchModeInsert, // Start in insert mode for immediate typing
 		Query:         initialQuery,
 		AllNotes:      notes,
 		Results:       []SearchResult{},
@@ -178,9 +179,19 @@ func (s *SearchState) EnterActionsMode() {
 	}
 }
 
-// ExitActionsMode returns to search/results mode
+// ExitActionsMode returns to normal mode
 func (s *SearchState) ExitActionsMode() {
-	s.ViewMode = SearchModeTyping
+	s.ViewMode = SearchModeNormal
+}
+
+// EnterInsertMode switches to insert mode for typing
+func (s *SearchState) EnterInsertMode() {
+	s.ViewMode = SearchModeInsert
+}
+
+// EnterNormalMode switches to normal/command mode
+func (s *SearchState) EnterNormalMode() {
+	s.ViewMode = SearchModeNormal
 }
 
 // GetAvailableActions returns quick actions for selected result
@@ -208,11 +219,13 @@ func (s *SearchState) GetAvailableActions() []QuickAction {
 
 	// Due date actions
 	actions = append(actions, QuickAction{Label: "Due: Today", Description: "Set due today", Key: 't'})
-	actions = append(actions, QuickAction{Label: "Due: Monday", Description: "Set due next Monday", Key: 'm'})
 
-	// Link to objective (only for non-objectives)
+	// Link actions
+	actions = append(actions, QuickAction{Label: "Link to note", Description: "Create link to another note", Key: 'l'})
+
+	// Link to objective (only for non-objectives that aren't already linked)
 	if result.File.ObjectiveRole != "parent" && result.File.ObjectiveID == "" {
-		actions = append(actions, QuickAction{Label: "Link to objective", Description: "Associate with an objective", Key: 'l'})
+		actions = append(actions, QuickAction{Label: "Link to objective", Description: "Associate with an objective", Key: 'L'})
 	}
 
 	return actions

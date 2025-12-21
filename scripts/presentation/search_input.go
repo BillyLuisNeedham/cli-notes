@@ -16,16 +16,19 @@ const (
 	SearchNavigateDown          // j or arrow down
 	SearchSelect                // Enter - open actions menu or execute action
 	SearchOpenNote              // o - directly open in editor
-	SearchQuit                  // q or Esc - exit search or actions
+	SearchQuit                  // q or Esc - exit search
 	SearchClearQuery            // Ctrl+U - clear query
+	SearchEnterInsert           // i or / - enter insert mode
+	SearchEnterNormal           // Esc from insert - enter normal mode
 
-	// Direct actions (from results view)
-	SearchSetPriority1 // 1 key
-	SearchSetPriority2 // 2 key
-	SearchSetPriority3 // 3 key
-	SearchToggleDone   // d key
-	SearchSetDueToday  // t key
-	SearchSetDueMonday // m key
+	// Direct actions (from normal mode)
+	SearchSetPriority1  // 1 key
+	SearchSetPriority2  // 2 key
+	SearchSetPriority3  // 3 key
+	SearchToggleDone    // d key
+	SearchSetDueToday   // t key
+	SearchLinkNote      // l key - link to another note
+	SearchLinkObjective // L key - link to objective
 )
 
 type SearchInput struct {
@@ -35,12 +38,25 @@ type SearchInput struct {
 
 // ParseSearchInput parses keyboard input for search view
 func ParseSearchInput(char rune, key keyboard.Key, mode data.SearchViewMode) SearchInput {
-	// Handle special keys first
+	switch mode {
+	case data.SearchModeInsert:
+		return parseInsertModeInput(char, key)
+	case data.SearchModeNormal:
+		return parseNormalModeInput(char, key)
+	case data.SearchModeActions:
+		return parseActionsModeInput(char, key)
+	default:
+		return SearchInput{Action: SearchNoAction}
+	}
+}
+
+// parseInsertModeInput handles input in insert mode (typing query)
+func parseInsertModeInput(char rune, key keyboard.Key) SearchInput {
 	switch key {
-	case keyboard.KeyEnter:
-		return SearchInput{Action: SearchSelect}
 	case keyboard.KeyEsc:
-		return SearchInput{Action: SearchQuit}
+		return SearchInput{Action: SearchEnterNormal}
+	case keyboard.KeyEnter:
+		return SearchInput{Action: SearchEnterNormal} // Enter also exits insert mode
 	case keyboard.KeyBackspace, keyboard.KeyBackspace2:
 		return SearchInput{Action: SearchDeleteChar}
 	case keyboard.KeyCtrlU:
@@ -51,22 +67,34 @@ func ParseSearchInput(char rune, key keyboard.Key, mode data.SearchViewMode) Sea
 		return SearchInput{Action: SearchNavigateDown}
 	}
 
-	// In actions mode, only handle navigation and selection
-	if mode == data.SearchModeActions {
-		switch char {
-		case 'j':
-			return SearchInput{Action: SearchNavigateDown}
-		case 'k':
-			return SearchInput{Action: SearchNavigateUp}
-		case 'q':
-			return SearchInput{Action: SearchQuit}
-		default:
-			return SearchInput{Action: SearchNoAction}
-		}
+	// All printable characters go to query in insert mode
+	if char >= 32 && char < 127 {
+		return SearchInput{Action: SearchAddChar, Char: char}
 	}
 
-	// In typing mode, handle character input and shortcuts
+	return SearchInput{Action: SearchNoAction}
+}
+
+// parseNormalModeInput handles input in normal/command mode
+func parseNormalModeInput(char rune, key keyboard.Key) SearchInput {
+	// Handle special keys
+	switch key {
+	case keyboard.KeyEsc:
+		return SearchInput{Action: SearchQuit}
+	case keyboard.KeyEnter:
+		return SearchInput{Action: SearchSelect}
+	case keyboard.KeyArrowUp:
+		return SearchInput{Action: SearchNavigateUp}
+	case keyboard.KeyArrowDown:
+		return SearchInput{Action: SearchNavigateDown}
+	case keyboard.KeyBackspace, keyboard.KeyBackspace2:
+		return SearchInput{Action: SearchDeleteChar}
+	}
+
+	// Handle character commands
 	switch char {
+	case 'i', '/':
+		return SearchInput{Action: SearchEnterInsert}
 	case 'j':
 		return SearchInput{Action: SearchNavigateDown}
 	case 'k':
@@ -85,29 +113,36 @@ func ParseSearchInput(char rune, key keyboard.Key, mode data.SearchViewMode) Sea
 		return SearchInput{Action: SearchToggleDone}
 	case 't':
 		return SearchInput{Action: SearchSetDueToday}
-	case 'm':
-		return SearchInput{Action: SearchSetDueMonday}
-	default:
-		// Any other printable character is added to the query
-		if char >= 32 && char < 127 {
-			return SearchInput{Action: SearchAddChar, Char: char}
-		}
-		return SearchInput{Action: SearchNoAction}
+	case 'l':
+		return SearchInput{Action: SearchLinkNote}
+	case 'L':
+		return SearchInput{Action: SearchLinkObjective}
 	}
+
+	return SearchInput{Action: SearchNoAction}
 }
 
-// IsNavigationKey returns true if the character is a navigation key (j/k)
-// This helps determine if we should add to query or navigate
-func IsNavigationKey(char rune) bool {
-	return char == 'j' || char == 'k'
-}
+// parseActionsModeInput handles input in actions menu mode
+func parseActionsModeInput(char rune, key keyboard.Key) SearchInput {
+	switch key {
+	case keyboard.KeyEnter:
+		return SearchInput{Action: SearchSelect}
+	case keyboard.KeyEsc:
+		return SearchInput{Action: SearchEnterNormal}
+	case keyboard.KeyArrowUp:
+		return SearchInput{Action: SearchNavigateUp}
+	case keyboard.KeyArrowDown:
+		return SearchInput{Action: SearchNavigateDown}
+	}
 
-// IsShortcutKey returns true if the character is a shortcut key
-func IsShortcutKey(char rune) bool {
 	switch char {
-	case 'o', 'q', '1', '2', '3', 'd', 't', 'm':
-		return true
-	default:
-		return false
+	case 'j':
+		return SearchInput{Action: SearchNavigateDown}
+	case 'k':
+		return SearchInput{Action: SearchNavigateUp}
+	case 'q':
+		return SearchInput{Action: SearchEnterNormal}
 	}
+
+	return SearchInput{Action: SearchNoAction}
 }

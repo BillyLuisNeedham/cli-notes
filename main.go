@@ -1893,12 +1893,56 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 				if action != nil {
 					result := state.GetSelectedResult()
 					if result != nil {
-						lastMessage = executeSearchAction(action, result, state)
+						// Handle link actions specially (they need the reader)
+						switch action.Key {
+						case 'l':
+							// Link to note
+							selectedNote, err := presentation.SearchAndSelectNote(reader)
+							if err != nil {
+								lastMessage = fmt.Sprintf("Error: %v", err)
+							} else if selectedNote != nil {
+								err := data.InsertLinkAtTop(result.File.Name, selectedNote.Title)
+								if err != nil {
+									lastMessage = fmt.Sprintf("Error adding link: %v", err)
+								} else {
+									lastMessage = fmt.Sprintf("Linked to \"%s\"", selectedNote.Title)
+								}
+							}
+						case 'L':
+							// Link to objective
+							if result.File.ObjectiveRole == "parent" {
+								lastMessage = "Cannot link parent objectives"
+							} else {
+								objectives, err := data.QueryNonFinishedObjectives()
+								if err != nil {
+									lastMessage = fmt.Sprintf("Error: %v", err)
+								} else if len(objectives) == 0 {
+									lastMessage = "No objectives found"
+								} else {
+									selectedObj, err := presentation.SelectObjectiveWithFuzzy(objectives, reader)
+									if err != nil {
+										lastMessage = fmt.Sprintf("Error: %v", err)
+									} else if selectedObj != nil {
+										err := scripts.LinkTodoToObjective(result.File, *selectedObj, data.WriteFile)
+										if err != nil {
+											lastMessage = fmt.Sprintf("Error: %v", err)
+										} else {
+											lastMessage = fmt.Sprintf("Linked to objective \"%s\"", selectedObj.Title)
+										}
+									}
+								}
+							}
+						default:
+							lastMessage = executeSearchAction(action, result, state)
+						}
+						// Refresh state after action
+						state, _ = data.NewSearchState(state.Query)
+						state.ViewMode = data.SearchModeNormal
 					}
 				}
 				state.ExitActionsMode()
-			} else {
-				// Open actions menu
+			} else if state.ViewMode == data.SearchModeNormal {
+				// Open actions menu (only from normal mode)
 				state.EnterActionsMode()
 			}
 
@@ -1913,20 +1957,22 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 				}
 			}
 
+		case presentation.SearchEnterInsert:
+			state.EnterInsertMode()
+
+		case presentation.SearchEnterNormal:
+			state.EnterNormalMode()
+
 		case presentation.SearchQuit:
-			if state.ViewMode == data.SearchModeActions {
-				state.ExitActionsMode()
-			} else {
-				// Update file store with search results before exiting
-				if len(state.Results) > 0 {
-					files := make([]scripts.File, len(state.Results))
-					for i, r := range state.Results {
-						files[i] = r.File
-					}
-					fileStore.SetFilesSearched(files)
+			// Update file store with search results before exiting
+			if len(state.Results) > 0 {
+				files := make([]scripts.File, len(state.Results))
+				for i, r := range state.Results {
+					files[i] = r.File
 				}
-				return nil
+				fileStore.SetFilesSearched(files)
 			}
+			return nil
 
 		case presentation.SearchSetPriority1, presentation.SearchSetPriority2, presentation.SearchSetPriority3:
 			result := state.GetSelectedResult()
@@ -1980,16 +2026,57 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 				}
 			}
 
-		case presentation.SearchSetDueMonday:
+		case presentation.SearchLinkNote:
 			result := state.GetSelectedResult()
 			if result != nil {
-				err := scripts.SetDueDateToNextDay(time.Monday, result.File, data.WriteFile)
+				// Use the existing note picker to select a target note
+				selectedNote, err := presentation.SearchAndSelectNote(reader)
 				if err != nil {
 					lastMessage = fmt.Sprintf("Error: %v", err)
-				} else {
-					lastMessage = "Due date set to next Monday"
-					state, _ = data.NewSearchState(state.Query)
+				} else if selectedNote != nil {
+					// Add link from current note to selected note
+					err := data.InsertLinkAtTop(result.File.Name, selectedNote.Title)
+					if err != nil {
+						lastMessage = fmt.Sprintf("Error adding link: %v", err)
+					} else {
+						lastMessage = fmt.Sprintf("Linked to \"%s\"", selectedNote.Title)
+					}
 				}
+				// Refresh state
+				state, _ = data.NewSearchState(state.Query)
+				state.ViewMode = data.SearchModeNormal
+			}
+
+		case presentation.SearchLinkObjective:
+			result := state.GetSelectedResult()
+			if result != nil {
+				// Check if already linked or is a parent objective
+				if result.File.ObjectiveRole == "parent" {
+					lastMessage = "Cannot link parent objectives"
+				} else {
+					// Use fuzzy picker to select an objective
+					objectives, err := data.QueryNonFinishedObjectives()
+					if err != nil {
+						lastMessage = fmt.Sprintf("Error: %v", err)
+					} else if len(objectives) == 0 {
+						lastMessage = "No objectives found"
+					} else {
+						selectedObj, err := presentation.SelectObjectiveWithFuzzy(objectives, reader)
+						if err != nil {
+							lastMessage = fmt.Sprintf("Error: %v", err)
+						} else if selectedObj != nil {
+							err := scripts.LinkTodoToObjective(result.File, *selectedObj, data.WriteFile)
+							if err != nil {
+								lastMessage = fmt.Sprintf("Error: %v", err)
+							} else {
+								lastMessage = fmt.Sprintf("Linked to objective \"%s\"", selectedObj.Title)
+							}
+						}
+					}
+				}
+				// Refresh state
+				state, _ = data.NewSearchState(state.Query)
+				state.ViewMode = data.SearchModeNormal
 			}
 		}
 	}
@@ -2026,13 +2113,6 @@ func executeSearchAction(action *data.QuickAction, result *data.SearchResult, st
 			return fmt.Sprintf("Error: %v", err)
 		}
 		return "Due date set to today"
-
-	case 'm':
-		err := scripts.SetDueDateToNextDay(time.Monday, result.File, data.WriteFile)
-		if err != nil {
-			return fmt.Sprintf("Error: %v", err)
-		}
-		return "Due date set to next Monday"
 
 	default:
 		return ""
