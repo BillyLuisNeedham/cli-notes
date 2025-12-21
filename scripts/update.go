@@ -166,6 +166,24 @@ func SetDueDateToNextDay(dayOfWeek time.Weekday, file File, writeFile WriteFile)
 	return writeFile(updatedFile)
 }
 
+// SetDoneStatus updates the done status of a file
+func SetDoneStatus(done bool, file File, writeFile WriteFile) error {
+	// Read the latest content from the file to ensure we don't lose any updates
+	updatedFile, err := readLatestFileContent(file)
+	if err != nil {
+		return err
+	}
+
+	updatedFile.Done = done
+
+	// Ensure priority is preserved from the original file if it exists
+	if file.Priority > 0 {
+		updatedFile.Priority = file.Priority
+	}
+
+	return writeFile(updatedFile)
+}
+
 // ChangePriority updates the priority of a file to the specified priority level
 // Priority must be P1 (1), P2 (2), or P3 (3)
 func ChangePriority(newPriority Priority, file File, writeFile WriteFile) error {
