@@ -115,7 +115,7 @@ func RenderSearchView(state *data.SearchState, termWidth, termHeight int) string
 	case data.SearchModeInsert:
 		controls = " [INSERT] Type to search | Esc/Enter:Normal | ↑↓:Navigate"
 	case data.SearchModeNormal:
-		controls = " [NORMAL] i:Ins j/k:Nav o:Open d:Done 1-3:Pri t:Today l:Link L:Obj G:Graph O:View q:Quit"
+		controls = " [NORMAL] i:Ins j/k:Nav d:Done 1-3:Pri t:Today l:Link L:Graph o:Obj O:View q:Quit"
 	case data.SearchModeActions:
 		controls = " [ACTIONS] j/k:Navigate  Enter:Execute  Esc:Back"
 	}

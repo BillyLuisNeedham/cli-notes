@@ -202,7 +202,7 @@ func (s *SearchState) GetAvailableActions() []QuickAction {
 	}
 
 	actions := []QuickAction{
-		{Label: "Edit note", Description: "Open in editor", Key: 'o'},
+		{Label: "Edit note", Description: "Open in editor", Key: 'e'},
 	}
 
 	// Add mark done/undone based on current state
@@ -225,7 +225,15 @@ func (s *SearchState) GetAvailableActions() []QuickAction {
 
 	// Link to objective (only for non-objectives that aren't already linked)
 	if result.File.ObjectiveRole != "parent" && result.File.ObjectiveID == "" {
-		actions = append(actions, QuickAction{Label: "Link to objective", Description: "Associate with an objective", Key: 'L'})
+		actions = append(actions, QuickAction{Label: "Link to objective", Description: "Associate with an objective", Key: 'o'})
+	}
+
+	// Open graph view
+	actions = append(actions, QuickAction{Label: "Open graph view", Description: "View linked notes", Key: 'L'})
+
+	// Open objectives view (only for objectives or linked notes)
+	if result.File.ObjectiveRole == "parent" || result.File.ObjectiveID != "" {
+		actions = append(actions, QuickAction{Label: "Open objectives view", Description: "View objective", Key: 'O'})
 	}
 
 	return actions

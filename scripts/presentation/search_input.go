@@ -15,7 +15,7 @@ const (
 	SearchNavigateUp            // k or arrow up
 	SearchNavigateDown          // j or arrow down
 	SearchSelect                // Enter - open actions menu or execute action
-	SearchOpenNote              // o - directly open in editor
+	SearchOpenNote              // (unused - kept for compatibility)
 	SearchQuit                  // q or Esc - exit search
 	SearchClearQuery            // Ctrl+U - clear query
 	SearchEnterInsert           // i or / - enter insert mode
@@ -28,8 +28,8 @@ const (
 	SearchToggleDone    // d key
 	SearchSetDueToday   // t key
 	SearchLinkNote      // l key - link to another note
-	SearchLinkObjective // L key - link to objective
-	SearchOpenGraph     // G key - open graph view (linked notes)
+	SearchLinkObjective // o key - link to objective
+	SearchOpenGraph     // L key - open graph view (linked notes)
 	SearchOpenObjective // O key - open objectives view
 )
 
@@ -102,7 +102,7 @@ func parseNormalModeInput(char rune, key keyboard.Key) SearchInput {
 	case 'k':
 		return SearchInput{Action: SearchNavigateUp}
 	case 'o':
-		return SearchInput{Action: SearchOpenNote}
+		return SearchInput{Action: SearchLinkObjective}
 	case 'q':
 		return SearchInput{Action: SearchQuit}
 	case '1':
@@ -118,8 +118,6 @@ func parseNormalModeInput(char rune, key keyboard.Key) SearchInput {
 	case 'l':
 		return SearchInput{Action: SearchLinkNote}
 	case 'L':
-		return SearchInput{Action: SearchLinkObjective}
-	case 'G':
 		return SearchInput{Action: SearchOpenGraph}
 	case 'O':
 		return SearchInput{Action: SearchOpenObjective}

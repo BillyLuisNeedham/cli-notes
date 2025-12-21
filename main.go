@@ -1893,7 +1893,7 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 				if action != nil {
 					result := state.GetSelectedResult()
 					if result != nil {
-						// Handle link actions specially (they need the reader)
+						// Handle actions that need the reader or special handling
 						switch action.Key {
 						case 'l':
 							// Link to note
@@ -1908,7 +1908,7 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 									lastMessage = fmt.Sprintf("Linked to \"%s\"", selectedNote.Title)
 								}
 							}
-						case 'L':
+						case 'o':
 							// Link to objective
 							if result.File.ObjectiveRole == "parent" {
 								lastMessage = "Cannot link parent objectives"
@@ -1932,6 +1932,27 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 									}
 								}
 							}
+						case 'L':
+							// Open graph view
+							runGraphView(result.File, reader, fileStore)
+							lastMessage = ""
+						case 'O':
+							// Open objectives view
+							var objective *scripts.File
+							if result.File.ObjectiveRole == "parent" {
+								objective = &result.File
+							} else if result.File.ObjectiveID != "" {
+								objective, _ = data.GetObjectiveByID(result.File.ObjectiveID)
+							}
+							if objective != nil {
+								objState, err := data.NewSingleObjectiveViewStateForObjective(*objective)
+								if err == nil {
+									runObjectivesViewWithState(reader, objState)
+								} else {
+									lastMessage = fmt.Sprintf("Error: %v", err)
+								}
+							}
+							lastMessage = ""
 						default:
 							lastMessage = executeSearchAction(action, result, state)
 						}
@@ -1944,17 +1965,6 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 			} else if state.ViewMode == data.SearchModeNormal {
 				// Open actions menu (only from normal mode)
 				state.EnterActionsMode()
-			}
-
-		case presentation.SearchOpenNote:
-			result := state.GetSelectedResult()
-			if result != nil {
-				openNoteInEditor(result.File.Name)
-				// Refresh state after editing
-				state, err = data.NewSearchState(state.Query)
-				if err != nil {
-					return fmt.Errorf("error refreshing search: %w", err)
-				}
 			}
 
 		case presentation.SearchEnterInsert:
@@ -2117,7 +2127,7 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 
 func executeSearchAction(action *data.QuickAction, result *data.SearchResult, state *data.SearchState) string {
 	switch action.Key {
-	case 'o':
+	case 'e':
 		openNoteInEditor(result.File.Name)
 		return "Note opened"
 
