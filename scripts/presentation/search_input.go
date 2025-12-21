@@ -29,6 +29,8 @@ const (
 	SearchSetDueToday   // t key
 	SearchLinkNote      // l key - link to another note
 	SearchLinkObjective // L key - link to objective
+	SearchOpenGraph     // G key - open graph view (linked notes)
+	SearchOpenObjective // O key - open objectives view
 )
 
 type SearchInput struct {
@@ -117,6 +119,10 @@ func parseNormalModeInput(char rune, key keyboard.Key) SearchInput {
 		return SearchInput{Action: SearchLinkNote}
 	case 'L':
 		return SearchInput{Action: SearchLinkObjective}
+	case 'G':
+		return SearchInput{Action: SearchOpenGraph}
+	case 'O':
+		return SearchInput{Action: SearchOpenObjective}
 	}
 
 	return SearchInput{Action: SearchNoAction}

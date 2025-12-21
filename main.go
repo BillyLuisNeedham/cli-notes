@@ -2078,6 +2078,39 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 				state, _ = data.NewSearchState(state.Query)
 				state.ViewMode = data.SearchModeNormal
 			}
+
+		case presentation.SearchOpenGraph:
+			result := state.GetSelectedResult()
+			if result != nil {
+				runGraphView(result.File, reader, fileStore)
+				// Refresh state after returning
+				state, _ = data.NewSearchState(state.Query)
+				state.ViewMode = data.SearchModeNormal
+			}
+
+		case presentation.SearchOpenObjective:
+			result := state.GetSelectedResult()
+			if result != nil {
+				var objective *scripts.File
+				if result.File.ObjectiveRole == "parent" {
+					objective = &result.File
+				} else if result.File.ObjectiveID != "" {
+					objective, _ = data.GetObjectiveByID(result.File.ObjectiveID)
+				}
+				if objective != nil {
+					objState, err := data.NewSingleObjectiveViewStateForObjective(*objective)
+					if err == nil {
+						runObjectivesViewWithState(reader, objState)
+					} else {
+						lastMessage = fmt.Sprintf("Error: %v", err)
+					}
+					// Refresh state after returning
+					state, _ = data.NewSearchState(state.Query)
+					state.ViewMode = data.SearchModeNormal
+				} else {
+					lastMessage = "Note is not linked to any objective"
+				}
+			}
 		}
 	}
 }
