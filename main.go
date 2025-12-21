@@ -834,6 +834,25 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 		fmt.Printf("Converted to parent objective.\n")
 		fmt.Printf("Objective ID: %s\n", newObjective.ObjectiveID)
 
+	case "gs":
+		var reader input.InputReader
+		if testModeReader != nil {
+			reader = input.NewStdinReader(testModeReader)
+		} else {
+			reader = &input.KeyboardReader{}
+		}
+
+		initialQuery := ""
+		if len(command.Queries) > 0 && command.Queries[0] != "" {
+			initialQuery = strings.Join(command.Queries, " ")
+		}
+
+		err := runSearchView(initialQuery, reader, fileStore)
+		if err != nil {
+			fmt.Printf("Error running search: %v\n", err)
+			return
+		}
+
 	default:
 		fmt.Println("Unknown command.")
 		return
@@ -1805,5 +1824,340 @@ func getLineInput(reader input.InputReader) (string, error) {
 				fmt.Printf("%c", char)
 			}
 		}
+	}
+}
+
+func runSearchView(initialQuery string, reader input.InputReader, fileStore *data.SearchedFilesStore) error {
+	// Ensure terminal is cleaned up on all exit paths
+	defer func() {
+		fmt.Print("\033[2J\033[H")
+	}()
+
+	// Get terminal size
+	termWidth, termHeight, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		termWidth = 100
+		termHeight = 30
+	}
+
+	// Initialize search state
+	state, err := data.NewSearchState(initialQuery)
+	if err != nil {
+		return fmt.Errorf("error initializing search: %w", err)
+	}
+
+	lastMessage := ""
+
+	for {
+		// Render the UI
+		display := presentation.RenderSearchView(state, termWidth, termHeight)
+		fmt.Print(display)
+
+		if lastMessage != "" {
+			fmt.Printf("\033[%d;1H%s", termHeight+1, lastMessage)
+			lastMessage = ""
+		}
+
+		// Get input
+		char, key, err := reader.GetKey()
+		if err != nil {
+			return fmt.Errorf("error reading input: %w", err)
+		}
+
+		// Parse input
+		input := presentation.ParseSearchInput(char, key, state.ViewMode)
+
+		switch input.Action {
+		case presentation.SearchNoAction:
+			continue
+
+		case presentation.SearchAddChar:
+			state.AddChar(input.Char)
+
+		case presentation.SearchDeleteChar:
+			state.DeleteChar()
+
+		case presentation.SearchClearQuery:
+			state.ClearQuery()
+
+		case presentation.SearchNavigateDown:
+			state.SelectNext()
+
+		case presentation.SearchNavigateUp:
+			state.SelectPrevious()
+
+		case presentation.SearchSelect:
+			if state.ViewMode == data.SearchModeActions {
+				// Execute the selected action
+				action := state.GetSelectedAction()
+				if action != nil {
+					result := state.GetSelectedResult()
+					if result != nil {
+						// Handle actions that need the reader or special handling
+						switch action.Key {
+						case 'l':
+							// Link to note
+							selectedNote, err := presentation.SearchAndSelectNote(reader)
+							if err != nil {
+								lastMessage = fmt.Sprintf("Error: %v", err)
+							} else if selectedNote != nil {
+								err := data.InsertLinkAtTop(result.File.Name, selectedNote.Title)
+								if err != nil {
+									lastMessage = fmt.Sprintf("Error adding link: %v", err)
+								} else {
+									lastMessage = fmt.Sprintf("Linked to \"%s\"", selectedNote.Title)
+								}
+							}
+						case 'o':
+							// Link to objective
+							if result.File.ObjectiveRole == "parent" {
+								lastMessage = "Cannot link parent objectives"
+							} else {
+								objectives, err := data.QueryNonFinishedObjectives()
+								if err != nil {
+									lastMessage = fmt.Sprintf("Error: %v", err)
+								} else if len(objectives) == 0 {
+									lastMessage = "No objectives found"
+								} else {
+									selectedObj, err := presentation.SelectObjectiveWithFuzzy(objectives, reader)
+									if err != nil {
+										lastMessage = fmt.Sprintf("Error: %v", err)
+									} else if selectedObj != nil {
+										err := scripts.LinkTodoToObjective(result.File, *selectedObj, data.WriteFile)
+										if err != nil {
+											lastMessage = fmt.Sprintf("Error: %v", err)
+										} else {
+											lastMessage = fmt.Sprintf("Linked to objective \"%s\"", selectedObj.Title)
+										}
+									}
+								}
+							}
+						case 'L':
+							// Open graph view
+							runGraphView(result.File, reader, fileStore)
+							lastMessage = ""
+						case 'O':
+							// Open objectives view
+							var objective *scripts.File
+							if result.File.ObjectiveRole == "parent" {
+								objective = &result.File
+							} else if result.File.ObjectiveID != "" {
+								objective, _ = data.GetObjectiveByID(result.File.ObjectiveID)
+							}
+							if objective != nil {
+								objState, err := data.NewSingleObjectiveViewStateForObjective(*objective)
+								if err == nil {
+									runObjectivesViewWithState(reader, objState)
+								} else {
+									lastMessage = fmt.Sprintf("Error: %v", err)
+								}
+							}
+							lastMessage = ""
+						default:
+							lastMessage = executeSearchAction(action, result, state)
+						}
+						// Refresh state after action
+						state, _ = data.NewSearchState(state.Query)
+						state.ViewMode = data.SearchModeNormal
+					}
+				}
+				state.ExitActionsMode()
+			} else if state.ViewMode == data.SearchModeNormal {
+				// Open actions menu (only from normal mode)
+				state.EnterActionsMode()
+			}
+
+		case presentation.SearchEnterInsert:
+			state.EnterInsertMode()
+
+		case presentation.SearchEnterNormal:
+			state.EnterNormalMode()
+
+		case presentation.SearchQuit:
+			// Update file store with search results before exiting
+			if len(state.Results) > 0 {
+				files := make([]scripts.File, len(state.Results))
+				for i, r := range state.Results {
+					files[i] = r.File
+				}
+				fileStore.SetFilesSearched(files)
+			}
+			return nil
+
+		case presentation.SearchSetPriority1, presentation.SearchSetPriority2, presentation.SearchSetPriority3:
+			result := state.GetSelectedResult()
+			if result != nil {
+				var priority scripts.Priority
+				switch input.Action {
+				case presentation.SearchSetPriority1:
+					priority = scripts.P1
+				case presentation.SearchSetPriority2:
+					priority = scripts.P2
+				case presentation.SearchSetPriority3:
+					priority = scripts.P3
+				}
+				err := scripts.ChangePriority(priority, result.File, data.WriteFile)
+				if err != nil {
+					lastMessage = fmt.Sprintf("Error: %v", err)
+				} else {
+					lastMessage = fmt.Sprintf("Priority set to P%d", priority)
+					// Refresh state
+					state, _ = data.NewSearchState(state.Query)
+				}
+			}
+
+		case presentation.SearchToggleDone:
+			result := state.GetSelectedResult()
+			if result != nil {
+				newDone := !result.File.Done
+				err := scripts.SetDoneStatus(newDone, result.File, data.WriteFile)
+				if err != nil {
+					lastMessage = fmt.Sprintf("Error: %v", err)
+				} else {
+					if newDone {
+						lastMessage = "Marked as done"
+					} else {
+						lastMessage = "Marked as incomplete"
+					}
+					// Refresh state
+					state, _ = data.NewSearchState(state.Query)
+				}
+			}
+
+		case presentation.SearchSetDueToday:
+			result := state.GetSelectedResult()
+			if result != nil {
+				err := scripts.SetDueDateToToday(result.File, data.WriteFile)
+				if err != nil {
+					lastMessage = fmt.Sprintf("Error: %v", err)
+				} else {
+					lastMessage = "Due date set to today"
+					state, _ = data.NewSearchState(state.Query)
+				}
+			}
+
+		case presentation.SearchLinkNote:
+			result := state.GetSelectedResult()
+			if result != nil {
+				// Use the existing note picker to select a target note
+				selectedNote, err := presentation.SearchAndSelectNote(reader)
+				if err != nil {
+					lastMessage = fmt.Sprintf("Error: %v", err)
+				} else if selectedNote != nil {
+					// Add link from current note to selected note
+					err := data.InsertLinkAtTop(result.File.Name, selectedNote.Title)
+					if err != nil {
+						lastMessage = fmt.Sprintf("Error adding link: %v", err)
+					} else {
+						lastMessage = fmt.Sprintf("Linked to \"%s\"", selectedNote.Title)
+					}
+				}
+				// Refresh state
+				state, _ = data.NewSearchState(state.Query)
+				state.ViewMode = data.SearchModeNormal
+			}
+
+		case presentation.SearchLinkObjective:
+			result := state.GetSelectedResult()
+			if result != nil {
+				// Check if already linked or is a parent objective
+				if result.File.ObjectiveRole == "parent" {
+					lastMessage = "Cannot link parent objectives"
+				} else {
+					// Use fuzzy picker to select an objective
+					objectives, err := data.QueryNonFinishedObjectives()
+					if err != nil {
+						lastMessage = fmt.Sprintf("Error: %v", err)
+					} else if len(objectives) == 0 {
+						lastMessage = "No objectives found"
+					} else {
+						selectedObj, err := presentation.SelectObjectiveWithFuzzy(objectives, reader)
+						if err != nil {
+							lastMessage = fmt.Sprintf("Error: %v", err)
+						} else if selectedObj != nil {
+							err := scripts.LinkTodoToObjective(result.File, *selectedObj, data.WriteFile)
+							if err != nil {
+								lastMessage = fmt.Sprintf("Error: %v", err)
+							} else {
+								lastMessage = fmt.Sprintf("Linked to objective \"%s\"", selectedObj.Title)
+							}
+						}
+					}
+				}
+				// Refresh state
+				state, _ = data.NewSearchState(state.Query)
+				state.ViewMode = data.SearchModeNormal
+			}
+
+		case presentation.SearchOpenGraph:
+			result := state.GetSelectedResult()
+			if result != nil {
+				runGraphView(result.File, reader, fileStore)
+				// Refresh state after returning
+				state, _ = data.NewSearchState(state.Query)
+				state.ViewMode = data.SearchModeNormal
+			}
+
+		case presentation.SearchOpenObjective:
+			result := state.GetSelectedResult()
+			if result != nil {
+				var objective *scripts.File
+				if result.File.ObjectiveRole == "parent" {
+					objective = &result.File
+				} else if result.File.ObjectiveID != "" {
+					objective, _ = data.GetObjectiveByID(result.File.ObjectiveID)
+				}
+				if objective != nil {
+					objState, err := data.NewSingleObjectiveViewStateForObjective(*objective)
+					if err == nil {
+						runObjectivesViewWithState(reader, objState)
+					} else {
+						lastMessage = fmt.Sprintf("Error: %v", err)
+					}
+					// Refresh state after returning
+					state, _ = data.NewSearchState(state.Query)
+					state.ViewMode = data.SearchModeNormal
+				} else {
+					lastMessage = "Note is not linked to any objective"
+				}
+			}
+		}
+	}
+}
+
+func executeSearchAction(action *data.QuickAction, result *data.SearchResult, state *data.SearchState) string {
+	switch action.Key {
+	case 'e':
+		openNoteInEditor(result.File.Name)
+		return "Note opened"
+
+	case 'd':
+		newDone := !result.File.Done
+		err := scripts.SetDoneStatus(newDone, result.File, data.WriteFile)
+		if err != nil {
+			return fmt.Sprintf("Error: %v", err)
+		}
+		if newDone {
+			return "Marked as done"
+		}
+		return "Marked as incomplete"
+
+	case '1', '2', '3':
+		priority := scripts.Priority(action.Key - '0')
+		err := scripts.ChangePriority(priority, result.File, data.WriteFile)
+		if err != nil {
+			return fmt.Sprintf("Error: %v", err)
+		}
+		return fmt.Sprintf("Priority set to P%d", priority)
+
+	case 't':
+		err := scripts.SetDueDateToToday(result.File, data.WriteFile)
+		if err != nil {
+			return fmt.Sprintf("Error: %v", err)
+		}
+		return "Due date set to today"
+
+	default:
+		return ""
 	}
 }
