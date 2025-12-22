@@ -6,32 +6,7 @@ import (
 	"cli-notes/scripts/data"
 	"fmt"
 	"strings"
-
-	"github.com/eiannone/keyboard"
-	"github.com/sahilm/fuzzy"
 )
-
-// noteList implements fuzzy.Source for note searching
-type noteList []scripts.File
-
-func (n noteList) String(i int) string {
-	return n[i].Title
-}
-
-func (n noteList) Len() int {
-	return len(n)
-}
-
-// objectiveList implements fuzzy.Source for objective searching
-type objectiveList []scripts.File
-
-func (o objectiveList) String(i int) string {
-	return o[i].Title
-}
-
-func (o objectiveList) Len() int {
-	return len(o)
-}
 
 // SearchAndSelectNote presents a fuzzy search interface to select a note
 func SearchAndSelectNote(reader input.InputReader) (*scripts.File, error) {
@@ -45,45 +20,24 @@ func SearchAndSelectNote(reader input.InputReader) (*scripts.File, error) {
 		return nil, fmt.Errorf("no notes found")
 	}
 
-	searchQuery := ""
-	selectedIndex := 0
-	var filteredNotes []scripts.File
-
-	// Initial display - show all notes
-	filteredNotes = allNotes
+	state := data.NewLinkPickerState(allNotes)
 
 	for {
 		fmt.Print("\033[2J\033[H") // Clear screen
 
 		fmt.Println("Select note to link")
 		fmt.Println("─────────────────────────────────")
-		fmt.Printf("Search: %s\n", searchQuery)
+		fmt.Printf("Search: %s\n", state.Query)
 		fmt.Println("─────────────────────────────────")
 
-		// Apply fuzzy filter if there's a search query
-		if searchQuery != "" {
-			matches := fuzzy.FindFrom(searchQuery, noteList(allNotes))
-			filteredNotes = make([]scripts.File, len(matches))
-			for i, match := range matches {
-				filteredNotes[i] = allNotes[match.Index]
-			}
-		} else {
-			filteredNotes = allNotes
-		}
-
 		// Clamp selected index
-		if selectedIndex >= len(filteredNotes) {
-			selectedIndex = len(filteredNotes) - 1
-		}
-		if selectedIndex < 0 {
-			selectedIndex = 0
-		}
+		state.ClampSelectedIndex()
 
 		// Display notes (max 15)
-		displayCount := min(15, len(filteredNotes))
+		displayCount := min(15, len(state.FilteredNotes))
 		for i := 0; i < displayCount; i++ {
-			note := filteredNotes[i]
-			if i == selectedIndex {
+			note := state.FilteredNotes[i]
+			if i == state.SelectedIndex {
 				fmt.Print("> ")
 			} else {
 				fmt.Print("  ")
@@ -97,60 +51,54 @@ func SearchAndSelectNote(reader input.InputReader) (*scripts.File, error) {
 			fmt.Println()
 		}
 
-		if len(filteredNotes) > displayCount {
-			fmt.Printf("  ... and %d more\n", len(filteredNotes)-displayCount)
+		if len(state.FilteredNotes) > displayCount {
+			fmt.Printf("  ... and %d more\n", len(state.FilteredNotes)-displayCount)
 		}
 
-		if len(filteredNotes) == 0 {
+		if len(state.FilteredNotes) == 0 {
 			fmt.Println("  (no matching notes)")
 		}
 
-		fmt.Println("\nType to search, j/k=navigate, Enter=select, Esc=cancel")
+		// Show mode-specific help
+		if state.Mode == data.LinkPickerModeInsert {
+			fmt.Println("\n[INSERT] Type to search, Esc=normal mode, Enter=select")
+		} else {
+			fmt.Println("\n[NORMAL] i=insert, j/k=navigate, Enter=select, q/Esc=cancel")
+		}
 
 		char, key, err := reader.GetKey()
 		if err != nil {
 			return nil, err
 		}
 
-		switch key {
-		case keyboard.KeyEnter:
-			if len(filteredNotes) > 0 && selectedIndex < len(filteredNotes) {
-				selected := filteredNotes[selectedIndex]
-				return &selected, nil
-			}
-			continue
+		input := ParseLinkPickerInput(char, key, state.Mode)
 
-		case keyboard.KeyEsc:
+		switch input.Action {
+		case LinkPickerSelect:
+			if selected := state.GetSelectedNote(); selected != nil {
+				return selected, nil
+			}
+
+		case LinkPickerCancel:
 			return nil, nil
 
-		case keyboard.KeyBackspace, keyboard.KeyBackspace2:
-			if len(searchQuery) > 0 {
-				searchQuery = searchQuery[:len(searchQuery)-1]
-				selectedIndex = 0
-			}
+		case LinkPickerEnterInsert:
+			state.EnterInsertMode()
 
-		case keyboard.KeySpace:
-			searchQuery += " "
-			selectedIndex = 0
+		case LinkPickerEnterNormal:
+			state.EnterNormalMode()
 
-		default:
-			// Handle j/k navigation
-			if char == 'j' && searchQuery == "" {
-				if len(filteredNotes) > 0 {
-					selectedIndex = (selectedIndex + 1) % len(filteredNotes)
-				}
-			} else if char == 'k' && searchQuery == "" {
-				if len(filteredNotes) > 0 {
-					selectedIndex--
-					if selectedIndex < 0 {
-						selectedIndex = len(filteredNotes) - 1
-					}
-				}
-			} else if char != 0 && char >= 32 && char <= 126 {
-				// Printable character - add to search query
-				searchQuery += string(char)
-				selectedIndex = 0
-			}
+		case LinkPickerNavigateDown:
+			state.SelectNext()
+
+		case LinkPickerNavigateUp:
+			state.SelectPrevious()
+
+		case LinkPickerAddChar:
+			state.AddChar(input.Char)
+
+		case LinkPickerDeleteChar:
+			state.DeleteChar()
 		}
 	}
 }
@@ -161,45 +109,24 @@ func SelectObjectiveWithFuzzy(objectives []scripts.File, reader input.InputReade
 		return nil, fmt.Errorf("no objectives found")
 	}
 
-	searchQuery := ""
-	selectedIndex := 0
-	var filteredObjectives []scripts.File
-
-	// Initial display - show all objectives
-	filteredObjectives = objectives
+	state := data.NewLinkPickerState(objectives)
 
 	for {
 		fmt.Print("\033[2J\033[H") // Clear screen
 
 		fmt.Println("Select objective to link")
 		fmt.Println("─────────────────────────────────")
-		fmt.Printf("Search: %s\n", searchQuery)
+		fmt.Printf("Search: %s\n", state.Query)
 		fmt.Println("─────────────────────────────────")
 
-		// Apply fuzzy filter if there's a search query
-		if searchQuery != "" {
-			matches := fuzzy.FindFrom(searchQuery, objectiveList(objectives))
-			filteredObjectives = make([]scripts.File, len(matches))
-			for i, match := range matches {
-				filteredObjectives[i] = objectives[match.Index]
-			}
-		} else {
-			filteredObjectives = objectives
-		}
-
 		// Clamp selected index
-		if selectedIndex >= len(filteredObjectives) {
-			selectedIndex = len(filteredObjectives) - 1
-		}
-		if selectedIndex < 0 {
-			selectedIndex = 0
-		}
+		state.ClampSelectedIndex()
 
 		// Display objectives (max 15)
-		displayCount := min(15, len(filteredObjectives))
+		displayCount := min(15, len(state.FilteredNotes))
 		for i := 0; i < displayCount; i++ {
-			obj := filteredObjectives[i]
-			if i == selectedIndex {
+			obj := state.FilteredNotes[i]
+			if i == state.SelectedIndex {
 				fmt.Print("> ")
 			} else {
 				fmt.Print("  ")
@@ -213,60 +140,54 @@ func SelectObjectiveWithFuzzy(objectives []scripts.File, reader input.InputReade
 			fmt.Println()
 		}
 
-		if len(filteredObjectives) > displayCount {
-			fmt.Printf("  ... and %d more\n", len(filteredObjectives)-displayCount)
+		if len(state.FilteredNotes) > displayCount {
+			fmt.Printf("  ... and %d more\n", len(state.FilteredNotes)-displayCount)
 		}
 
-		if len(filteredObjectives) == 0 {
+		if len(state.FilteredNotes) == 0 {
 			fmt.Println("  (no matching objectives)")
 		}
 
-		fmt.Println("\nType to search, j/k=navigate, Enter=select, Esc=cancel")
+		// Show mode-specific help
+		if state.Mode == data.LinkPickerModeInsert {
+			fmt.Println("\n[INSERT] Type to search, Esc=normal mode, Enter=select")
+		} else {
+			fmt.Println("\n[NORMAL] i=insert, j/k=navigate, Enter=select, q/Esc=cancel")
+		}
 
 		char, key, err := reader.GetKey()
 		if err != nil {
 			return nil, err
 		}
 
-		switch key {
-		case keyboard.KeyEnter:
-			if len(filteredObjectives) > 0 && selectedIndex < len(filteredObjectives) {
-				selected := filteredObjectives[selectedIndex]
-				return &selected, nil
-			}
-			continue
+		input := ParseLinkPickerInput(char, key, state.Mode)
 
-		case keyboard.KeyEsc:
+		switch input.Action {
+		case LinkPickerSelect:
+			if selected := state.GetSelectedNote(); selected != nil {
+				return selected, nil
+			}
+
+		case LinkPickerCancel:
 			return nil, nil
 
-		case keyboard.KeyBackspace, keyboard.KeyBackspace2:
-			if len(searchQuery) > 0 {
-				searchQuery = searchQuery[:len(searchQuery)-1]
-				selectedIndex = 0
-			}
+		case LinkPickerEnterInsert:
+			state.EnterInsertMode()
 
-		case keyboard.KeySpace:
-			searchQuery += " "
-			selectedIndex = 0
+		case LinkPickerEnterNormal:
+			state.EnterNormalMode()
 
-		default:
-			// Handle j/k navigation
-			if char == 'j' && searchQuery == "" {
-				if len(filteredObjectives) > 0 {
-					selectedIndex = (selectedIndex + 1) % len(filteredObjectives)
-				}
-			} else if char == 'k' && searchQuery == "" {
-				if len(filteredObjectives) > 0 {
-					selectedIndex--
-					if selectedIndex < 0 {
-						selectedIndex = len(filteredObjectives) - 1
-					}
-				}
-			} else if char != 0 && char >= 32 && char <= 126 {
-				// Printable character - add to search query
-				searchQuery += string(char)
-				selectedIndex = 0
-			}
+		case LinkPickerNavigateDown:
+			state.SelectNext()
+
+		case LinkPickerNavigateUp:
+			state.SelectPrevious()
+
+		case LinkPickerAddChar:
+			state.AddChar(input.Char)
+
+		case LinkPickerDeleteChar:
+			state.DeleteChar()
 		}
 	}
 }
