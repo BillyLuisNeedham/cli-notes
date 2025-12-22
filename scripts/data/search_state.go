@@ -39,6 +39,7 @@ type SearchState struct {
 	SelectedIndex int            // Currently selected result
 	ScrollOffset  int            // For scrolling through results
 	ActionsIndex  int            // Selected action in actions menu
+	FilterMode    FilterMode     // Show all/incomplete only/complete only
 
 	// UI dimensions (set during render)
 	TermWidth  int
@@ -61,6 +62,7 @@ func NewSearchState(initialQuery string) (*SearchState, error) {
 		SelectedIndex: 0,
 		ScrollOffset:  0,
 		ActionsIndex:  0,
+		FilterMode:    ShowIncompleteOnly, // Default to showing incomplete notes
 	}
 
 	// Perform initial search if query provided
@@ -75,40 +77,61 @@ func (s *SearchState) UpdateQuery(query string) {
 	s.SelectedIndex = 0
 	s.ScrollOffset = 0
 
+	var candidates []SearchResult
+
 	if query == "" {
 		// Show all notes when no query
-		s.Results = make([]SearchResult, len(s.AllNotes))
+		candidates = make([]SearchResult, len(s.AllNotes))
 		for i, note := range s.AllNotes {
-			s.Results[i] = SearchResult{
+			candidates[i] = SearchResult{
 				File:           note,
 				MatchedIndices: []int{},
 				ContentSnippet: extractSnippet(note.Content, "", 80),
 				SnippetLine:    0,
 			}
 		}
-		return
-	}
+	} else {
+		// Split query by comma for AND logic (like gt command)
+		queries := strings.Split(query, ",")
+		for i := range queries {
+			queries[i] = strings.TrimSpace(queries[i])
+		}
 
-	// Build search targets: combine title, tags, and content for matching
-	searchTargets := make([]string, len(s.AllNotes))
-	for i, note := range s.AllNotes {
-		searchTargets[i] = strings.ToLower(note.Title + " " + strings.Join(note.Tags, " ") + " " + note.Content)
-	}
+		// Build search targets: combine title, tags, and content for matching
+		searchTargets := make([]string, len(s.AllNotes))
+		for i, note := range s.AllNotes {
+			searchTargets[i] = strings.ToLower(note.Title + " " + strings.Join(note.Tags, " ") + " " + note.Content)
+		}
 
-	queryLower := strings.ToLower(query)
-	matches := fuzzy.Find(queryLower, searchTargets)
-
-	s.Results = make([]SearchResult, len(matches))
-	for i, match := range matches {
-		note := s.AllNotes[match.Index]
-		snippet, lineNum := extractSnippetWithQuery(note.Content, query, 80)
-		s.Results[i] = SearchResult{
-			File:           note,
-			MatchedIndices: match.MatchedIndexes,
-			ContentSnippet: snippet,
-			SnippetLine:    lineNum,
+		// For each note, check if it matches ALL query terms
+		for i, note := range s.AllNotes {
+			matchCount := 0
+			for _, q := range queries {
+				if q == "" {
+					matchCount++
+					continue
+				}
+				qLower := strings.ToLower(q)
+				matches := fuzzy.Find(qLower, []string{searchTargets[i]})
+				if len(matches) > 0 {
+					matchCount++
+				}
+			}
+			// Only include if all query terms match
+			if matchCount == len(queries) {
+				snippet, lineNum := extractSnippetWithQuery(note.Content, queries[0], 80)
+				candidates = append(candidates, SearchResult{
+					File:           note,
+					MatchedIndices: []int{},
+					ContentSnippet: snippet,
+					SnippetLine:    lineNum,
+				})
+			}
 		}
 	}
+
+	// Apply filter mode (all/incomplete/complete)
+	s.Results = s.applyFilterMode(candidates)
 }
 
 // SelectNext moves selection down
@@ -192,6 +215,36 @@ func (s *SearchState) EnterInsertMode() {
 // EnterNormalMode switches to normal/command mode
 func (s *SearchState) EnterNormalMode() {
 	s.ViewMode = SearchModeNormal
+}
+
+// CycleFilterMode cycles through filter modes: All -> Incomplete -> Complete -> All
+func (s *SearchState) CycleFilterMode() {
+	switch s.FilterMode {
+	case ShowAll:
+		s.FilterMode = ShowIncompleteOnly
+	case ShowIncompleteOnly:
+		s.FilterMode = ShowCompleteOnly
+	case ShowCompleteOnly:
+		s.FilterMode = ShowAll
+	}
+	s.UpdateQuery(s.Query) // Re-apply filter with current query
+}
+
+// applyFilterMode filters results based on current filter mode
+func (s *SearchState) applyFilterMode(candidates []SearchResult) []SearchResult {
+	if s.FilterMode == ShowAll {
+		return candidates
+	}
+
+	filtered := make([]SearchResult, 0, len(candidates))
+	for _, result := range candidates {
+		if s.FilterMode == ShowIncompleteOnly && !result.File.Done {
+			filtered = append(filtered, result)
+		} else if s.FilterMode == ShowCompleteOnly && result.File.Done {
+			filtered = append(filtered, result)
+		}
+	}
+	return filtered
 }
 
 // GetAvailableActions returns quick actions for selected result

@@ -31,6 +31,7 @@ const (
 	SearchLinkObjective // o key - link to objective
 	SearchOpenGraph     // L key - open graph view (linked notes)
 	SearchOpenObjective // O key - open objectives view
+	SearchCycleFilter   // f key - cycle filter mode (all/incomplete/complete)
 )
 
 type SearchInput struct {
@@ -121,6 +122,8 @@ func parseNormalModeInput(char rune, key keyboard.Key) SearchInput {
 		return SearchInput{Action: SearchOpenGraph}
 	case 'O':
 		return SearchInput{Action: SearchOpenObjective}
+	case 'f':
+		return SearchInput{Action: SearchCycleFilter}
 	}
 
 	return SearchInput{Action: SearchNoAction}

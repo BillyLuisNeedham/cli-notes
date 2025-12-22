@@ -1957,7 +1957,10 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 							lastMessage = executeSearchAction(action, result, state)
 						}
 						// Refresh state after action
+						oldFilterMode := state.FilterMode
 						state, _ = data.NewSearchState(state.Query)
+						state.FilterMode = oldFilterMode
+						state.UpdateQuery(state.Query)
 						state.ViewMode = data.SearchModeNormal
 					}
 				}
@@ -2002,7 +2005,10 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 				} else {
 					lastMessage = fmt.Sprintf("Priority set to P%d", priority)
 					// Refresh state
+					oldFilterMode := state.FilterMode
 					state, _ = data.NewSearchState(state.Query)
+					state.FilterMode = oldFilterMode
+					state.UpdateQuery(state.Query)
 				}
 			}
 
@@ -2020,7 +2026,10 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 						lastMessage = "Marked as incomplete"
 					}
 					// Refresh state
+					oldFilterMode := state.FilterMode
 					state, _ = data.NewSearchState(state.Query)
+					state.FilterMode = oldFilterMode
+					state.UpdateQuery(state.Query)
 				}
 			}
 
@@ -2032,9 +2041,15 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 					lastMessage = fmt.Sprintf("Error: %v", err)
 				} else {
 					lastMessage = "Due date set to today"
+					oldFilterMode := state.FilterMode
 					state, _ = data.NewSearchState(state.Query)
+					state.FilterMode = oldFilterMode
+					state.UpdateQuery(state.Query)
 				}
 			}
+
+		case presentation.SearchCycleFilter:
+			state.CycleFilterMode()
 
 		case presentation.SearchLinkNote:
 			result := state.GetSelectedResult()
@@ -2053,7 +2068,10 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 					}
 				}
 				// Refresh state
+				oldFilterMode := state.FilterMode
 				state, _ = data.NewSearchState(state.Query)
+				state.FilterMode = oldFilterMode
+				state.UpdateQuery(state.Query)
 				state.ViewMode = data.SearchModeNormal
 			}
 
@@ -2085,7 +2103,10 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 					}
 				}
 				// Refresh state
+				oldFilterMode := state.FilterMode
 				state, _ = data.NewSearchState(state.Query)
+				state.FilterMode = oldFilterMode
+				state.UpdateQuery(state.Query)
 				state.ViewMode = data.SearchModeNormal
 			}
 
@@ -2094,7 +2115,10 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 			if result != nil {
 				runGraphView(result.File, reader, fileStore)
 				// Refresh state after returning
+				oldFilterMode := state.FilterMode
 				state, _ = data.NewSearchState(state.Query)
+				state.FilterMode = oldFilterMode
+				state.UpdateQuery(state.Query)
 				state.ViewMode = data.SearchModeNormal
 			}
 
@@ -2115,7 +2139,10 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 						lastMessage = fmt.Sprintf("Error: %v", err)
 					}
 					// Refresh state after returning
+					oldFilterMode := state.FilterMode
 					state, _ = data.NewSearchState(state.Query)
+					state.FilterMode = oldFilterMode
+					state.UpdateQuery(state.Query)
 					state.ViewMode = data.SearchModeNormal
 				} else {
 					lastMessage = "Note is not linked to any objective"
