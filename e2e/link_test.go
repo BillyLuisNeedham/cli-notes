@@ -221,8 +221,10 @@ func TestLN_AddsLinkToNote(t *testing.T) {
 	h.CreateTodo(targetFile, "Target Note", []string{}, dateStr, false, 2)
 
 	// Run: list todos, select source, run ln, type to filter, select
-	// The ln command opens a fuzzy picker with vim mode
-	// Enter after typing exits insert mode, then Enter again selects
+	// The ln command opens a fuzzy picker with vim mode:
+	// - Typing "Target" filters the list (insert mode)
+	// - First Enter exits insert mode to normal mode
+	// - Second Enter in normal mode confirms selection
 	input := "gt\n\x1b[Bln\nTarget\n\n"
 
 	stdout, _, _ := h.RunCommand(input)

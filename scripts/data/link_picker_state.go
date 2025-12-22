@@ -14,17 +14,6 @@ const (
 	LinkPickerModeNormal                       // Command mode (j/k navigate)
 )
 
-// noteList implements fuzzy.Source for note searching
-type linkPickerNoteList []scripts.File
-
-func (n linkPickerNoteList) String(i int) string {
-	return n[i].Title
-}
-
-func (n linkPickerNoteList) Len() int {
-	return len(n)
-}
-
 // LinkPickerState holds state for the link picker view
 type LinkPickerState struct {
 	Mode          LinkPickerMode
@@ -66,10 +55,7 @@ func (s *LinkPickerState) SelectNext() {
 // SelectPrevious moves selection up
 func (s *LinkPickerState) SelectPrevious() {
 	if len(s.FilteredNotes) > 0 {
-		s.SelectedIndex--
-		if s.SelectedIndex < 0 {
-			s.SelectedIndex = len(s.FilteredNotes) - 1
-		}
+		s.SelectedIndex = (s.SelectedIndex - 1 + len(s.FilteredNotes)) % len(s.FilteredNotes)
 	}
 }
 
@@ -117,7 +103,8 @@ func (s *LinkPickerState) GetSelectedNote() *scripts.File {
 	if len(s.FilteredNotes) == 0 || s.SelectedIndex >= len(s.FilteredNotes) {
 		return nil
 	}
-	return &s.FilteredNotes[s.SelectedIndex]
+	selected := s.FilteredNotes[s.SelectedIndex]
+	return &selected
 }
 
 // ClampSelectedIndex ensures selected index is within bounds
