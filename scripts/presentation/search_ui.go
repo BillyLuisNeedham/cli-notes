@@ -77,8 +77,17 @@ func RenderSearchView(state *data.SearchState, termWidth, termHeight int) string
 	}
 	output.WriteString(fmt.Sprintf("│%s%s│\n", inputLine, strings.Repeat(" ", inputPadding)))
 
-	// Separator with match count
-	matchCount := fmt.Sprintf(" %d matches ", len(state.Results))
+	// Separator with match count and filter mode
+	var filterLabel string
+	switch state.FilterMode {
+	case data.ShowAll:
+		filterLabel = "All"
+	case data.ShowIncompleteOnly:
+		filterLabel = "Open"
+	case data.ShowCompleteOnly:
+		filterLabel = "Done"
+	}
+	matchCount := fmt.Sprintf(" %d matches | %s ", len(state.Results), filterLabel)
 	separatorLen := termWidth - len(matchCount) - 2
 	leftSep := separatorLen / 2
 	rightSep := separatorLen - leftSep
@@ -115,7 +124,7 @@ func RenderSearchView(state *data.SearchState, termWidth, termHeight int) string
 	case data.SearchModeInsert:
 		controls = " [INSERT] Type to search | Esc/Enter:Normal | ↑↓:Navigate"
 	case data.SearchModeNormal:
-		controls = " [NORMAL] i:Ins j/k:Nav d:Done 1-3:Pri t:Today l:Link L:Graph o:Obj O:View q:Quit"
+		controls = " [NORMAL] i:Ins j/k:Nav f:Flt d:Done 1-3:Pri t:Today l:Link L:Graph o:Obj O:View q:Quit"
 	case data.SearchModeActions:
 		controls = " [ACTIONS] j/k:Navigate  Enter:Execute  Esc:Back"
 	}
