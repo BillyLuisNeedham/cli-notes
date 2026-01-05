@@ -844,7 +844,7 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 
 		initialQuery := ""
 		if len(command.Queries) > 0 && command.Queries[0] != "" {
-			initialQuery = strings.Join(command.Queries, " ")
+			initialQuery = strings.Join(command.Queries, ", ")
 		}
 
 		err := runSearchView(initialQuery, reader, fileStore)
@@ -2050,6 +2050,9 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 
 		case presentation.SearchCycleFilter:
 			state.CycleFilterMode()
+
+		case presentation.SearchCycleMatchMode:
+			state.CycleMatchMode()
 
 		case presentation.SearchLinkNote:
 			result := state.GetSelectedResult()

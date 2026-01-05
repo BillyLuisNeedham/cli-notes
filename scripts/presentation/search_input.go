@@ -29,9 +29,10 @@ const (
 	SearchSetDueToday   // t key
 	SearchLinkNote      // l key - link to another note
 	SearchLinkObjective // o key - link to objective
-	SearchOpenGraph     // L key - open graph view (linked notes)
-	SearchOpenObjective // O key - open objectives view
-	SearchCycleFilter   // f key - cycle filter mode (all/incomplete/complete)
+	SearchOpenGraph      // L key - open graph view (linked notes)
+	SearchOpenObjective  // O key - open objectives view
+	SearchCycleFilter    // f key - cycle filter mode (all/incomplete/complete)
+	SearchCycleMatchMode // s key - toggle fuzzy/strict matching
 )
 
 type SearchInput struct {
@@ -68,6 +69,8 @@ func parseInsertModeInput(char rune, key keyboard.Key) SearchInput {
 		return SearchInput{Action: SearchNavigateUp}
 	case keyboard.KeyArrowDown:
 		return SearchInput{Action: SearchNavigateDown}
+	case keyboard.KeySpace:
+		return SearchInput{Action: SearchAddChar, Char: ' '}
 	}
 
 	// All printable characters go to query in insert mode
@@ -124,6 +127,8 @@ func parseNormalModeInput(char rune, key keyboard.Key) SearchInput {
 		return SearchInput{Action: SearchOpenObjective}
 	case 'f':
 		return SearchInput{Action: SearchCycleFilter}
+	case 's':
+		return SearchInput{Action: SearchCycleMatchMode}
 	}
 
 	return SearchInput{Action: SearchNoAction}
