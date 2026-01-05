@@ -15,6 +15,13 @@ const (
 	SearchModeActions                       // Quick actions menu is shown
 )
 
+type SearchMatchMode int
+
+const (
+	MatchModeFuzzy  SearchMatchMode = iota // Fuzzy matching (letters in sequence)
+	MatchModeStrict                        // Strict substring matching
+)
+
 // SearchResult represents a search match with context
 type SearchResult struct {
 	File           scripts.File
@@ -40,6 +47,7 @@ type SearchState struct {
 	ScrollOffset  int            // For scrolling through results
 	ActionsIndex  int            // Selected action in actions menu
 	FilterMode    FilterMode     // Show all/incomplete only/complete only
+	MatchMode     SearchMatchMode // Fuzzy or strict matching
 
 	// UI dimensions (set during render)
 	TermWidth  int
@@ -63,6 +71,7 @@ func NewSearchState(initialQuery string) (*SearchState, error) {
 		ScrollOffset:  0,
 		ActionsIndex:  0,
 		FilterMode:    ShowIncompleteOnly, // Default to showing incomplete notes
+		MatchMode:     MatchModeStrict,    // Default to strict substring matching
 	}
 
 	// Perform initial search if query provided
@@ -112,8 +121,14 @@ func (s *SearchState) UpdateQuery(query string) {
 					continue
 				}
 				qLower := strings.ToLower(q)
-				matches := fuzzy.Find(qLower, []string{searchTargets[i]})
-				if len(matches) > 0 {
+				var matched bool
+				if s.MatchMode == MatchModeFuzzy {
+					matches := fuzzy.Find(qLower, []string{searchTargets[i]})
+					matched = len(matches) > 0
+				} else {
+					matched = strings.Contains(searchTargets[i], qLower)
+				}
+				if matched {
 					matchCount++
 				}
 			}
@@ -228,6 +243,24 @@ func (s *SearchState) CycleFilterMode() {
 		s.FilterMode = ShowAll
 	}
 	s.UpdateQuery(s.Query) // Re-apply filter with current query
+}
+
+// CycleMatchMode toggles between fuzzy and strict matching
+func (s *SearchState) CycleMatchMode() {
+	if s.MatchMode == MatchModeFuzzy {
+		s.MatchMode = MatchModeStrict
+	} else {
+		s.MatchMode = MatchModeFuzzy
+	}
+	s.UpdateQuery(s.Query) // Re-run search with new mode
+}
+
+// GetMatchModeLabel returns display label for current match mode
+func (s *SearchState) GetMatchModeLabel() string {
+	if s.MatchMode == MatchModeFuzzy {
+		return "Fuzzy"
+	}
+	return "Strict"
 }
 
 // applyFilterMode filters results based on current filter mode
