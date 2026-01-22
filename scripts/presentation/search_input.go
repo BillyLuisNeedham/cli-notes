@@ -33,6 +33,12 @@ const (
 	SearchOpenObjective  // O key - open objectives view
 	SearchCycleFilter    // f key - cycle filter mode (all/incomplete/complete)
 	SearchCycleMatchMode // s key - toggle fuzzy/strict matching
+
+	// Link mode actions
+	SearchLinkSelected     // Enter in link mode (ln flow) - links and exits
+	SearchSetLinkSource    // l key when no pending link - sets source for two-note flow
+	SearchLinkCompleted    // l key when pending link exists - completes the link
+	SearchCancelPending    // Esc when pending link exists - clears pending
 )
 
 type SearchInput struct {
@@ -47,6 +53,20 @@ func ParseSearchInput(char rune, key keyboard.Key, mode data.SearchViewMode) Sea
 		return parseInsertModeInput(char, key)
 	case data.SearchModeNormal:
 		return parseNormalModeInput(char, key)
+	case data.SearchModeActions:
+		return parseActionsModeInput(char, key)
+	default:
+		return SearchInput{Action: SearchNoAction}
+	}
+}
+
+// ParseSearchInputWithState parses keyboard input considering link mode state
+func ParseSearchInputWithState(char rune, key keyboard.Key, state *data.SearchState) SearchInput {
+	switch state.ViewMode {
+	case data.SearchModeInsert:
+		return parseInsertModeInput(char, key)
+	case data.SearchModeNormal:
+		return parseNormalModeInputWithState(char, key, state)
 	case data.SearchModeActions:
 		return parseActionsModeInput(char, key)
 	default:
@@ -124,6 +144,106 @@ func parseNormalModeInput(char rune, key keyboard.Key) SearchInput {
 	case 'L':
 		return SearchInput{Action: SearchOpenGraph}
 	case 'O':
+		return SearchInput{Action: SearchOpenObjective}
+	case 'f':
+		return SearchInput{Action: SearchCycleFilter}
+	case 's':
+		return SearchInput{Action: SearchCycleMatchMode}
+	}
+
+	return SearchInput{Action: SearchNoAction}
+}
+
+// parseNormalModeInputWithState handles input in normal mode with link mode awareness
+func parseNormalModeInputWithState(char rune, key keyboard.Key, state *data.SearchState) SearchInput {
+	// Handle special keys
+	switch key {
+	case keyboard.KeyEsc:
+		// If there's a pending link, cancel it instead of quitting
+		if state.HasPendingLink() {
+			return SearchInput{Action: SearchCancelPending}
+		}
+		return SearchInput{Action: SearchQuit}
+	case keyboard.KeyEnter:
+		// In link mode (from ln command), Enter directly links
+		if state.IsLinkMode() {
+			return SearchInput{Action: SearchLinkSelected}
+		}
+		return SearchInput{Action: SearchSelect}
+	case keyboard.KeyArrowUp:
+		return SearchInput{Action: SearchNavigateUp}
+	case keyboard.KeyArrowDown:
+		return SearchInput{Action: SearchNavigateDown}
+	case keyboard.KeyBackspace, keyboard.KeyBackspace2:
+		return SearchInput{Action: SearchDeleteChar}
+	}
+
+	// Handle character commands
+	switch char {
+	case 'i', '/':
+		return SearchInput{Action: SearchEnterInsert}
+	case 'j':
+		return SearchInput{Action: SearchNavigateDown}
+	case 'k':
+		return SearchInput{Action: SearchNavigateUp}
+	case 'o':
+		// Disable linking to objective in link mode
+		if state.IsLinkMode() || state.HasPendingLink() {
+			return SearchInput{Action: SearchNoAction}
+		}
+		return SearchInput{Action: SearchLinkObjective}
+	case 'q':
+		return SearchInput{Action: SearchQuit}
+	case '1':
+		// Disable priority changes in link mode
+		if state.IsLinkMode() || state.HasPendingLink() {
+			return SearchInput{Action: SearchNoAction}
+		}
+		return SearchInput{Action: SearchSetPriority1}
+	case '2':
+		if state.IsLinkMode() || state.HasPendingLink() {
+			return SearchInput{Action: SearchNoAction}
+		}
+		return SearchInput{Action: SearchSetPriority2}
+	case '3':
+		if state.IsLinkMode() || state.HasPendingLink() {
+			return SearchInput{Action: SearchNoAction}
+		}
+		return SearchInput{Action: SearchSetPriority3}
+	case 'd':
+		// Disable done toggle in link mode
+		if state.IsLinkMode() || state.HasPendingLink() {
+			return SearchInput{Action: SearchNoAction}
+		}
+		return SearchInput{Action: SearchToggleDone}
+	case 't':
+		// Disable due date changes in link mode
+		if state.IsLinkMode() || state.HasPendingLink() {
+			return SearchInput{Action: SearchNoAction}
+		}
+		return SearchInput{Action: SearchSetDueToday}
+	case 'l':
+		// In link mode (from ln command), l does nothing special
+		if state.IsLinkMode() {
+			return SearchInput{Action: SearchNoAction}
+		}
+		// In GS with pending link, l completes the link
+		if state.HasPendingLink() {
+			return SearchInput{Action: SearchLinkCompleted}
+		}
+		// Otherwise, l sets link source for two-note flow
+		return SearchInput{Action: SearchSetLinkSource}
+	case 'L':
+		// Disable graph view in link mode
+		if state.IsLinkMode() || state.HasPendingLink() {
+			return SearchInput{Action: SearchNoAction}
+		}
+		return SearchInput{Action: SearchOpenGraph}
+	case 'O':
+		// Disable objectives view in link mode
+		if state.IsLinkMode() || state.HasPendingLink() {
+			return SearchInput{Action: SearchNoAction}
+		}
 		return SearchInput{Action: SearchOpenObjective}
 	case 'f':
 		return SearchInput{Action: SearchCycleFilter}
