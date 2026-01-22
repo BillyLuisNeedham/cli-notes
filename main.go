@@ -2167,32 +2167,6 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 			state.ClearPendingLinkSource()
 			lastMessage = "Link cancelled"
 
-		case presentation.SearchLinkNote:
-			// Legacy handler - kept for backwards compatibility but won't be called
-			// due to ParseSearchInputWithState using SearchSetLinkSource instead
-			result := state.GetSelectedResult()
-			if result != nil {
-				// Use the existing note picker to select a target note
-				selectedNote, err := presentation.SearchAndSelectNote(reader)
-				if err != nil {
-					lastMessage = fmt.Sprintf("Error: %v", err)
-				} else if selectedNote != nil {
-					// Add link from current note to selected note
-					err := data.InsertLinkAtTop(result.File.Name, selectedNote.Title)
-					if err != nil {
-						lastMessage = fmt.Sprintf("Error adding link: %v", err)
-					} else {
-						lastMessage = fmt.Sprintf("Linked to \"%s\"", selectedNote.Title)
-					}
-				}
-				// Refresh state
-				oldFilterMode := state.FilterMode
-				state, _ = data.NewSearchState(state.Query)
-				state.FilterMode = oldFilterMode
-				state.UpdateQuery(state.Query)
-				state.ViewMode = data.SearchModeNormal
-			}
-
 		case presentation.SearchLinkObjective:
 			result := state.GetSelectedResult()
 			if result != nil {
