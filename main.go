@@ -745,7 +745,7 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 		onFilesFetched(backlinks, fileStore)
 
 	case "ln":
-		// Link Note - add a link to another note using fuzzy picker
+		// Link Note - add a link to another note using GS-style search
 		if command.SelectedFile.Name == "" {
 			fmt.Println("No file selected")
 			return
@@ -758,7 +758,8 @@ func handleCommand(command presentation.CompletedCommand, onClose func(), fileSt
 			reader = &input.KeyboardReader{}
 		}
 
-		selectedNote, err := presentation.SearchAndSelectNote(reader)
+		// Use the new GS-style search in link mode
+		selectedNote, err := runSearchViewForLinking(command.SelectedFile.Name, reader)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
@@ -1827,6 +1828,85 @@ func getLineInput(reader input.InputReader) (string, error) {
 	}
 }
 
+// runSearchViewForLinking runs the search view in link mode (for ln command)
+// Returns the selected note to link to, or nil if cancelled
+func runSearchViewForLinking(linkSourceFileName string, reader input.InputReader) (*scripts.File, error) {
+	// Ensure terminal is cleaned up on all exit paths
+	defer func() {
+		fmt.Print("\033[2J\033[H")
+	}()
+
+	// Get terminal size
+	termWidth, termHeight, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		termWidth = 100
+		termHeight = 30
+	}
+
+	// Initialize search state in link mode
+	state, err := data.NewSearchStateWithLinkMode(linkSourceFileName)
+	if err != nil {
+		return nil, fmt.Errorf("error initializing search: %w", err)
+	}
+
+	for {
+		// Render the UI
+		display := presentation.RenderSearchView(state, termWidth, termHeight)
+		fmt.Print(display)
+
+		// Get input
+		char, key, err := reader.GetKey()
+		if err != nil {
+			return nil, fmt.Errorf("error reading input: %w", err)
+		}
+
+		// Parse input with state awareness for link mode
+		input := presentation.ParseSearchInputWithState(char, key, state)
+
+		switch input.Action {
+		case presentation.SearchNoAction:
+			continue
+
+		case presentation.SearchAddChar:
+			state.AddChar(input.Char)
+
+		case presentation.SearchDeleteChar:
+			state.DeleteChar()
+
+		case presentation.SearchClearQuery:
+			state.ClearQuery()
+
+		case presentation.SearchNavigateDown:
+			state.SelectNext()
+
+		case presentation.SearchNavigateUp:
+			state.SelectPrevious()
+
+		case presentation.SearchLinkSelected:
+			// In link mode, Enter selects and links
+			result := state.GetSelectedResult()
+			if result != nil {
+				return &result.File, nil
+			}
+
+		case presentation.SearchEnterInsert:
+			state.EnterInsertMode()
+
+		case presentation.SearchEnterNormal:
+			state.EnterNormalMode()
+
+		case presentation.SearchQuit:
+			return nil, nil // Cancelled
+
+		case presentation.SearchCycleFilter:
+			state.CycleFilterMode()
+
+		case presentation.SearchCycleMatchMode:
+			state.CycleMatchMode()
+		}
+	}
+}
+
 func runSearchView(initialQuery string, reader input.InputReader, fileStore *data.SearchedFilesStore) error {
 	// Ensure terminal is cleaned up on all exit paths
 	defer func() {
@@ -1864,8 +1944,8 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 			return fmt.Errorf("error reading input: %w", err)
 		}
 
-		// Parse input
-		input := presentation.ParseSearchInput(char, key, state.ViewMode)
+		// Parse input with state awareness for link mode
+		input := presentation.ParseSearchInputWithState(char, key, state)
 
 		switch input.Action {
 		case presentation.SearchNoAction:
@@ -1896,8 +1976,8 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 						// Handle actions that need the reader or special handling
 						switch action.Key {
 						case 'l':
-							// Link to note
-							selectedNote, err := presentation.SearchAndSelectNote(reader)
+							// Link to note using GS-style search
+							selectedNote, err := runSearchViewForLinking(result.File.Name, reader)
 							if err != nil {
 								lastMessage = fmt.Sprintf("Error: %v", err)
 							} else if selectedNote != nil {
@@ -2054,7 +2134,42 @@ func runSearchView(initialQuery string, reader input.InputReader, fileStore *dat
 		case presentation.SearchCycleMatchMode:
 			state.CycleMatchMode()
 
+		case presentation.SearchSetLinkSource:
+			// First step of two-note linking: set current note as source
+			result := state.GetSelectedResult()
+			if result != nil {
+				file := result.File
+				state.SetPendingLinkSource(&file)
+				lastMessage = fmt.Sprintf("Link source set: \"%s\" - now select target", file.Title)
+			}
+
+		case presentation.SearchLinkCompleted:
+			// Second step of two-note linking: complete the link
+			result := state.GetSelectedResult()
+			if result != nil && state.HasPendingLink() {
+				// Don't allow linking to self
+				if result.File.Name == state.PendingLinkSource.Name {
+					lastMessage = "Cannot link a note to itself"
+				} else {
+					// Add link from source to target
+					err := data.InsertLinkAtTop(state.PendingLinkSource.Name, result.File.Title)
+					if err != nil {
+						lastMessage = fmt.Sprintf("Error adding link: %v", err)
+					} else {
+						lastMessage = fmt.Sprintf("Linked [[%s]] in \"%s\"", result.File.Title, state.PendingLinkSource.Title)
+					}
+				}
+				state.ClearPendingLinkSource()
+			}
+
+		case presentation.SearchCancelPending:
+			// Cancel the pending link source
+			state.ClearPendingLinkSource()
+			lastMessage = "Link cancelled"
+
 		case presentation.SearchLinkNote:
+			// Legacy handler - kept for backwards compatibility but won't be called
+			// due to ParseSearchInputWithState using SearchSetLinkSource instead
 			result := state.GetSelectedResult()
 			if result != nil {
 				// Use the existing note picker to select a target note
