@@ -52,6 +52,10 @@ type SearchState struct {
 	// UI dimensions (set during render)
 	TermWidth  int
 	TermHeight int
+
+	// Link mode fields
+	LinkSourceFileName string        // Source file for ln command flow (linking from this file)
+	PendingLinkSource  *scripts.File // For GS two-note selection flow (first note selected with 'l')
 }
 
 // NewSearchState initializes search state with all notes
@@ -77,6 +81,16 @@ func NewSearchState(initialQuery string) (*SearchState, error) {
 	// Perform initial search if query provided
 	state.UpdateQuery(initialQuery)
 
+	return state, nil
+}
+
+// NewSearchStateWithLinkMode initializes search state in link mode for ln command
+func NewSearchStateWithLinkMode(linkSourceFileName string) (*SearchState, error) {
+	state, err := NewSearchState("")
+	if err != nil {
+		return nil, err
+	}
+	state.LinkSourceFileName = linkSourceFileName
 	return state, nil
 }
 
@@ -353,6 +367,34 @@ func (s *SearchState) DeleteChar() {
 func (s *SearchState) ClearQuery() {
 	s.Query = ""
 	s.UpdateQuery("")
+}
+
+// IsLinkMode returns true when in link mode (from ln command)
+func (s *SearchState) IsLinkMode() bool {
+	return s.LinkSourceFileName != ""
+}
+
+// HasPendingLink returns true when user has selected a source note with 'l' in GS
+func (s *SearchState) HasPendingLink() bool {
+	return s.PendingLinkSource != nil
+}
+
+// SetPendingLinkSource sets the pending link source note
+func (s *SearchState) SetPendingLinkSource(file *scripts.File) {
+	s.PendingLinkSource = file
+}
+
+// ClearPendingLinkSource clears the pending link source
+func (s *SearchState) ClearPendingLinkSource() {
+	s.PendingLinkSource = nil
+}
+
+// GetPendingLinkSourceTitle returns the title of the pending link source, or empty string
+func (s *SearchState) GetPendingLinkSourceTitle() string {
+	if s.PendingLinkSource != nil {
+		return s.PendingLinkSource.Title
+	}
+	return ""
 }
 
 // extractSnippet extracts a snippet from content
