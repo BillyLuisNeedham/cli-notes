@@ -51,8 +51,13 @@ func RenderSearchView(state *data.SearchState, termWidth, termHeight int) string
 	// Top border
 	output.WriteString("┌" + strings.Repeat("─", termWidth-2) + "┐\n")
 
-	// Header
-	headerLeft := " SEARCH NOTES"
+	// Header - changes based on link mode
+	var headerLeft string
+	if state.IsLinkMode() {
+		headerLeft = " LINK TO NOTE"
+	} else {
+		headerLeft = " SEARCH NOTES"
+	}
 	headerRight := "q:Quit "
 	headerPadding := termWidth - len(headerLeft) - len(headerRight) - 2
 	if headerPadding < 0 {
@@ -76,6 +81,26 @@ func RenderSearchView(state *data.SearchState, termWidth, termHeight int) string
 		}
 	}
 	output.WriteString(fmt.Sprintf("│%s%s│\n", inputLine, strings.Repeat(" ", inputPadding)))
+
+	// Pending link banner (for GS two-note selection flow)
+	if state.HasPendingLink() {
+		bannerText := fmt.Sprintf(" LINKING FROM: \"%s\" | Press l on another note to link | Esc to cancel ", state.GetPendingLinkSourceTitle())
+		bannerPadding := termWidth - len([]rune(bannerText)) - 2
+		if bannerPadding < 0 {
+			// Truncate if too long
+			maxLen := termWidth - 6
+			if len([]rune(bannerText)) > maxLen {
+				bannerText = string([]rune(bannerText)[:maxLen]) + "..."
+			}
+			bannerPadding = termWidth - len([]rune(bannerText)) - 2
+		}
+		if bannerPadding < 0 {
+			bannerPadding = 0
+		}
+		output.WriteString("├" + strings.Repeat("═", termWidth-2) + "┤\n")
+		output.WriteString(fmt.Sprintf("│%s%s│\n", bannerText, strings.Repeat(" ", bannerPadding)))
+		output.WriteString("├" + strings.Repeat("═", termWidth-2) + "┤\n")
+	}
 
 	// Separator with match count and filter mode
 	var filterLabel string
@@ -122,9 +147,22 @@ func RenderSearchView(state *data.SearchState, termWidth, termHeight int) string
 	var controls string
 	switch state.ViewMode {
 	case data.SearchModeInsert:
-		controls = " [INSERT] Type to search | Esc/Enter:Normal | ↑↓:Navigate"
+		if state.IsLinkMode() {
+			controls = " [INSERT] Type to search | Esc/Enter:Normal | ↑↓:Navigate | Enter(norm):Link"
+		} else {
+			controls = " [INSERT] Type to search | Esc/Enter:Normal | ↑↓:Navigate"
+		}
 	case data.SearchModeNormal:
-		controls = " [NORMAL] i:Ins j/k:Nav f:Flt s:Srch d:Done 1-3:Pri t:Today l:Link L:Graph o:Obj O:View q:Quit"
+		if state.IsLinkMode() {
+			// In link mode (from ln command), Enter directly links
+			controls = " [NORMAL] i:Ins j/k:Nav f:Flt s:Srch Enter:Link q:Cancel"
+		} else if state.HasPendingLink() {
+			// Has pending link source, l will complete the link
+			controls = " [NORMAL] i:Ins j/k:Nav l:LinkTo Esc:Cancel q:Quit"
+		} else {
+			// Standard GS mode
+			controls = " [NORMAL] i:Ins j/k:Nav f:Flt s:Srch d:Done 1-3:Pri t:Today l:Link L:Graph o:Obj O:View q:Quit"
+		}
 	case data.SearchModeActions:
 		controls = " [ACTIONS] j/k:Navigate  Enter:Execute  Esc:Back"
 	}
@@ -169,6 +207,12 @@ func buildSearchResultsPanel(state *data.SearchState, dims searchDimensions) []s
 			indicator = "► "
 		}
 
+		// Link source indicator (for two-note GS flow)
+		linkSourceStr := ""
+		if state.HasPendingLink() && state.PendingLinkSource.Name == result.File.Name {
+			linkSourceStr = "[SRC] "
+		}
+
 		// Priority indicator
 		priorityStr := ""
 		if result.File.Priority > 0 && result.File.Priority <= 3 {
@@ -182,7 +226,7 @@ func buildSearchResultsPanel(state *data.SearchState, dims searchDimensions) []s
 		}
 
 		// Build title line
-		titleLine := fmt.Sprintf("%s%s%s%s", indicator, doneStr, priorityStr, result.File.Title)
+		titleLine := fmt.Sprintf("%s%s%s%s%s", indicator, linkSourceStr, doneStr, priorityStr, result.File.Title)
 
 		// Truncate if needed
 		maxLen := dims.leftPanelWidth - 1
