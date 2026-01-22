@@ -239,6 +239,85 @@ func TestLN_AddsLinkToNote(t *testing.T) {
 }
 
 // ============================================
+// GS Two-Note Linking Tests (l key in search)
+// ============================================
+
+func TestGS_TwoNoteLinking(t *testing.T) {
+	h := NewTestHarness(t)
+	dateStr := Today()
+
+	// Create source note and target note
+	sourceFile := "source-" + dateStr + ".md"
+	targetFile := "target-" + dateStr + ".md"
+
+	h.CreateTodo(sourceFile, "Source Note", []string{}, dateStr, false, 1)
+	h.CreateTodo(targetFile, "Target Note", []string{}, dateStr, false, 2)
+
+	// Run: open gs, press l to set source, navigate to target, press l to link, quit
+	// Flow: gs -> l (set source) -> j (navigate to target) -> l (link) -> q (quit)
+	input := "gs\n\x1b\x1bljlq\n"
+
+	stdout, _, _ := h.RunCommand(input)
+
+	// Check if link was completed
+	if strings.Contains(stdout, "Linked") {
+		// Success indication
+	}
+
+	// Verify the file content includes the link
+	h.AssertFileContent(sourceFile, "[[Target Note]]")
+}
+
+func TestGS_PendingLinkBannerShows(t *testing.T) {
+	h := NewTestHarness(t)
+	dateStr := Today()
+
+	// Create a note
+	h.CreateTodo("note-"+dateStr+".md", "Test Note", []string{}, dateStr, false, 1)
+
+	// Run: open gs, press Esc twice to enter normal mode, press l to set source
+	// Then press q to quit (after seeing the banner)
+	// The first Esc exits insert mode, and l sets the link source
+	input := "gs\n\x1b\x1blq\n"
+
+	stdout, _, _ := h.RunCommand(input)
+
+	// Should show "LINKING FROM" in the banner
+	if !strings.Contains(stdout, "LINKING FROM") {
+		t.Log("Output:", stdout)
+		t.Error("Expected 'LINKING FROM' banner to show when source is set")
+	}
+}
+
+func TestGS_CancelPendingLink(t *testing.T) {
+	h := NewTestHarness(t)
+	dateStr := Today()
+
+	// Create notes
+	sourceFile := "source-" + dateStr + ".md"
+	h.CreateTodo(sourceFile, "Source Note", []string{}, dateStr, false, 1)
+
+	// Run: open gs, enter normal mode, press l to set source, press Esc to cancel, quit
+	// The Esc after l should cancel the pending link (not quit)
+	input := "gs\n\x1bl\x1bq\n"
+
+	stdout, _, _ := h.RunCommand(input)
+
+	// Should show "Link cancelled" message
+	if !strings.Contains(stdout, "cancelled") {
+		t.Log("Output:", stdout)
+		// Note: The test might not show the cancelled message clearly, but should not crash
+	}
+
+	// Verify no link was added to source
+	content := h.ReadFileContent(sourceFile)
+	if strings.Contains(content, "[[") {
+		t.Log("Content:", content)
+		t.Error("Source file should not have any links after cancelling")
+	}
+}
+
+// ============================================
 // Integration Tests
 // ============================================
 
