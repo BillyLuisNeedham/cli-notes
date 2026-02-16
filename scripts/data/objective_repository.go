@@ -27,18 +27,20 @@ func QueryChildrenByObjectiveID(objectiveID string, includeDone bool) ([]scripts
 			return err
 		}
 
-		if !info.IsDir() {
-			file, err := getFileIfQueryMatches(path, "objective-id:")
-			if err != nil {
-				return err
-			}
+		if info.IsDir() || !strings.HasSuffix(info.Name(), ".md") {
+			return nil
+		}
 
-			// Only include children, not the parent objective itself
-			if file != nil && file.ObjectiveID == objectiveID && file.ObjectiveRole != "parent" {
-				// Filter by done status if specified
-				if includeDone || !file.Done {
-					matchingFiles = append(matchingFiles, *file)
-				}
+		file, err := getFileIfQueryMatches(path, "objective-id:")
+		if err != nil {
+			return err
+		}
+
+		// Only include children, not the parent objective itself
+		if file != nil && file.ObjectiveID == objectiveID && file.ObjectiveRole != "parent" {
+			// Filter by done status if specified
+			if includeDone || !file.Done {
+				matchingFiles = append(matchingFiles, *file)
 			}
 		}
 		return nil

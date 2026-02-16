@@ -239,50 +239,60 @@ func QueryTodosWithDateCriteria(dateCheck func(dueDate string, dueDateParsed tim
 			return err
 		}
 
-		if !info.IsDir() {
-			file, err := os.Open(path)
+		if info.IsDir() || !strings.HasSuffix(info.Name(), ".md") {
+			return nil
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		inMetadata := false
+		isATodo := false
+		dueDate := ""
+
+		for scanner.Scan() {
+			line := scanner.Text()
+
+			if line == "---" {
+				if !inMetadata {
+					inMetadata = true
+					continue
+				} else {
+					break // End of metadata - stop reading the file
+				}
+			}
+
+			if inMetadata {
+				if strings.HasPrefix(line, "done:") {
+					value := strings.TrimSpace(strings.TrimPrefix(line, "done:"))
+					isATodo = (value == "false")
+				}
+				if strings.HasPrefix(line, "date-due:") {
+					dueDate = strings.TrimSpace(strings.TrimPrefix(line, "date-due:"))
+				}
+			}
+		}
+
+		if err := scanner.Err(); err != nil {
+			return err
+		}
+
+		if isATodo && dueDate != "" {
+			dueDateParsed, err := time.Parse(dateFormat, dueDate)
 			if err != nil {
 				return err
 			}
-			defer file.Close()
 
-			scanner := bufio.NewScanner(file)
-			isATodo := false
-			dueDate := ""
-
-			for scanner.Scan() {
-				line := scanner.Text()
-
-				if strings.Contains(line, "done: false") {
-					isATodo = true
-				}
-
-				if strings.Contains(line, "date-due:") {
-					dueDate = strings.TrimSpace(strings.TrimPrefix(line, "date-due:"))
-				}
-
-				if isATodo && dueDate != "" {
-					break
-				}
-			}
-
-			if err := scanner.Err(); err != nil {
-				return err
-			}
-
-			if isATodo && dueDate != "" {
-				dueDateParsed, err := time.Parse(dateFormat, dueDate)
+			if dateCheck(dueDate, dueDateParsed) {
+				matchingFile, err := getFileIfQueryMatches(path, "date-due:")
 				if err != nil {
 					return err
 				}
-
-				if dateCheck(dueDate, dueDateParsed) {
-					matchingFile, err := getFileIfQueryMatches(path, "date-due:")
-					if err != nil {
-						return err
-					}
-					matchingFiles = append(matchingFiles, *matchingFile)
-				}
+				matchingFiles = append(matchingFiles, *matchingFile)
 			}
 		}
 		return nil
@@ -309,60 +319,62 @@ func QueryNotesByTags(tags []string) ([]scripts.File, error) {
 			return err
 		}
 
-		if !info.IsDir() {
-			file, err := os.Open(path)
-			if err != nil {
-				return err
-			}
-			defer file.Close()
+		if info.IsDir() || !strings.HasSuffix(info.Name(), ".md") {
+			return nil
+		}
 
-			scanner := bufio.NewScanner(file)
-			allTagsFound := false
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
 
-			for scanner.Scan() {
-				line := scanner.Text()
+		scanner := bufio.NewScanner(file)
+		allTagsFound := false
 
-				if strings.HasPrefix(line, "tags:") {
-					tagsLine := strings.TrimPrefix(line, "tags:")
-					tagsLine = strings.TrimSpace(tagsLine)
-					tagsLine = strings.Trim(tagsLine, "[]")
+		for scanner.Scan() {
+			line := scanner.Text()
 
-					// Changed: Split by spaces instead of commas, and handle both formats
-					var fileTags []string
-					if strings.Contains(tagsLine, ",") {
-						// Handle comma-separated format
-						parts := strings.Split(tagsLine, ",")
-						for _, p := range parts {
-							fileTags = append(fileTags, strings.TrimSpace(p))
-						}
-					} else {
-						// Handle space-separated format
-						fileTags = strings.Fields(tagsLine)
+			if strings.HasPrefix(line, "tags:") {
+				tagsLine := strings.TrimPrefix(line, "tags:")
+				tagsLine = strings.TrimSpace(tagsLine)
+				tagsLine = strings.Trim(tagsLine, "[]")
+
+				// Changed: Split by spaces instead of commas, and handle both formats
+				var fileTags []string
+				if strings.Contains(tagsLine, ",") {
+					// Handle comma-separated format
+					parts := strings.Split(tagsLine, ",")
+					for _, p := range parts {
+						fileTags = append(fileTags, strings.TrimSpace(p))
 					}
-
-					// Check if all query tags are in the file tags
-					allTagsFound = true
-					for _, tag := range tags {
-						if !contains(fileTags, tag) {
-							allTagsFound = false
-							break
-						}
-					}
-
-					if allTagsFound {
-						matchingFile, err := getFileIfQueryMatches(path, "tags:")
-						if err != nil {
-							return err
-						}
-						matchingNotes = append(matchingNotes, *matchingFile)
-					}
-					break
+				} else {
+					// Handle space-separated format
+					fileTags = strings.Fields(tagsLine)
 				}
-			}
 
-			if err := scanner.Err(); err != nil {
-				return err
+				// Check if all query tags are in the file tags
+				allTagsFound = true
+				for _, tag := range tags {
+					if !contains(fileTags, tag) {
+						allTagsFound = false
+						break
+					}
+				}
+
+				if allTagsFound {
+					matchingFile, err := getFileIfQueryMatches(path, "tags:")
+					if err != nil {
+						return err
+					}
+					matchingNotes = append(matchingNotes, *matchingFile)
+				}
+				break
 			}
+		}
+
+		if err := scanner.Err(); err != nil {
+			return err
 		}
 		return nil
 	})
@@ -394,17 +406,18 @@ func queryAllFiles(lineQuery string) ([]scripts.File, error) {
 			return err
 		}
 
-		// Check if the current path is a file
-		if !info.IsDir() {
-			file, err := getFileIfQueryMatches(path, lineQuery)
+		if info.IsDir() || !strings.HasSuffix(info.Name(), ".md") {
+			return nil
+		}
 
-			if err != nil {
-				return err
-			}
+		file, err := getFileIfQueryMatches(path, lineQuery)
 
-			if file != nil {
-				matchingFiles = append(matchingFiles, *file)
-			}
+		if err != nil {
+			return err
+		}
+
+		if file != nil {
+			matchingFiles = append(matchingFiles, *file)
 		}
 
 		return nil
@@ -450,6 +463,10 @@ func getFileIfQueryMatches(path, lineQuery string) (*scripts.File, error) {
 				continue
 			} else {
 				inMetadata = false
+				// If query looks like a metadata field and wasn't found in metadata, skip content
+				if !foundMatch && strings.Contains(lineQuery, ":") {
+					return nil, nil
+				}
 				continue
 			}
 		}
@@ -567,53 +584,63 @@ func QueryCompletedTodosByDateRange(dateCheck func(dueDate string, dueDateParsed
 			return err
 		}
 
-		if !info.IsDir() {
-			file, err := os.Open(path)
+		if info.IsDir() || !strings.HasSuffix(info.Name(), ".md") {
+			return nil
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		inMetadata := false
+		isCompletedTodo := false
+		dueDate := ""
+
+		for scanner.Scan() {
+			line := scanner.Text()
+
+			if line == "---" {
+				if !inMetadata {
+					inMetadata = true
+					continue
+				} else {
+					break // End of metadata - stop reading the file
+				}
+			}
+
+			if inMetadata {
+				if strings.HasPrefix(line, "done:") {
+					value := strings.TrimSpace(strings.TrimPrefix(line, "done:"))
+					isCompletedTodo = (value == "true")
+				}
+				if strings.HasPrefix(line, "date-due:") {
+					dueDate = strings.TrimSpace(strings.TrimPrefix(line, "date-due:"))
+				}
+			}
+		}
+
+		if err := scanner.Err(); err != nil {
+			return err
+		}
+
+		if isCompletedTodo && dueDate != "" {
+			dueDateParsed, err := time.Parse(dateFormat, dueDate)
 			if err != nil {
 				return err
 			}
-			defer file.Close()
 
-			scanner := bufio.NewScanner(file)
-			isCompletedTodo := false
-			dueDate := ""
-
-			for scanner.Scan() {
-				line := scanner.Text()
-
-				if strings.Contains(line, "done: true") {
-					isCompletedTodo = true
-				}
-
-				if strings.Contains(line, "date-due:") {
-					dueDate = strings.TrimSpace(strings.TrimPrefix(line, "date-due:"))
-				}
-
-				if isCompletedTodo && dueDate != "" {
-					break
-				}
-			}
-
-			if err := scanner.Err(); err != nil {
-				return err
-			}
-
-			if isCompletedTodo && dueDate != "" {
-				dueDateParsed, err := time.Parse(dateFormat, dueDate)
+			if dateCheck(dueDate, dueDateParsed) {
+				matchingFile, err := getFileIfQueryMatches(path, "done: true")
 				if err != nil {
 					return err
 				}
 
-				if dateCheck(dueDate, dueDateParsed) {
-					matchingFile, err := getFileIfQueryMatches(path, "done: true")
-					if err != nil {
-						return err
-					}
-
-					// Only include the file if it's not a date range query note
-					if matchingFile != nil && !isDateRangeQueryNote(matchingFile) {
-						matchingFiles = append(matchingFiles, *matchingFile)
-					}
+				// Only include the file if it's not a date range query note
+				if matchingFile != nil && !isDateRangeQueryNote(matchingFile) {
+					matchingFiles = append(matchingFiles, *matchingFile)
 				}
 			}
 		}
