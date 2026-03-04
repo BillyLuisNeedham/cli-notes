@@ -46,16 +46,18 @@ func main() {
 	closeChannel := make(chan bool)
 	var searchedFilesStore = data.NewSearchedFilesStore()
 
-	// restore if using git for backup
-	// go scripts.MonitorDirectorySize("./notes", func() {
-	// 	scripts.PushChangesToGit("./notes")
-	// })
+	go scripts.StartBackupSync("./notes")
+	go scripts.StartGitVersioning("./notes")
 
 	go setupCommandScanner(searchedFilesStore, func() {
 		closeChannel <- true
 	})
 
 	<-closeChannel
+
+	scripts.RunFinalSync("./notes")
+	scripts.RunFinalGitCommit("./notes")
+
 	fmt.Println("Exiting...")
 }
 
